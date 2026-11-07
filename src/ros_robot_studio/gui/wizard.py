@@ -1,11 +1,14 @@
 """First-run setup: all downloads are explicit; offline use is always available."""
 
 import shutil
+import socket
+import uuid
 from pathlib import Path
 
-from PySide6.QtCore import QProcess
+from PySide6.QtCore import QProcess, QTimer
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QHBoxLayout,
     QMessageBox,
     QPlainTextEdit,
@@ -15,8 +18,10 @@ from PySide6.QtWidgets import (
     QWizardPage,
 )
 
+from ros_robot_studio.core.models import RuntimeConfig
 from ros_robot_studio.gui.widgets import button, label
 from ros_robot_studio.gui.workers import TaskRunner
+from ros_robot_studio.ros_bridge.websocket import RosbridgeTransport
 from ros_robot_studio.runtime.catalog import catalog, inspect_registry
 from ros_robot_studio.runtime.system import system_report
 
@@ -33,9 +38,18 @@ class SetupWizard(QWizard):
         self.runner.progress.connect(self.append)
         self.runner.busy_changed.connect(self.busy_changed)
         self.process = None
+        self.verifying = False
+        self.verify_container = None
+        self.verify_transport = None
+        self.verify_deadline = QTimer(self)
+        self.verify_deadline.setSingleShot(True)
+        self.verify_deadline.timeout.connect(
+            lambda: self.finish_verification("FAILED: ROS verification timed out")
+        )
         self.report_lines = []
         self.checked = {}
         self.available = False
+        self.local_installed = []
         self.verify_callback = verify_callback
 
         system, layout = self.page(
@@ -45,6 +59,10 @@ class SetupWizard(QWizard):
         self.system_text.setReadOnly(True)
         layout.addWidget(self.system_text)
         layout.addWidget(button("Run checks again", self.check_system))
+        self.offline_button = button(
+            "Open offline demo · postpone all runtime downloads", self.skip_to_demo, True
+        )
+        layout.addWidget(self.offline_button)
         layout.addWidget(
             label(
                 "You may continue with the offline demo at any time. No system settings change during these checks.",
@@ -118,7 +136,7 @@ class SetupWizard(QWizard):
 
         verify, layout = self.page(
             "04 / Component verification",
-            "Test the selected runtime from the main window after completing setup.",
+            "Run an end-to-end check using a temporary Studio test container.",
         )
         layout.addWidget(
             label(
@@ -128,6 +146,14 @@ class SetupWizard(QWizard):
             )
         )
         layout.addWidget(button("Refresh installed component status", self.component_status))
+        row = QHBoxLayout()
+        self.verify_distro = QComboBox()
+        for identifier, spec in catalog().items():
+            self.verify_distro.addItem(spec.name, identifier)
+        self.verify_button = button("Verify selected ROS runtime", self.verify_runtime)
+        row.addWidget(self.verify_distro)
+        row.addWidget(self.verify_button)
+        layout.addLayout(row)
         self.components = QPlainTextEdit("No runtime test has been performed yet.")
         self.components.setReadOnly(True)
         layout.addWidget(self.components)
@@ -162,6 +188,14 @@ class SetupWizard(QWizard):
         layout = QVBoxLayout(page)
         layout.setSpacing(16)
         return page, layout
+
+    def skip_to_demo(self):
+        if self.runner.busy:
+            return
+        self.report_lines.append(
+            "All ROS runtime downloads explicitly deferred: offline demo selected."
+        )
+        self.accept()
 
     @property
     def installer(self):
@@ -208,11 +242,15 @@ class SetupWizard(QWizard):
             )
         )
         self.process.finished.connect(self.docker_finished)
-        self.process.errorOccurred.connect(
-            lambda _: self.docker_output.appendPlainText(self.process.errorString())
-        )
+        self.process.errorOccurred.connect(self.docker_error)
         self.install_docker.setEnabled(False)
+        self.busy_changed(True)
         self.process.start("pkexec", ["/bin/bash", str(self.installer)])
+
+    def docker_error(self, error):
+        self.docker_output.appendPlainText(self.process.errorString())
+        if error == QProcess.ProcessError.FailedToStart:
+            self.docker_finished(-1, None)
 
     def docker_finished(self, code, status):
         self.report_lines.append(f"Docker installer exit code: {code}")
@@ -283,6 +321,7 @@ class SetupWizard(QWizard):
         self.runner.run(work, done)
 
     def busy_changed(self, busy):
+        busy = busy or self.verifying or self.process is not None
         for which in (
             QWizard.WizardButton.NextButton,
             QWizard.WizardButton.BackButton,
@@ -292,10 +331,13 @@ class SetupWizard(QWizard):
             self.button(which).setEnabled(not busy)
         self.inspect_button.setEnabled(not busy)
         self.install_button.setEnabled(not busy and self.available)
+        self.verify_button.setEnabled(not busy and self.available)
+        self.offline_button.setEnabled(not busy)
         self.progress.setRange(0, 0 if busy else 1)
 
     def component_status(self):
         def done(status):
+            self.local_installed = status.installed
             self.components.setPlainText(
                 status.message
                 + "\n\nInstalled Studio images: "
@@ -305,10 +347,87 @@ class SetupWizard(QWizard):
 
         self.runner.run(lambda _: self.manager.status(), done)
 
+    def verify_runtime(self):
+        if self.runner.busy or self.verifying:
+            return
+        distro = self.verify_distro.currentData()
+        self.verifying = True
+        self.verify_messages, self.verify_nodes = set(), []
+        self.components.setPlainText(f"Verifying {distro}: starting temporary test container…")
+
+        def work(_):
+            if distro not in self.manager.status().installed:
+                raise ValueError(f"{distro} Studio image is not installed")
+            with socket.socket() as probe:
+                probe.bind(("127.0.0.1", 0))
+                port = probe.getsockname()[1]
+            identifier = self.manager.start(
+                distro, "setup-" + uuid.uuid4().hex, RuntimeConfig(port=port), integration=True
+            )
+            return identifier, port
+
+        def connected(result):
+            self.verify_container, port = result
+            transport = RosbridgeTransport(f"ws://127.0.0.1:{port}", self)
+            self.verify_transport = transport
+            transport.subscribe("/studio/sine", "std_msgs/msg/Float64")
+            transport.subscribe("/joint_states", "sensor_msgs/msg/JointState")
+            transport.message.connect(self.verification_message)
+            transport.graph.connect(self.verification_graph)
+            transport.status.connect(self.components.appendPlainText)
+            transport.error.connect(self.components.appendPlainText)
+            transport.connect_transport()
+            self.verify_deadline.start(45000)
+
+        self.runner.run(work, connected, lambda error: self.finish_verification("FAILED: " + error))
+
+    def verification_message(self, topic, message):
+        self.verify_messages.add(topic)
+        self.check_verification_result()
+
+    def verification_graph(self, graph):
+        if "nodes" in graph:
+            self.verify_nodes = graph["nodes"]
+        self.check_verification_result()
+
+    def check_verification_result(self):
+        if (
+            self.verifying
+            and {"/studio/sine", "/joint_states"} <= self.verify_messages
+            and any("studio_demo_subscriber" in node for node in self.verify_nodes)
+        ):
+            self.finish_verification(
+                f"PASS: {self.verify_distro.currentData()} publishers, subscriber node, adapter, graph discovery and both real ROS topics reached the GUI."
+            )
+
+    def finish_verification(self, result):
+        self.verify_deadline.stop()
+        if self.verify_transport:
+            self.verify_transport.disconnect_transport()
+            self.verify_transport.deleteLater()
+            self.verify_transport = None
+        self.report_lines.append(result)
+        self.components.appendPlainText(result)
+        self.verifying = False
+        identifier, self.verify_container = self.verify_container, None
+        if identifier:
+            self.runner.run(
+                lambda _: self.manager.stop(identifier),
+                lambda _: self.components.appendPlainText(
+                    "Temporary test container stopped and removed."
+                ),
+                lambda error: self.failed(
+                    f"Test container {identifier[:12]} could not be cleaned up: {error}"
+                ),
+            )
+        self.busy_changed(self.runner.busy)
+
     def page_changed(self, identifier):
         if identifier == 4:
             self.summary.setPlainText(
                 "\n\n".join(self.report_lines)
+                + "\n\nKnown installed Studio images: "
+                + (", ".join(self.local_installed) or "None reported; refresh status in step 4")
                 + "\n\nDeferred runtimes remain available through Project & Runtime. Hardware mode, calibration and controller execution are planned."
             )
 
@@ -319,12 +438,12 @@ class SetupWizard(QWizard):
             self.verify_callback()
 
     def reject(self):
-        if self.runner.busy or self.process:
+        if self.runner.busy or self.process or self.verifying:
             return
         super().reject()
 
     def closeEvent(self, event):
-        if self.runner.busy or self.process:
+        if self.runner.busy or self.process or self.verifying:
             event.ignore()
         else:
             super().closeEvent(event)

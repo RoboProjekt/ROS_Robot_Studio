@@ -3,8 +3,8 @@ set -euo pipefail
 # Keep inherited host ROS Python packages out of the desktop interpreter.
 unset PYTHONPATH
 export PYTHONNOUSERSITE=1
-export PIP_CACHE_DIR="$(dirname -- "${BASH_SOURCE[0]}")/.bootstrap/pip-cache"
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
+export PIP_CACHE_DIR="$PWD/.bootstrap/pip-cache"
 if [[ ! -x .venv/bin/python ]]; then
   echo 'Creating local Python environment…'
   python3 -m venv --without-pip .venv
@@ -12,8 +12,8 @@ fi
 if ! .venv/bin/python -m pip --version >/dev/null 2>&1; then
   .venv/bin/python scripts/bootstrap.py
 fi
-if [[ ! -f .venv/.studio-ready || pyproject.toml -nt .venv/.studio-ready ]]; then
-  .venv/bin/python -m pip install -e '.[dev]'
+if [[ ! -f .venv/.studio-ready || pyproject.toml -nt .venv/.studio-ready || requirements.lock.txt -nt .venv/.studio-ready ]]; then
+  .venv/bin/python -m pip install -r requirements.lock.txt -e '.[dev]'
   touch .venv/.studio-ready
 fi
 .venv/bin/python scripts/qt_native.py

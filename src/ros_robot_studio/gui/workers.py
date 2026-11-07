@@ -49,6 +49,7 @@ class TaskRunner(QObject):
         self.pool = QThreadPool(self)
         self.pool.setMaxThreadCount(1)
         self.tasks = set()
+        self.outcomes = {}
 
     @property
     def busy(self):
@@ -57,8 +58,10 @@ class TaskRunner(QObject):
     def run(self, function, done=lambda result: None, error=None):
         worker = Worker(function)
         self.tasks.add(worker)
-        worker.signals.done.connect(done)
-        worker.signals.error.connect(error or self.failed.emit)
+        worker.signals.done.connect(lambda result: self.outcomes.update({worker: (done, result)}))
+        worker.signals.error.connect(
+            lambda message: self.outcomes.update({worker: (error or self.failed.emit, message)})
+        )
         worker.signals.progress.connect(self.progress.emit)
         worker.signals.finished.connect(lambda: self._finish(worker))
         self.busy_changed.emit(True)
@@ -67,3 +70,6 @@ class TaskRunner(QObject):
     def _finish(self, worker):
         self.tasks.discard(worker)
         self.busy_changed.emit(self.busy)
+        callback, value = self.outcomes.pop(worker, (None, None))
+        if callback:
+            callback(value)

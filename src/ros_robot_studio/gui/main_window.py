@@ -216,14 +216,16 @@ class MainWindow(QMainWindow):
 
     def apply_project(self):
         self.loading = True
+        if self.mode == "offline":
+            self.distro.blockSignals(True)
+            self.distro.setCurrentIndex(self.distro.findData(self.project.default_ros))
+            self.distro.blockSignals(False)
         self.robot_panel.set_project(self.project, self.model)
         self.sensor_panel.set_sensors(self.project.sensors)
-        self.monitor.window.setValue(self.project.monitoring.window_seconds)
-        self.timer.setInterval(round(1000 / self.project.monitoring.update_hz)) if hasattr(
-            self, "timer"
-        ) else None
-        self.monitor.restore_fields = self.project.monitoring.fields
-        self.monitor.choose_topic(self.project.monitoring.topic)
+        self.monitor.restore_monitoring(self.project.monitoring)
+        if hasattr(self, "timer"):
+            self.timer.setInterval(round(1000 / self.project.monitoring.update_hz))
+        self.robot_panel.update_compatibility(self.selected_distro)
         self.loading = False
         self.dirty = False
         self.update_title()
@@ -305,7 +307,10 @@ class MainWindow(QMainWindow):
         if not self.confirm_discard():
             return
         filename, _ = QFileDialog.getOpenFileName(
-            self, "Open robot project", str(Path.home()), "Studio project (*.yaml *.yml)"
+            self,
+            "Open robot project",
+            self.settings.get("last_project", str(Path.home())),
+            "Studio project (*.yaml *.yml)",
         )
         if filename:
             self.open_path(Path(filename), confirmed=True)
@@ -322,6 +327,11 @@ class MainWindow(QMainWindow):
         def done(result):
             self.project, self.model = result
             self.project_path = path
+            known = list(self.settings.get("known_projects", []))
+            if str(path) not in known:
+                known.append(str(path))
+            self.settings.set("known_projects", known)
+            self.settings.set("last_project", str(path))
             self.apply_project()
             self.activity(f"Project opened: {path}; session runtime is {self.selected_distro}")
 
@@ -565,6 +575,7 @@ class MainWindow(QMainWindow):
         self.distro.setEnabled(not busy)
         for action in self.file_actions:
             action.setEnabled(not busy)
+        self.monitor.setEnabled(not busy)
         self.robot_panel.setEnabled(not busy)
         self.sensor_panel.setEnabled(not busy)
         self.start_action.setEnabled(
@@ -717,6 +728,7 @@ class MainWindow(QMainWindow):
             self.show_error(str(exc))
             return
         self.activity(report.text())
+        self.robot_panel.update_compatibility(self.selected_distro)
         if self.container_id:
             self.stop_ros(after=self.start_ros)
         elif self.mode == "offline":
@@ -879,4 +891,6 @@ class MainWindow(QMainWindow):
         self.timer.stop()
         self.health_timer.stop()
         self.detach_transport()
+        if self.monitor.plot.plotItem is not None:
+            self.monitor.plot.close()
         event.accept()

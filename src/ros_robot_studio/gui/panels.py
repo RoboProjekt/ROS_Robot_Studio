@@ -181,6 +181,23 @@ class RobotPanel(QWidget):
                 "Floating/planar joints shown at zero pose. Mesh rendering is planned."
             )
 
+    def update_compatibility(self, distro):
+        self.loading = True
+        for widget in (self.profile, self.hardware, self.controller, self.ik):
+            for index in range(widget.count()):
+                plugin = self.registry.plugins.get(widget.itemData(index))
+                if plugin:
+                    state = (
+                        "Not compatible / unverified"
+                        if distro not in plugin.distributions
+                        else "Planned, not implemented"
+                        if plugin.status == "planned"
+                        else "Available and installed"
+                    )
+                    widget.setItemText(index, plugin.name + " · " + state)
+                    widget.setItemData(index, plugin.description, Qt.ItemDataRole.ToolTipRole)
+        self.loading = False
+
     def collect(self, project):
         project.name = self.name.text().strip()
         project.description = self.description.toPlainText()
@@ -481,6 +498,7 @@ class MonitoringPanel(QWidget):
         self.pause.setText("Ⅱ  Pause")
         self.plot.clear()
         self.curves.clear()
+        self.field_list.clear()
         self.fields = {}
         self.message_text.setPlainText("Waiting for a message…")
 
@@ -543,6 +561,12 @@ class MonitoringPanel(QWidget):
             self.last_message.setText(
                 f"Last message: {time.monotonic() - self.last_received:.1f}s ago\n{len(self.buffer.samples)} buffered samples"
             )
+
+    def restore_monitoring(self, monitoring):
+        self.window.setValue(monitoring.window_seconds)
+        self.restore_fields = list(monitoring.fields)
+        self.reset()
+        self.choose_topic(monitoring.topic)
 
     def clear_graph(self):
         self.topics.clear()

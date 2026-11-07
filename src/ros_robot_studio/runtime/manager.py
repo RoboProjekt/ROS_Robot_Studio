@@ -210,6 +210,6 @@ class RuntimeManager:
         finally:
             try:
                 container.exec_run(["rm", "-f", "/tmp/" + temporary_name])
-            except (UnboundLocalError, Exception):
+            except Exception:
                 pass
             client.close()

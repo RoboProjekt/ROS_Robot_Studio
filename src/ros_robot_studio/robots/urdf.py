@@ -75,6 +75,8 @@ def vector(text: str | None, default: str) -> tuple[float, ...]:
 
 
 def parse_urdf(source: Path | str) -> RobotModel:
+    if isinstance(source, Path) and source.stat().st_size > 5_000_000:
+        raise ValueError("URDF exceeds 5 MB limit")
     text = source.read_text(encoding="utf-8") if isinstance(source, Path) else source
     if len(text) > 5_000_000:
         raise ValueError("URDF exceeds 5 MB limit")
@@ -106,6 +108,7 @@ def parse_urdf(source: Path | str) -> RobotModel:
         axis = vector(axis_el.get("xyz") if axis_el is not None else None, "1 0 0")
         if np.linalg.norm(axis) == 0:
             raise ValueError(f"{name}: zero joint axis")
+        axis = tuple(v / float(np.linalg.norm(axis)) for v in axis)
         lower = upper = None
         if kind in ("revolute", "prismatic"):
             if limit is None or "lower" not in limit.attrib or "upper" not in limit.attrib:
