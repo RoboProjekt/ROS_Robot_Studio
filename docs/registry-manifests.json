@@ -1,0 +1,23 @@
+{
+  "humble": {
+    "base_image": "ros:humble-ros-base-jammy",
+    "digest": "sha256:a3f4de78e42cca693a543ece5798aedcf1cae0171fe71c334a047332cc72ef93",
+    "base_bytes": 264172807,
+    "pinned_base": "ros@sha256:a3f4de78e42cca693a543ece5798aedcf1cae0171fe71c334a047332cc72ef93",
+    "package_error": "<urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Hostname mismatch, certificate is not valid for 'packages.ros.org'. (_ssl.c:1007)>"
+  },
+  "jazzy": {
+    "base_image": "ros:jazzy-ros-base-noble",
+    "digest": "sha256:c26c86a28e1addf9d10a81232869791974a3f7907943d5634742b58b2f26e1a3",
+    "base_bytes": 296615261,
+    "pinned_base": "ros@sha256:c26c86a28e1addf9d10a81232869791974a3f7907943d5634742b58b2f26e1a3",
+    "package_error": "<urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Hostname mismatch, certificate is not valid for 'packages.ros.org'. (_ssl.c:1007)>"
+  },
+  "lyrical": {
+    "base_image": "ros:lyrical-ros-base-resolute",
+    "digest": "sha256:4e129b13f5c72d1630b03513af404353b44b30c793fd6d99b362f29ca7a15f50",
+    "base_bytes": 341056668,
+    "pinned_base": "ros@sha256:4e129b13f5c72d1630b03513af404353b44b30c793fd6d99b362f29ca7a15f50",
+    "package_error": "<urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Hostname mismatch, certificate is not valid for 'packages.ros.org'. (_ssl.c:1007)>"
+  }
+}

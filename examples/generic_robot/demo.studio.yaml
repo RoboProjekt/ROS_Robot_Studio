@@ -1,0 +1,72 @@
+format_version: 1
+id: 073bd29f-1e0a-4f78-9358-74b15d503f3a
+name: Atlas · Research Arm
+description: A three-axis research arm. Offline signals are simulated; no hardware
+  is connected.
+default_ros: humble
+robot:
+  profile: generic-arm
+  urdf: robot.urdf
+  source_xacro: null
+  hardware: null
+  controller: null
+  ik_solver: null
+  end_effector: ''
+sensors:
+- id: 4d0965fa-26d0-4820-9804-a37f72504dbe
+  name: Joint encoders
+  kind: Joint encoder
+  driver: ros-topic
+  topic: /joint_states
+  parent_frame: base_link
+  transform:
+    kind: static
+    translation:
+    - 0.0
+    - 0.0
+    - 0.0
+    rotation:
+    - 0.0
+    - 0.0
+    - 0.0
+  quantity: position
+  unit: rad
+  sample_rate: 20.0
+  lower_limit: null
+  upper_limit: null
+  warning: null
+  enabled: true
+- id: 8ed05554-5041-44e5-8617-9a59631a59e1
+  name: Reference signal
+  kind: Generic numeric
+  driver: ros-topic
+  topic: /studio/sine
+  parent_frame: base_link
+  transform:
+    kind: static
+    translation:
+    - 0.0
+    - 0.0
+    - 0.0
+    rotation:
+    - 0.0
+    - 0.0
+    - 0.0
+  quantity: amplitude
+  unit: V
+  sample_rate: 20.0
+  lower_limit: -1.2
+  upper_limit: 1.2
+  warning: 0.9
+  enabled: true
+monitoring:
+  window_seconds: 30
+  update_hz: 20
+  fields:
+  - data
+  topic: /studio/sine
+runtime:
+  port: 9090
+  memory_mb: 2048
+  cpu_count: 2.0
+  overrides: {}
