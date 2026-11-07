@@ -1,0 +1,11 @@
+{
+  "id": "moveit",
+  "name": "MoveIt 2",
+  "kind": "controller",
+  "description": "Future motion planning integration.",
+  "distributions": [
+    "humble",
+    "jazzy"
+  ],
+  "version": "0.1.0"
+}

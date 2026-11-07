@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "verified_on": "2026-11-07",
+  "sources": ["https://hub.docker.com/_/ros/tags", "https://index.ros.org/p/rosbridge_suite/", "https://index.ros.org/p/xacro/"],
+  "runtimes": [
+    {"id":"humble","name":"ROS 2 Humble","ubuntu":"22.04","base_image":"ros:humble-ros-base-jammy","eol":"2027-05-31","architecture":"amd64"},
+    {"id":"jazzy","name":"ROS 2 Jazzy","ubuntu":"24.04","base_image":"ros:jazzy-ros-base-noble","eol":"2029-05-31","architecture":"amd64"},
+    {"id":"lyrical","name":"ROS 2 Lyrical","ubuntu":"26.04","base_image":"ros:lyrical-ros-base-resolute","eol":"2031-05-31","architecture":"amd64"}
+  ]
+}

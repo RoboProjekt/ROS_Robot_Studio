@@ -1,0 +1,29 @@
+{
+  "id": "rosbridge",
+  "name": "rosbridge WebSocket",
+  "kind": "ros-adapter",
+  "description": "Distribution-neutral rosbridge transport.",
+  "status": "implemented",
+  "capabilities": [
+    "topics",
+    "nodes",
+    "subscribe"
+  ],
+  "distributions": [
+    "humble",
+    "jazzy",
+    "lyrical"
+  ],
+  "packages": {
+    "humble": [
+      "ros-humble-rosbridge-suite"
+    ],
+    "jazzy": [
+      "ros-jazzy-rosbridge-suite"
+    ],
+    "lyrical": [
+      "ros-lyrical-rosbridge-suite"
+    ]
+  },
+  "version": "0.1.0"
+}

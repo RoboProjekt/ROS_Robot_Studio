@@ -1,0 +1,12 @@
+{
+  "id": "kdl",
+  "name": "KDL",
+  "kind": "ik",
+  "description": "Future IK integration; no solver execution in MVP.",
+  "distributions": [
+    "humble",
+    "jazzy",
+    "lyrical"
+  ],
+  "version": "0.1.0"
+}

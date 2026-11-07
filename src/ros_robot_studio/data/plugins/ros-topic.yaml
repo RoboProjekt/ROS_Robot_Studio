@@ -1,0 +1,19 @@
+{
+  "id": "ros-topic",
+  "name": "ROS topic source",
+  "kind": "sensor",
+  "description": "Receive messages through the selected transport.",
+  "interfaces": [
+    "ros-topic"
+  ],
+  "capabilities": [
+    "subscribe"
+  ],
+  "status": "implemented",
+  "distributions": [
+    "humble",
+    "jazzy",
+    "lyrical"
+  ],
+  "version": "0.1.0"
+}

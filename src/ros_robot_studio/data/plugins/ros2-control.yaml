@@ -1,0 +1,12 @@
+{
+  "id": "ros2-control",
+  "name": "ros2_control",
+  "kind": "controller",
+  "description": "Future controller configuration and lifecycle integration.",
+  "distributions": [
+    "humble",
+    "jazzy",
+    "lyrical"
+  ],
+  "version": "0.1.0"
+}

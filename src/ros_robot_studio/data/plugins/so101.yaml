@@ -1,0 +1,12 @@
+{
+  "id": "so101",
+  "name": "SO-101 \u00b7 provisional profile",
+  "kind": "robot",
+  "description": "Planning metadata only. LeRobot/ROS driver, URDF, calibration and supported interfaces must be verified against the actual hardware before use.",
+  "capabilities": [],
+  "hardware": [
+    "SO-101"
+  ],
+  "distributions": [],
+  "version": "0.1.0"
+}

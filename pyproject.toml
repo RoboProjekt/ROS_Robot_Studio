@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools==75.8.2", "wheel==0.45.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ros-robot-studio"
+version = "0.1.0"
+description = "A hardware-independent ROS 2 desktop workbench"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+dependencies = [
+  "PySide6==6.8.3", "pyqtgraph==0.13.7", "numpy==2.2.6",
+  "pydantic==2.10.6", "PyYAML==6.0.2", "defusedxml==0.7.1", "docker==7.1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==8.3.5", "pytest-qt==4.4.0", "ruff==0.11.13", "websocket-client==1.8.0"]
+
+[project.scripts]
+ros-robot-studio = "ros_robot_studio.app.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+ros_robot_studio = ["data/**/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["integration: requires explicit --run-docker and installed owned runtime"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]
