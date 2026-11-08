@@ -163,3 +163,17 @@ def test_result_without_acceptance_fails(backend):
     b.execute(plan)
     event("succeeded", id=b.goal_id, error_code=0)
     assert b.status == "failed"
+
+
+def test_conversion_failure_cannot_leave_executing(backend, monkeypatch):
+    b, states, plan, transport, event = backend
+
+    def fail(*args, **kwargs):
+        raise ValueError("invalid mapping")
+
+    monkeypatch.setattr(TrajectoryToROSConverter, "convert", fail)
+    b.execute(plan)
+    assert b.status == "failed"
+    assert not any(
+        data.get("operation") == "goal" for topic, data in transport.sent if isinstance(data, dict)
+    )

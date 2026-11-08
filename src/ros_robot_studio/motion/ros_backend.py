@@ -158,7 +158,11 @@ class ROS2ExecutionBackend(QObject):
             return
         mapping = self.config.joint_mapping or {n: n for n in step.trajectory.start}
         mapping = {n: mapping.get(n, n) for n in step.trajectory.start}
-        message = TrajectoryToROSConverter().convert(step.trajectory, self.model, mapping)
+        try:
+            message = TrajectoryToROSConverter().convert(step.trajectory, self.model, mapping)
+        except (ValueError, TypeError) as exc:
+            self.fail("Trajectory conversion rejected: " + str(exc))
+            return
         self.goal_id = uuid4().hex
         self.deadline = self.clock() + step.trajectory.duration + 10
         self.last_feedback = self.clock()
