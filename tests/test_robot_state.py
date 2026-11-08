@@ -144,3 +144,19 @@ def test_worker_notifications_are_queued_to_qt_thread(qtbot, state):
     thread.join()
     qtbot.waitUntil(lambda: bool(seen))
     assert seen[0][0] == QApplication.instance().thread()
+
+
+def test_monitor_never_mixes_receive_and_ros_epoch_timestamps(qtbot, state):
+    from ros_robot_studio.gui.robot_monitor import RobotStatePanel
+
+    manager, model, _ = state
+    panel = RobotStatePanel()
+    qtbot.addWidget(panel)
+    manager.subscribe(lambda value: panel.receive(value, model))
+    lease = manager.activate_source("ros_simulation", "/joint_states")
+    assert not panel.buffer.samples
+    manager.update(lease, model.default_configuration(), source_timestamp=1794000000.0)
+    manager.update(lease, model.default_configuration(), source_timestamp=1794000000.05)
+    assert len(panel.buffer.samples) == 2
+    assert panel.buffer.samples[-1][0] - panel.buffer.samples[0][0] == pytest.approx(0.05, abs=1e-6)
+    panel.plot.close()

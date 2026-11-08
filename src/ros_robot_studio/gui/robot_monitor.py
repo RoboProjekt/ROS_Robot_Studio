@@ -73,6 +73,7 @@ class RobotStatePanel(QWidget):
         self.paused = False
         self.latest_time = 0.0
         self.source_key = None
+        self.time_basis = None
         self.available = set()
         self.restore_fields = []
 
@@ -106,6 +107,7 @@ class RobotStatePanel(QWidget):
         if key != self.source_key:
             self.reset()
             self.source_key = key
+            self.time_basis = None
             self.fields.clear()
             self.available = set()
             self.plot.clear()
@@ -164,7 +166,11 @@ class RobotStatePanel(QWidget):
             for col, text in enumerate(values):
                 self.table.setItem(row, col, QTableWidgetItem(text))
         t = state.source_timestamp if state.source_timestamp is not None else state.timestamp
-        if not self.paused:
+        if not self.paused and state.valid:
+            basis = state.source_timestamp is not None
+            if self.time_basis is not None and self.time_basis != basis:
+                self.reset()
+            self.time_basis = basis
             # A clock reset starts a new plot epoch instead of drawing time backwards.
             if t < self.latest_time:
                 self.reset()
