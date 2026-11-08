@@ -8,10 +8,14 @@
   ensurepip, Docker, Host-ROS und angeschlossene Hardware.
 - Fünfstufiger Installationsassistent mit Systemchecks, bewusstem Offline-Einstieg,
   überprüfbarer optionaler Docker-Installationsroutine und Runtime-Imageverwaltung.
-- YAML-Projektformat v1, atomisches Speichern, erneutes Laden, portable URDF-Kopie,
+- YAML-Projektformat v2 mit v1-Laden, atomisches Speichern, erneutes Laden, portable URDF-Kopie,
   Sensoren, TF-Offsets, Monitoring- und Runtime-Einstellungen.
 - Sichere URDF-Strukturprüfung, Link-/Joint-Baum mit Limits und interaktive räumliche
-  Vorwärtskinematik. Beispielroboter und dokumentiertes SO-101-Planungsprofil.
+  Vorwärtskinematik. Generischer Beispielroboter und vollständig nutzbarer SO-101-Offline-Viewer.
+- Zentraler Robot Model Manager mit unveränderlicher Quellrevision, SHA-256-Dateiliste,
+  selektiver Reparatur, atomarer Aktivierung und XDG-Modellablage.
+- Originale SO-101-STLs in OpenGL, sechs virtuelle Gelenkregler, XYZ/RPY-Endeffektorpose
+  und dauerhaft gespeicherte Modell-/Gelenkkonfigurationen. Keine Roboterhardwareansteuerung.
 - Offline-Demo mit Gelenkzuständen, Sinussignal, Temperatur und mehreren Live-Kurven.
 - rosbridge-WebSocket-Transport mit Graph-Abfragen, Typen, Nodes, Pub/Sub-Details,
   Abonnements, Reconnect, Throttling, begrenzten Puffern und kontrolliertem Freigeben.
@@ -35,24 +39,31 @@
    Adoptieren eigener Restcontainer, Verwaltung mehrerer paralleler Sitzungen.
 4. Plugin-Abhängigkeitsgraph und isolierter Plugin-Prozesshost; erweiterbarer
    ROS-Katalog jenseits der drei fest validierten Standarddistributionen.
-5. Verifizierter SO-101-URDF-/LeRobot-/ROS-Treiberpfad, USB-Auswahl, Kalibrierung und
+5. SO-101-Hardwaretreiber, LeRobot-Anbindung, USB-Auswahl, Kalibrierung und
    sichere Treiberlebenszyklen. Bisher werden keine Hardwarebewegungen unterstützt.
 6. Controller-, ros2_control-, MoveIt- und KDL-Ausführung; echte erzeugte Launch-Dateien
    und getestete ROS-Migrationsregeln mit separaten Ausgabeordnern.
-7. Meshes, visuelle/inertiale URDF-Geometrie, TF-Broadcasting, RViz-nahe Ansichten,
+7. Weitere Meshformate, Kollisions-/inertiale Darstellung, TF-Broadcasting, RViz-nahe Ansichten,
    Kamerastreams, Kalibrierung und ROS-Bag-Aufzeichnung.
 8. YOLO, Tracking, Modellklassenauswahl und optionale KI-/Vision-Anbindungen.
-9. Native Installer/AppImage, vollständige deutsche Lokalisierung und Plattformadapter
+9. Isaac-Sim-/USD-Anbindung und geprüfte Sim-to-Real-Joint-Mappings einschließlich
+   Greiferkonvention; Kameraintegration und spätere kalibrierte Sensor-/Framezuordnung.
+10. Native Installer/AppImage, vollständige deutsche Lokalisierung und Plattformadapter
    für Windows/WSL2 und macOS. Derzeit ist nur Ubuntu 22.04 amd64 Zielplattform.
 
 ## Bekannte Grenzen und Risiken
 
-- Kein Docker-Daemon in der Entwicklungsumgebung: keine tatsächlichen ROS-Image-Builds
-  oder ROS-Containerläufe nachgewiesen. Registry-Verfügbarkeit allein beweist sie nicht.
+- Kein nutzbarer Docker-Daemonzugriff in der Entwicklungsumgebung (zuletzt fehlende
+  Zugriffsrechte): keine tatsächlichen ROS-Image-Builds oder ROS-Containerläufe nachgewiesen. Registry-Verfügbarkeit allein beweist sie nicht.
 - HTTPS-Zertifikatsfehler beim zusätzlichen ROS-Binärpaketindex-Probeaufruf; keine
   Zertifikatsprüfung wurde deaktiviert. Builds müssen die Paketquellen real bestätigen.
-- Die Vorschau zeigt Linkursprünge und Gelenkstruktur. Floating-/Planar-Gelenke bleiben
-  bei Nullpose. Meshdateien werden nicht geladen oder beim Export mitkopiert.
+- OpenGL wird für tatsächliche Meshes benötigt; ohne Kontext wird nur die explizite
+  Strukturansicht angezeigt. Floating-/Planar-Gelenke bleiben bei Nullpose. Benutzerimport
+  unterstützt STL und einfache Primitive. Relative STL-Dateien werden beim Export kopiert,
+  Katalogmodelle bleiben als feste model://-Referenzen im XDG-Datenverzeichnis.
+- Der SO-101-Offline-Modellpfad wurde mit Originaldateien und nativer 3D-GUI verifiziert.
+  Hardware-/ROS-/Isaac-Backends sind weiterhin unkonfiguriert. Weitere Katalogmodelle und
+  eine mehrstufige Versionsauswahl benötigen zusätzliche überprüfte Manifeste.
 - Xacro-Includes vom Host, Paketauflösung und beliebige Xacro-Workspaces werden nicht
   automatisch übertragen. Lange Xacro-Verarbeitung besitzt noch keinen GUI-Abbruch.
 - Sensorparameter und Offsets werden gespeichert. TF-Publishing, dynamische TF-Quelle,

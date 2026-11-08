@@ -90,3 +90,26 @@ und [Rootless Docker](https://docs.docker.com/engine/security/rootless/).
   auffindbar. Docker blockiert zusätzlich die Entfernung referenzierter Images, ohne Force.
 - **Absturz/Restcontainer:** Nur explizit identifizierte eigene Studio-Container verwalten.
   Eine Recovery-GUI ist noch nicht vorhanden. Fremde Container bleiben unberührt.
+
+
+## SO-101-Modell ohne ROS oder Docker installieren
+
+Die Desktop-Abhängigkeiten enthalten zusätzlich trimesh 4.6.8, PyOpenGL 3.1.9 und
+filelock 3.18.0. `start.sh` aktualisiert ausschließlich die lokale virtuelle Umgebung.
+Weder LeRobot noch Isaac Sim sind erforderlich. Unter **Select robot → SO-101 Follower**
+**Install Robot Model** bestätigen; der Installer lädt 16,16 MB Originaldateien von einer
+festen Revision. Der Modelldownload ist vom ROS-Installationsassistenten getrennt.
+
+Cache: `${XDG_DATA_HOME:-~/.local/share}/ros-robot-studio/robots/so101_follower/<revision>/`.
+Das Modell ist auf diesem Entwicklungsrechner bereits installiert und geprüft.
+Intakte Dateien werden beim Neustart nicht erneut heruntergeladen. Beschädigte oder
+fehlende Dateien können über **Repair Robot Model** ersetzt werden. Bei fehlender
+Installation eines gespeicherten Projekts bietet Studio die gleiche Revision erneut an.
+
+Für tatsächliche Meshes ist ein OpenGL-Compatibility-Kontext ab 2.1 erforderlich.
+Ohne Kontext bleibt die beschriftete Strukturansicht erhalten; es wird keine vollständige
+Geometrie vorgetäuscht. Kamera und alle Offline-Regler benötigen keine ROS-Verbindung.
+`package://`-Assets eigener URDFs benötigen eine explizite Paketwurzel im Loader-API;
+eine grafische Paketzuordnung ist noch nicht vorhanden.
+
+Details, Originalquelle, Prüfsummen und Kalibrierkonvention: [SO101.md](docs/SO101.md).

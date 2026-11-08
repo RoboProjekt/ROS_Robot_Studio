@@ -1,5 +1,8 @@
 # Abschlussbericht – ROS Robot Studio 0.1.0
 
+Historischer MVP-Stand vom 7. November 2026. Die folgende SO-101-Erweiterung wird in
+[SO101_REPORT.md](SO101_REPORT.md) dokumentiert.
+
 ## 1. Implementierte Funktionen
 
 Eine tatsächlich startbare PySide6-Desktopanwendung mit vier Tabs, dunklem/hellem

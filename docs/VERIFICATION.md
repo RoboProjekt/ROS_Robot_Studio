@@ -1,5 +1,7 @@
 # Verifikation – 7. November 2026
 
+Historischer MVP-Stand. Der aktuelle SO-101-Nachweis steht in [SO101_REPORT.md](SO101_REPORT.md).
+
 ## Entwicklungsumgebung
 
 Ubuntu 22.04.5 LTS, x86_64, Python 3.10.12. Kein Docker-CLI und kein Docker-Socket/

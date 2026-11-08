@@ -1,10 +1,11 @@
 # ROS Robot Studio
 
 Eine startbare Desktop-Werkbank für ROS-2-Roboterprojekte. Der MVP bietet vier Tabs,
-URDF-Strukturansicht, Sensor- und TF-Konfiguration, portable YAML-Projekte und Live-Plots.
+URDF-Struktur- und Meshansicht, SO-101-Follower-Modellinstallation, virtuelle Gelenksteuerung,
+Sensor- und TF-Konfiguration, portable YAML-Projekte und Live-Plots.
 Er funktioniert ohne Docker, ROS-Installation oder Roboterhardware.
 
-![Robot Configuration](docs/studio.png)
+![SO-101 Follower mit originalen Meshes](docs/so101-pose.png)
 ![Live Monitoring](docs/studio-monitoring.png)
 
 ## Start unter Ubuntu 22.04
@@ -56,22 +57,36 @@ Projektstandard nicht. **Save selected ROS as project default** übernimmt die A
 bewusst in das Projekt. Bei laufender Containerdemo wird die alte Runtime vor einem
 Versionswechsel gestoppt. Das Projekt bleibt erhalten.
 
+## SO-101 Follower
+
+Unter **Robot Configuration → Select robot** den SO-101 Follower auswählen. Falls nötig,
+**Install Robot Model** bestätigen. URDF, 13 Original-STLs und Quellhinweise werden aus
+einer festen offiziellen GitHub-Revision geprüft installiert (16,16 MB). Danach lässt
+sich der Roboter vollständig offline mit sechs Reglern und numerischen Gradwerten bewegen.
+XYZ/RPY des auswählbaren Endeffektorframes werden live aktualisiert. Die Original-
+Geometrie benötigt OpenGL; ohne Kontext wird die Strukturansicht eindeutig angezeigt.
+
+```bash
+./start.sh --demo --robot so101_follower
+```
+
+Gelenkwerte, Modellrevision und Endeffektor werden normal mit dem Projekt gespeichert.
+Das Beispiel `examples/so101/so101.studio.yaml` enthält nur eine portable Modellreferenz.
+Anleitung, Lizenz, Revision, Meshdetails und Abnahmetest: [SO101.md](docs/SO101.md).
+
 ## Stand und Grenzen
 
-Die Offline-GUI wurde unter Ubuntu 22.04 sowohl offscreen als auch in einer sichtbaren
-X11-Sitzung gestartet und visuell geprüft. 42 automatisierte Tests bestanden in der
-abschließenden Prüfung mit erlaubten lokalen Sockets; drei echte ROS-Container-Tests
-wurden mangels Docker-Daemon übersprungen. Details: [Prüfbericht](docs/VERIFICATION.md).
+Der native OpenGL-Abnahmetest hat den echten SO-101 angezeigt, Qt-Regler und Kamera
+betätigt, FK mit Meshtransformationen verglichen und die Pose nach Speichern/Laden
+wiederhergestellt. **73 Tests bestanden**, drei ROS-Container-Tests wurden wegen fehlender
+Docker-Zugriffsrechte übersprungen. [Aktueller SO-101-Bericht](docs/SO101_REPORT.md).
+Der [Prüfbericht der Grundanwendung](docs/VERIFICATION.md) bleibt als historischer Stand erhalten.
 
-Humble, Jazzy und Lyrical besitzen live geprüfte offizielle amd64-Basisimages. Die
-Erweiterungsimages, Demo-Nodes und rosbridge-Anbindung sind implementiert; tatsächliche
-Docker-Builds und ROS-Läufe konnten hier nicht ausgeführt werden. Der Assistent besitzt
-hierfür einen echten Ende-zu-Ende-Test mit temporärem Testcontainer.
-
-Meshes, Hardwareansteuerung, Controller-/IK-Ausführung, TF-Publishing und Kalibrierung
-sind noch nicht implementiert. SO-101 ist ein ausdrücklich unverifiziertes Planungsprofil;
-die generische Vorschau ist kein SO-101-Modell. Sensorgrenzen sind **keine zertifizierten
-Sicherheitsfunktionen**. Weitere Grenzen stehen in [ROADMAP.md](ROADMAP.md).
+Humble, Jazzy und Lyrical besitzen implementierte Runtime-Buildpfade und rosbridge-
+Demoanbindung; tatsächliche ROS-Containerläufe bleiben hier ungeprüft. Das SO-101-Modell
+benötigt diese Runtimes nicht. Hardware-/LeRobot-Ansteuerung, kalibrierte Joint-Mappings,
+Controller-/IK-Ausführung, Isaac Sim, TF-Publishing und Kamerakalibrierung sind noch offen.
+Sensorgrenzen sind **keine zertifizierten Sicherheitsfunktionen**.
 
 ## Dokumentation
 
@@ -80,7 +95,8 @@ Sicherheitsfunktionen**. Weitere Grenzen stehen in [ROADMAP.md](ROADMAP.md).
 - [Entwicklung, Tests und Docker-Builds](DEVELOPMENT.md)
 - [Projektformat](docs/PROJECT_FORMAT.md)
 - [Umsetzungsstand und nächste Schritte](ROADMAP.md)
-- [Abschlussbericht](docs/FINAL_REPORT.md)
+- [SO-101-Abschlussbericht](docs/SO101_REPORT.md)
+- [Historischer MVP-Abschlussbericht](docs/FINAL_REPORT.md)
 - [Drittanbieter-Lizenzen](THIRD_PARTY_LICENSES.md)
 
 Studio-Quellcode und der generische Beispielroboter stehen unter Apache-2.0. Qt und

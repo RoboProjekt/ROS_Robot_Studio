@@ -82,3 +82,36 @@ Docker-Images, Logs, Caches, große Meshes/Modelle und Credentials sind ausgesch
 Neue Funktionalität sollte Datenverträge, vorhandene Fehlerfälle und passende Tests
 mitbringen. Bei einer neuen Distribution müssen Katalog, gültige Distribution-IDs,
 Manifeste, Images und echte Integrationstests gemeinsam erweitert werden.
+
+
+## Robotermodelle und SO-101 prüfen
+
+```bash
+# Alle lokalen Tests inklusive Modellinstaller-Mocks; keine Modelldownloads:
+env -u PYTHONPATH QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q
+# Expliziter Originaldownload in ein temporäres Testverzeichnis + selektive Reparatur:
+env -u PYTHONPATH QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --run-model-download -ra
+```
+
+Der SO-101-Downloadtest installiert keine Systemkomponenten und berührt keine echte
+Hardware. `--run-docker` bleibt eine separate Option. Ohne freigegebene Loopback-Sockets
+wird der WebSocket-Servertest übersprungen; die Abschlussprüfung lief mit erlaubten Sockets.
+
+Nach Installation des normalen SO-101-Modells steht ein nativer sichtbarer Abnahmetest bereit:
+
+```bash
+env -u PYTHONPATH \
+  LD_LIBRARY_PATH="$PWD/.venv/native/usr/lib/x86_64-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+  .venv/bin/python scripts/verify_so101_gui.py
+```
+
+Er prüft Auswahl, Gelenke, Pose, GL-Matrizen, Orbit/Pan/Zoom, Achsen/Meshumschaltung,
+Speichern/Laden und schreibt zwei Screenshots sowie `docs/so101-gui-verification.json`.
+Er setzt einen echten grafischen OpenGL-Kontext voraus und lädt selbst keine Modelle.
+Für den normalen Benutzerstart genügt weiterhin `./start.sh`.
+
+Der Maintainer-Helfer `scripts/pin_so101_model.py` erzeugt den kleinen Quell-Lock aus
+einer ausdrücklich eingetragenen unveränderlichen Git-Revision. Er lädt nur URDF,
+referenzierte STL-Dateien, Lizenz und Quell-README. Vor einer Katalogaktualisierung
+Originalquelle, Lizenz und gemeinsame Kompatibilität von URDF und Meshes prüfen; keine
+bestehende Projekt-Revision still ersetzen. Modellcache/Downloads bleiben außerhalb Git.

@@ -7,6 +7,10 @@ Dependencies are not relicensed by Studio. Their distributed notices remain auth
 | --- | --- | --- |
 | PySide6, Shiboken6, bundled Qt | 6.8.3 | LGPL-3.0 / GPL-3.0 / commercial options, module dependent. This application uses the open-source distribution. See [Qt for Python licensing](https://doc.qt.io/qtforpython-6/licenses.html) and bundled package notices. |
 | PyQtGraph | 0.13.7 | MIT |
+| trimesh | 4.6.8 | MIT |
+| PyOpenGL | 3.1.9 | BSD-style license; original package notices apply |
+| filelock | 3.18.0 | Unlicense |
+| SO-101 follower URDF/STLs (downloaded separately) | Revision a758567c3978dfeefe282ede0500085a48fe8f78 | Apache-2.0; original LICENSE and source README retained beside model |
 | NumPy | 2.2.6 | BSD-3-Clause; bundled numerical-library notices also apply |
 | Pydantic | 2.10.6 | MIT |
 | PyYAML | 6.0.2 | MIT |
@@ -22,6 +26,8 @@ Dependencies are not relicensed by Studio. Their distributed notices remain auth
 
 The complete resolved Python dependency list is `requirements.lock.txt`; transitive
 packages retain their individual licenses in `.venv/lib/python3.10/site-packages/*dist-info/`.
-No external robot meshes, model weights, icons or proprietary assets are bundled.
+No external robot meshes, model weights, icons or proprietary assets are committed to Git.
+The SO-101 installer retrieves the reviewed original model under its upstream license;
+see [source and notices](docs/SO101.md).
 Text symbols are rendered using system fonts. Distribution of Qt binaries requires
 preserving notices and complying with the relevant LGPL/GPL terms.

@@ -8,7 +8,7 @@
 | `gui` | Vier Qt-Tabs, Assistent, Dialoge, Status, Worker, Theme und Strukturviewer |
 | `core` | Validierte Datenverträge und XDG-Einstellungen |
 | `projects` | Atomisches YAML-Speichern, Laden und URDF-Assetkopien |
-| `robots` | URDF-Baumvalidierung und Vorwärtskinematik mit NumPy |
+| `robots` | Model Manager, Quell-Locks, STL-Import und gemeinsame homogene Vorwärtskinematik |
 | `ros_bridge` | Austauschbarer Signalvertrag, Offline-Transport, rosbridge-Client, Messpuffer |
 | `runtime` | Docker SDK, Status, Registry-Katalog, Installation, Start/Stop, Healthchecks |
 | `plugins` | Sichere deklarative Manifest-Discovery und Validierung |
@@ -49,6 +49,8 @@ stoppt Reconnect-Timer, Graph-Timer und Abonnements, bevor der Transport ersetzt
   Validierung vor atomischem Ersetzen der YAML-Datei.
 - `parse_urdf(Path | str) -> RobotModel`, `RobotModel.positions(values) -> dict`:
   sichere XML-Verarbeitung und Gelenktransformationen in Metern/Radiant.
+  `RobotModel.transforms` liefert alle 4×4-Linkposen; Visual-Origin und Skalierung werden
+  separat verkettet. `geometry.load_robot` lädt lokale STL-Visuals ohne ROS.
 - `RuntimeManager.status() -> RuntimeStatus`; `install(distro, progress) -> image`;
   `start(distro, project_id, config) -> container_id`; `stop(id)`, `health(id)`, `logs(id)`.
   Nur eigene gelabelte Images/Container werden verändert. `stop` entfernt den Container,
@@ -106,3 +108,44 @@ in `runtime.overrides` getrennt vorgesehen. Weitergehende Generierung ist noch o
 
 Linux-Systemprüfungen und der optionale Ubuntu-Installer befinden sich im Runtime-Bereich.
 Windows/macOS benötigen eigene Plattformadapter; GUI und Projektmodelle sind davon getrennt.
+
+
+## Robot Model Manager und SO-101 (8. November 2026)
+
+`robots.model_manager.RobotModelManager` verwaltet überprüfte Modelldateien unabhängig
+von ausführbaren Plugins. Der Datenkatalog unter `data/robot_models/` enthält IDs,
+Versionen, Hersteller, Varianten, Lizenz, Quellen, Revision, Backendzustände und pro
+Datei SHA-256/Größe. `plugin_id` verbindet ein Modell optional mit dem vorhandenen
+Plugin-Metadatensystem. Neue Modelle verwenden denselben Installer, Parser und Viewer.
+
+`status` prüft einen vollständigen registrierten Dateibaum; `install` lädt nur fehlende
+oder beschädigte Dateien in ein temporäres Verzeichnis, validiert sämtliche Mesh-
+Referenzen und aktiviert ihn erst danach. `resolve(model://...)` liefert ausschließlich
+exakt überprüfte installierte Revisionen. Ein File-Lock serialisiert Installationen.
+Alle diese I/O-Operationen laufen über den vorhandenen TaskRunner. Die XDG-Pfadverwaltung
+liegt jetzt unabhängig in `core.paths`; `core.settings.xdg_path` bleibt kompatibel verfügbar.
+
+Projektformat v2 speichert portable Modellreferenzen, Modellversion/-revision,
+Gelenkwerte, Endeffektor und vorbereitete Backendzustände. v1-Dateien werden im Speicher
+angehoben. Eigene importierte URDFs behalten relative STL-Assets beim Speichern/Export;
+Katalogmodelle werden aus dem zentralen XDG-Datenverzeichnis aufgelöst und bei Bedarf
+exakt nachinstalliert. Große Modelle sind keine Git-/Projektdateien.
+
+Die bestehende `RobotView` enthält zusätzlich eine PyQtGraph-OpenGL-Szene. Linkposen,
+Visual-Offsets, Mesh-Skalierung und Materialfarben bleiben getrennt. trimesh lädt STL
+ohne Reparatur oder Umwandlung; OpenGL aktualisiert beim Gelenkedit lediglich die
+Instanzmatrizen. Qt erhält den bisherigen Software-Strukturviewer als ausdrücklich
+beschrifteten Fallback ohne OpenGL. Kamerabedienung und Einpassen berücksichtigen die
+tatsächlichen Visual-Bounds; angepasste Clip-Ebenen vermeiden Detail-Z-Fighting.
+
+`gui.joint_controls.JointControls` erzeugt Regler aus echten URDF-Joints und speichert
+SI-Werte. Fixed Joints sind nicht editierbar, mimic-Joints werden abgeleitet. Die
+bestehende FK wurde um volle Linktransformationen, Material-/Visualdaten und mimic
+vervollständigt; es gibt keine zweite Kinematik im Viewer. Generische Demo-Nachrichten
+überschreiben keine manuelle Katalogroboterpose.
+
+`JointMappingAdapter` ist ein reiner Vertrag für spätere kalibrierte Umrechnungen.
+Die mitgelieferte unkalibrierte Implementierung verweigert jede Hardware-/ROS-Abbildung.
+Isaac Sim ist ausschließlich deklarative Planung (USD-Pfad null, Mapping unkonfiguriert).
+Es werden keine Motorbefehle erzeugt, keine LeRobot-/Isaac-Bibliotheken installiert und
+keine Hardwaretreiber importiert.

@@ -1,0 +1,44 @@
+{
+  "verified_at": "2026-11-08T00:24:12.773968+00:00",
+  "model_id": "so101_follower",
+  "source_revision": "a758567c3978dfeefe282ede0500085a48fe8f78",
+  "renderer": "OpenGL meshes \u00b7 17/17 visuals \u00b7 original geometry",
+  "links": 8,
+  "joints": 7,
+  "movable_joints": 6,
+  "visuals": 17,
+  "zero_pose_xyz_rpy": [
+    0.39136147022015794,
+    -9.21206311457187e-06,
+    0.22646971024033286,
+    1.5706081753615815,
+    1.5221141723807883,
+    1.570618264772457
+  ],
+  "edited_pose_xyz_rpy": [
+    0.2922504852698475,
+    -0.12580671434633334,
+    0.13769920889480947,
+    3.0376054723800174,
+    1.1319379631928472,
+    2.5660556568286133
+  ],
+  "joint_positions_si": {
+    "shoulder_pan": 0.4607663999999998,
+    "shoulder_lift": -0.4363323129985824,
+    "elbow_flex": 0.6108652381980153,
+    "wrist_flex": 0.2617993877991494,
+    "wrist_roll": 0.0,
+    "gripper": 0.4363323129985824
+  },
+  "mesh_transform_verified": true,
+  "camera_orbit_pan_zoom_verified": true,
+  "axes_and_mesh_toggle_verified": true,
+  "project_roundtrip_verified": true,
+  "real_hardware_access": false,
+  "docker_runtime_started": false,
+  "screenshots": [
+    "docs/so101.png",
+    "docs/so101-pose.png"
+  ]
+}

@@ -1,0 +1,44 @@
+format_version: 2
+id: 74f07af5-f3fc-4925-ae94-6c383f3ae00e
+name: SO-101 · Offline workbench
+description: Original new_calib follower. Virtual joint control; no hardware, ROS
+  driver or Isaac Sim configured.
+default_ros: humble
+robot:
+  profile: so101
+  model_id: so101_follower
+  model_version: 1.0.0
+  source_revision: a758567c3978dfeefe282ede0500085a48fe8f78
+  joint_positions:
+    gripper: 0.0
+    wrist_roll: 0.0
+    wrist_flex: 0.0
+    elbow_flex: 0.0
+    shoulder_lift: 0.0
+    shoulder_pan: 0.0
+  joint_mapping_status: not_calibrated
+  simulation:
+    backend: isaac_sim
+    status: planned
+    asset:
+      format: usd
+      path: null
+    joint_mapping: not_configured
+  urdf: model://so101_follower/a758567c3978dfeefe282ede0500085a48fe8f78/so101_new_calib.urdf
+  source_xacro: null
+  hardware: null
+  controller: null
+  ik_solver: null
+  end_effector: gripper_frame_link
+sensors: []
+monitoring:
+  window_seconds: 30
+  update_hz: 20
+  fields:
+  - data
+  topic: /studio/sine
+runtime:
+  port: 9090
+  memory_mb: 2048
+  cpu_count: 2.0
+  overrides: {}
