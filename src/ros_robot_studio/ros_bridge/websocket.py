@@ -40,6 +40,7 @@ class RosbridgeTransport(Transport):
         self.deadline.setInterval(5000)
         self.deadline.timeout.connect(self._connect_timeout)
         self.graph_data = {}
+        self.advertised = set()
 
     @property
     def connected(self):
@@ -68,6 +69,7 @@ class RosbridgeTransport(Transport):
         self.retry.stop()
         self.attempts = 0
         self.status.emit("ROS connected · container data")
+        self.connection_changed.emit(True)
         for topic, message_type in self.subscriptions.items():
             self._subscribe(topic, message_type)
         self.refresh_graph()
@@ -81,6 +83,8 @@ class RosbridgeTransport(Transport):
             self.retry.start(delay)
 
     def _disconnected(self):
+        self.connection_changed.emit(False)
+        self.advertised.clear()
         self.deadline.stop()
         self.graph_timer.stop()
         self.pending.clear()
@@ -117,6 +121,9 @@ class RosbridgeTransport(Transport):
         }
         if message_type:
             data["type"] = message_type
+        if topic.startswith("/studio/execution/"):
+            data["throttle_rate"] = 0
+            data["queue_length"] = 100
         self.send(data)
 
     def subscribe(self, topic, message_type=""):
@@ -128,6 +135,16 @@ class RosbridgeTransport(Transport):
         self.send({"op": "unsubscribe", "id": "sub:" + topic, "topic": topic})
         self.subscriptions.pop(topic, None)
         self.latest.pop(topic, None)
+
+    def publish(self, topic, message_type, message):
+        if not self.connected:
+            raise ConnectionError("ROS is disconnected; commands are not queued")
+        if len(json.dumps(message)) > 950000:
+            raise ValueError("ROS command exceeds size limit")
+        if topic not in self.advertised:
+            self.send({"op": "advertise", "topic": topic, "type": message_type, "queue_size": 10})
+            self.advertised.add(topic)
+        self.send({"op": "publish", "topic": topic, "msg": message})
 
     def service(self, name, args, callback):
         if not self.connected or len(self.pending) >= 32:
@@ -168,7 +185,10 @@ class RosbridgeTransport(Transport):
                 return
             if data.get("op") == "publish" and data.get("topic") in self.subscriptions:
                 if isinstance(data.get("msg"), dict):
-                    self.latest[data["topic"]] = data["msg"]
+                    if data["topic"].startswith("/studio/execution/"):
+                        self.message.emit(data["topic"], data["msg"])
+                    else:
+                        self.latest[data["topic"]] = data["msg"]
             elif data.get("op") == "service_response":
                 pending = self.pending.pop(data.get("id"), None)
                 if pending:

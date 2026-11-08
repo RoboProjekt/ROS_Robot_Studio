@@ -15,6 +15,7 @@ class Transport(QObject):
     graph = Signal(dict)
     message = Signal(str, dict)
     error = Signal(str)
+    connection_changed = Signal(bool)
 
     def connect_transport(self) -> None:
         raise NotImplementedError
@@ -36,8 +37,9 @@ class Transport(QObject):
 
 
 class OfflineTransport(Transport):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, state_provider=None):
         super().__init__(parent)
+        self.state_provider = state_provider
         self.subscriptions = set()
         self.timer = QTimer(self)
         self.timer.setInterval(50)
@@ -89,20 +91,21 @@ class OfflineTransport(Transport):
         samples = {
             "/studio/sine": {"data": math.sin(t)},
             "/studio/temperature": {"data": 34 + 1.5 * math.sin(t * 0.2)},
-            "/joint_states": {
-                "name": ["base_rotation", "shoulder", "elbow"],
-                "position": [
-                    0.4 * math.sin(t * 0.4),
-                    0.35 * math.sin(t * 0.6),
-                    0.5 * math.cos(t * 0.5),
-                ],
-                "velocity": [
-                    0.16 * math.cos(t * 0.4),
-                    0.21 * math.cos(t * 0.6),
-                    -0.25 * math.sin(t * 0.5),
-                ],
-            },
         }
+        state = self.state_provider() if self.state_provider else None
+        if state:
+            names = list(state.positions)
+            samples["/joint_states"] = {
+                "name": names,
+                "position": [state.positions[n] for n in names],
+                "velocity": [state.velocities[n] for n in names]
+                if state.velocities and set(names) <= state.velocities.keys()
+                else [],
+                "effort": [state.efforts[n] for n in names]
+                if state.efforts and set(names) <= state.efforts.keys()
+                else [],
+            }
+
         for topic in self.subscriptions:
             if topic in samples:
                 self.message.emit(topic, samples[topic])

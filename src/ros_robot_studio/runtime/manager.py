@@ -2,6 +2,13 @@
 
 from __future__ import annotations
 
+import hashlib
+import io
+import json
+import logging
+import shutil
+import tarfile
+import tempfile
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -13,6 +20,28 @@ from ros_robot_studio.runtime.catalog import catalog, inspect_registry
 
 OWNER = "io.ros-robot-studio.managed"
 VERSION = "0.1.0"
+RUNTIME_REVISION = "2"
+SHARED_FILES = [
+    "__init__.py",
+    "robots/__init__.py",
+    "robots/urdf.py",
+    "motion/__init__.py",
+    "motion/interpolation.py",
+    "runtime/__init__.py",
+    "runtime/controller_core.py",
+]
+
+
+def runtime_source_hash():
+    root = Path(__file__).resolve().parents[1]
+    files = [root / p for p in SHARED_FILES] + [
+        p for p in (root / "data/runtime").iterdir() if p.is_file()
+    ]
+    digest = hashlib.sha256()
+    for path in sorted(files):
+        digest.update(str(path.relative_to(root)).encode())
+        digest.update(path.read_bytes())
+    return digest.hexdigest()
 
 
 @dataclass
@@ -21,6 +50,8 @@ class RuntimeStatus:
     message: str
     installed: list[str] = field(default_factory=list)
     containers: dict[str, str] = field(default_factory=dict)
+    reason: str = "ready"
+    image_ids: dict[str, str] = field(default_factory=dict)
 
 
 class RuntimeManager:
@@ -34,19 +65,41 @@ class RuntimeManager:
             client = self.client_factory()
             client.ping()
             installed = []
+            image_ids = {}
             for identifier, spec in self.specs.items():
                 try:
                     image = client.images.get(spec.image)
-                    if image.labels.get(OWNER) == VERSION:
+                    if (
+                        image.labels.get(OWNER) == VERSION
+                        and image.labels.get("studio.runtime_source") == runtime_source_hash()
+                    ):
                         installed.append(identifier)
+                        image_ids[identifier] = image.id
                 except NotFound:
                     pass
             containers = {
                 c.id: c.status for c in client.containers.list(all=True, filters={"label": OWNER})
             }
-            return RuntimeStatus(True, "Docker daemon reachable", installed, containers)
+            return RuntimeStatus(
+                True, "Docker daemon reachable", installed, containers, image_ids=image_ids
+            )
         except Exception as exc:
-            return RuntimeStatus(False, f"Docker unavailable: {exc}")
+            text = str(exc)
+            reason = (
+                "permission_denied"
+                if isinstance(exc, PermissionError)
+                or "Permission" in text
+                or "permission denied" in text
+                else "not_installed"
+                if not shutil.which("docker")
+                else "daemon_unreachable"
+            )
+            hint = (
+                " Add your user to docker only after reviewing its root-level privileges; log out/in. Rootless Docker is an alternative."
+                if reason == "permission_denied"
+                else " Check Docker Engine and its service."
+            )
+            return RuntimeStatus(False, f"Docker {reason}: {exc}." + hint, reason=reason)
         finally:
             if client:
                 client.close()
@@ -72,14 +125,26 @@ class RuntimeManager:
                 progress(
                     " ".join(str(event.get(k, "")) for k in ("id", "status", "progress")).strip()
                 )
-            context = Path(__file__).resolve().parents[1] / "data" / "runtime"
+            # Build only a small curated context: shared parser/interpolation, never the venv or host files.
+            root = Path(__file__).resolve().parents[1]
+            temporary = tempfile.TemporaryDirectory(prefix="studio-runtime-build-")
+            context = Path(temporary.name)
+            shutil.copytree(root / "data/runtime", context, dirs_exist_ok=True)
+            for relative in SHARED_FILES:
+                target = context / "shared" / "ros_robot_studio" / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(root / relative, target)
             for event in client.api.build(
                 path=str(context),
                 tag=spec.image,
                 rm=True,
                 decode=True,
                 buildargs={"BASE_IMAGE": info["pinned_base"], "DISTRO": distro},
-                labels={OWNER: VERSION},
+                labels={
+                    OWNER: VERSION,
+                    "studio.runtime_revision": RUNTIME_REVISION,
+                    "studio.runtime_source": runtime_source_hash(),
+                },
                 platform="linux/amd64",
             ):
                 if "error" in event:
@@ -89,29 +154,84 @@ class RuntimeManager:
             image = client.images.get(spec.image)
             if image.labels.get(OWNER) != VERSION:
                 raise RuntimeError("Built image ownership validation failed")
+            temporary.cleanup()
             progress(f"{spec.image} ready; pinned base digest {info['digest']}")
             return spec.image
         finally:
             client.close()
 
-    def start(self, distro: str, project_id: str, config: RuntimeConfig, integration=False) -> str:
+    def start(
+        self,
+        distro: str,
+        project_id: str,
+        config: RuntimeConfig,
+        integration=False,
+        robot_config=None,
+    ) -> str:
         client = self.client_factory()
+        network = container = None
         try:
             image = client.images.get(self.specs[distro].image)
             if image.labels.get(OWNER) != VERSION:
                 raise ValueError("Only managed Studio images may be launched")
-            container = client.containers.run(
+            if image.labels.get("studio.runtime_source") != runtime_source_hash():
+                raise ValueError("Runtime sources changed; install/rebuild the Studio image first")
+            from ros_robot_studio.runtime.robot_config import simulation_config
+
+            payload = robot_config or simulation_config()
+            if payload.get("profile") not in ("managed_simulation", "external_simulation"):
+                raise ValueError("Only simulation profiles are allowed")
+            if payload.get("profile") == "external_simulation" and not payload.get(
+                "external_simulation_confirmed"
+            ):
+                raise ValueError("External simulation requires explicit confirmation")
+            if config.network == "host" and (
+                not config.external_network_confirmed
+                or payload.get("profile") != "external_simulation"
+                or not payload.get("external_simulation_confirmed")
+            ):
+                raise ValueError(
+                    "Host networking requires an explicitly confirmed external simulation profile"
+                )
+            if config.network == "bridge":
+                network = client.networks.create(
+                    "ros-studio-" + uuid.uuid4().hex[:12],
+                    driver="bridge",
+                    labels={OWNER: VERSION, "studio.project": project_id},
+                )
+            container = client.containers.create(
                 image.id,
-                detach=True,
                 name=f"ros-studio-{distro}-{uuid.uuid4().hex[:10]}",
                 labels={
                     OWNER: VERSION,
                     "studio.project": project_id,
                     "studio.distro": distro,
                     "studio.integration": str(integration).lower(),
+                    "studio.network": network.id if network else "",
                 },
-                ports={"9090/tcp": ("127.0.0.1", config.port)},
-                environment={"ROS_DOMAIN_ID": "42", "RCUTILS_LOGGING_BUFFERED_STREAM": "1"},
+                **(
+                    {"network_mode": "host"}
+                    if config.network == "host"
+                    else {
+                        "ports": {"9090/tcp": ("127.0.0.1", config.port)},
+                        "network": network.name,
+                    }
+                ),
+                environment={
+                    "ROS_DOMAIN_ID": str(config.domain_id),
+                    "RMW_IMPLEMENTATION": config.middleware,
+                    "RCUTILS_LOGGING_BUFFERED_STREAM": "1",
+                    "STUDIO_BRIDGE_PORT": str(config.port if config.network == "host" else 9090),
+                    "STUDIO_BRIDGE_ADDRESS": "127.0.0.1" if config.network == "host" else "0.0.0.0",
+                    "ROS_NAMESPACE": config.namespace,
+                    "ROS_LOCALHOST_ONLY": "1" if config.discovery == "localhost" else "0",
+                    "ROS_AUTOMATIC_DISCOVERY_RANGE": "LOCALHOST"
+                    if config.discovery == "localhost"
+                    else "SUBNET",
+                    "FASTRTPS_DEFAULT_PROFILES_FILE": "/opt/studio/fastdds_udp.xml"
+                    if config.fastdds_udp
+                    else "",
+                },
                 mem_limit=f"{config.memory_mb}m",
                 nano_cpus=int(config.cpu_count * 1e9),
                 cap_drop=["ALL"],
@@ -122,7 +242,29 @@ class RuntimeManager:
                     type="json-file", config={"max-size": "10m", "max-file": "2"}
                 ),
             )
+            data = json.dumps(payload).encode()
+            archive = io.BytesIO()
+            with tarfile.open(fileobj=archive, mode="w") as tar:
+                member = tarfile.TarInfo("studio_robot.json")
+                member.size = len(data)
+                member.mode = 0o644
+                tar.addfile(member, io.BytesIO(data))
+            container.put_archive("/tmp", archive.getvalue())
+            container.start()
             return container.id
+        except Exception:
+            if container:
+                try:
+                    container.stop(timeout=2)
+                    container.remove()
+                except docker.errors.APIError:
+                    logging.getLogger(__name__).exception("Failed start cleanup")
+            if network:
+                try:
+                    network.remove()
+                except docker.errors.APIError:
+                    logging.getLogger(__name__).exception("Failed network cleanup")
+            raise
         finally:
             client.close()
 
@@ -136,8 +278,18 @@ class RuntimeManager:
         client = self.client_factory()
         try:
             container = self._owned(client, identifier)
+            network_id = container.labels.get("studio.network")
             container.stop(timeout=5)
             container.remove()
+            if network_id:
+                try:
+                    network = client.networks.get(network_id)
+                    if network.attrs.get("Labels", {}).get(OWNER) == VERSION:
+                        network.remove()
+                except docker.errors.APIError:
+                    logging.getLogger(__name__).warning(
+                        "Container stopped; its network needs cleanup", exc_info=True
+                    )
         finally:
             client.close()
 
