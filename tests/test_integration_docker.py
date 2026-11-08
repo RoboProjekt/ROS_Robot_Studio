@@ -52,7 +52,7 @@ def test_real_ros_demo(distro):
                     {"op": "call_service", "id": name, "service": "/rosapi/" + name, "args": {}}
                 )
             )
-        seen, services = set(), {}
+        seen, services, service_errors = set(), {}, []
         deadline = time.monotonic() + 25
         last_graph_refresh = 0.0
         while time.monotonic() < deadline:
@@ -62,25 +62,34 @@ def test_real_ros_demo(distro):
                 if message["topic"] == "/studio/sine":
                     assert isinstance(message["msg"]["data"], (int, float))
             if message.get("op") == "service_response":
-                services[message["id"]] = message.get("values", {})
+                if message.get("result", True):
+                    assert isinstance(message.get("values"), dict), message
+                    services[message["id"]] = message["values"]
+                else:
+                    # rosbridge legitimately returns an error string while
+                    # rosapi is still starting. It is not a graph snapshot.
+                    service_errors.append(message)
             nodes = services.get("nodes", {}).get("nodes", [])
             discovered = any("studio_demo_subscriber" in n for n in nodes)
             if len(seen) >= 2 and {"topics", "nodes"} <= services.keys() and discovered:
                 break
             # DDS graph discovery is asynchronous; receiving a topic is not proof that rosapi's first graph snapshot is complete.
             if not discovered and time.monotonic() - last_graph_refresh > 0.5:
-                connection.send(
-                    json.dumps(
-                        {
-                            "op": "call_service",
-                            "id": "nodes",
-                            "service": "/rosapi/nodes",
-                            "args": {},
-                        }
-                    )
-                )
+                for name in ("topics", "nodes"):
+                    if name not in services or name == "nodes":
+                        connection.send(
+                            json.dumps(
+                                {
+                                    "op": "call_service",
+                                    "id": name,
+                                    "service": "/rosapi/" + name,
+                                    "args": {},
+                                }
+                            )
+                        )
                 last_graph_refresh = time.monotonic()
-        assert {"/studio/sine", "/joint_states"} <= seen
+        assert {"/studio/sine", "/joint_states"} <= seen, service_errors
+        assert {"topics", "nodes"} <= services.keys(), service_errors
         assert "/studio/sine" in services["topics"]["topics"]
         assert any("studio_demo_subscriber" in n for n in services["nodes"]["nodes"])
         # The subscriber log confirms that it has actually received messages.

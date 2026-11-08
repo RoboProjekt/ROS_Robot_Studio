@@ -106,3 +106,41 @@ def test_setup_without_docker_and_persisted_completion(qtbot, tmp_path, monkeypa
     wizard.accept()
     assert Settings(settings.path).get("setup_complete")
     assert completed == [True]
+
+
+def test_service_errors_and_malformed_success_do_not_become_graph_data(qtbot):
+    import time
+
+    transport = RosbridgeTransport("ws://127.0.0.1:1")
+    transport.active = True
+    errors = []
+    received = []
+    transport.error.connect(errors.append)
+    transport.pending["startup"] = (time.monotonic(), received.append)
+    transport._receive(
+        json.dumps(
+            dict(
+                op="service_response",
+                id="startup",
+                result=False,
+                values="Service /rosapi/nodes not available",
+            )
+        )
+    )
+    assert not received and errors and not transport.graph_data
+    transport.pending["malformed"] = (time.monotonic(), received.append)
+    transport._receive(
+        json.dumps(
+            dict(op="service_response", id="malformed", result=True, values="not a result object")
+        )
+    )
+    assert not received and "must be an object" in errors[-1]
+    transport.pending["ready"] = (time.monotonic(), received.append)
+    transport._receive(
+        json.dumps(
+            dict(op="service_response", id="ready", result=True, values={"nodes": ["/actual_node"]})
+        )
+    )
+    assert received == [{"nodes": ["/actual_node"]}]
+    transport.disconnect_transport()
+    transport.deleteLater()

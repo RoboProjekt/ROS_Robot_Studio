@@ -193,7 +193,12 @@ class RosbridgeTransport(Transport):
                 pending = self.pending.pop(data.get("id"), None)
                 if pending:
                     if data.get("result", True):
-                        pending[1](data.get("values", {}))
+                        values = data.get("values", {})
+                        if not isinstance(values, dict):
+                            raise ValueError(
+                                "Successful ROS service response values must be an object"
+                            )
+                        pending[1](values)
                     else:
                         self.error.emit(
                             "ROS service failed: " + str(data.get("service", "unknown"))
