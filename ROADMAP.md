@@ -8,7 +8,7 @@
   ensurepip, Docker, Host-ROS und angeschlossene Hardware.
 - Fünfstufiger Installationsassistent mit Systemchecks, bewusstem Offline-Einstieg,
   überprüfbarer optionaler Docker-Installationsroutine und Runtime-Imageverwaltung.
-- YAML-Projektformat v2 mit v1-Laden, atomisches Speichern, erneutes Laden, portable URDF-Kopie,
+- YAML-Projektformat v3 mit v1-/v2-Migration, atomisches Speichern, erneutes Laden, portable URDF-Kopie,
   Sensoren, TF-Offsets, Monitoring- und Runtime-Einstellungen.
 - Sichere URDF-Strukturprüfung, Link-/Joint-Baum mit Limits und interaktive räumliche
   Vorwärtskinematik. Generischer Beispielroboter und vollständig nutzbarer SO-101-Offline-Viewer.
@@ -29,6 +29,18 @@
   Kompatibilitätsbericht und Schnittstelle für künftige regelbasierte Generierung.
 - Unit-/GUI-/WebSocket-Tests, opt-in Docker-Integrationstests und Screenshots.
 
+## Implementierte Offline-Bewegungsprogrammierung
+
+- Universelle URDF-Kettenanalyse mit Arm/Greifer-Trennung und numerischen Fähigkeits-/Singularitätstests.
+- Optionaler SciPy-1.15.3-Solver: Position, Toolachsenrichtung, Full Pose bei geeignetem Rang,
+  Bounds, reproduzierbare Mehrfachstarts und unabhängige FK-Restfehlerprüfung.
+- Kartesische GUI im vorhandenen Robot-Tab, Teach-in-Manager, siebenstufiger Pick-and-Place-Wizard.
+- Sequentielle Tasks mit sieben Aktionstypen, Einzel-/Gesamtvalidierung, Bibliothek und Projektpersistenz.
+- Synchronisierte kubische Gelenkraumtrajektorien mit wirklicher Velocity-/Accelerationprüfung,
+  Pause/Resume/Stop/Reset und vereinfachtem Greifobjekt.
+- Geprüfte SO101_PickAndPlace_Demo, generische 3P-Demo und Full-Pose-Test eines eigenen 6R-Arms.
+- Native GUI-Abnahme und Screenshots; [aktueller Bericht](docs/KINEMATICS_REPORT.md).
+
 ## Nächste Arbeiten
 
 1. Auf einem Docker-fähigen Ubuntu-Rechner Humble bauen und Ende-zu-Ende-Tests ausführen;
@@ -41,7 +53,8 @@
    ROS-Katalog jenseits der drei fest validierten Standarddistributionen.
 5. SO-101-Hardwaretreiber, LeRobot-Anbindung, USB-Auswahl, Kalibrierung und
    sichere Treiberlebenszyklen. Bisher werden keine Hardwarebewegungen unterstützt.
-6. Controller-, ros2_control-, MoveIt- und KDL-Ausführung; echte erzeugte Launch-Dateien
+6. Kollisionsprüfung, kartesische Zwischenpunktplanung/Gizmo und verifizierte externe 6R-Modelle;
+   Controller-, ros2_control-, MoveIt- und KDL-Ausführung; echte erzeugte Launch-Dateien
    und getestete ROS-Migrationsregeln mit separaten Ausgabeordnern.
 7. Weitere Meshformate, Kollisions-/inertiale Darstellung, TF-Broadcasting, RViz-nahe Ansichten,
    Kamerastreams, Kalibrierung und ROS-Bag-Aufzeichnung.
@@ -79,3 +92,9 @@
 - Der lokale rosbridge-Endpunkt hat keine zusätzliche Authentifizierung. Er wird nur
   an Loopback veröffentlicht; Remote-/Hardwarebetrieb benötigt ein separates Zugriffskonzept.
 - Grenzwerte sind Beobachtungskonfigurationen und **keine zertifizierten Sicherheitsfunktionen**.
+
+Offline-Tasks sind kinematisch geprüft, aber weder kollisionsfrei noch hardwarebereit.
+Full Pose wird für den SO-101 bewusst nicht angeboten. Numerische IK kann lokale Minima
+liefern und beweist keine globale Nichterreichbarkeit. Kamera-3D-Lokalisierung, dynamische
+TF-Provider, Sensortrigger, Schleifen und Verzweigungen bleiben offen. Details und
+Konventionen: [KINEMATICS.md](docs/KINEMATICS.md).

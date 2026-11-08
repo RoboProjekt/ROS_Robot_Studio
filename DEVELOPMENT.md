@@ -115,3 +115,45 @@ einer ausdrücklich eingetragenen unveränderlichen Git-Revision. Er lädt nur U
 referenzierte STL-Dateien, Lizenz und Quell-README. Vor einer Katalogaktualisierung
 Originalquelle, Lizenz und gemeinsame Kompatibilität von URDF und Meshes prüfen; keine
 bestehende Projekt-Revision still ersetzen. Modellcache/Downloads bleiben außerhalb Git.
+
+## Kinematik und Pick-and-Place entwickeln
+
+SciPy bleibt optional und versionsgebunden:
+
+```bash
+env -u PYTHONPATH .venv/bin/python -m pip install -r requirements-kinematics.lock.txt
+env -u PYTHONPATH QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q
+.venv/bin/ruff check src tests scripts
+.venv/bin/ruff format --check src tests scripts
+./start.sh --pick-place-demo
+```
+
+`test_universal_kinematics.py` prüft neben dem bisherigen URDF-/FK-Regressionssatz
+Position/Axis/Full Pose, mehrere Startwerte, Singularität, Konvergenzfehler, Grenzen und
+unbekannte Frames. `test_motion.py` prüft Cubic-Peaks einschließlich Mimic, fehlende und
+Null-Limits, Teach-in, Migration, Taskfehler und deterministische Würfelbindung.
+`test_motion_gui.py` prüft echte Qt-Bedienelemente, Assistent, Bibliothek und Abbruch;
+auch ein Anwendungsstart ohne optionale SciPy-Komponente wird geprüft.
+SO-101-Tests lesen nur das bereits installierte geprüfte Originalmodell und werden ohne
+Installation mit Grund ausgelassen. Generischer 3P-Arm und eigener 6R-Testarm sind originale
+kleine Testressourcen. Der 6R-Test ist kein Nachweis für einen realen xArm 6.
+
+Native Qt-/OpenGL-Abnahme mit installiertem SO-101:
+
+```bash
+env -u PYTHONPATH QT_QPA_PLATFORM=xcb \
+  LD_LIBRARY_PATH="$PWD/.venv/native/usr/lib/x86_64-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+  .venv/bin/python scripts/verify_motion_gui.py
+```
+
+Das Skript verwendet ein temporäres Projekt und Settings, verändert keine Roboterhardware
+oder fremden Container und schreibt `docs/kinematics.png`, `docs/pick-place-editor.png`,
+`docs/pick-place-wizard.png` sowie `docs/motion-gui-verification.json`. Es prüft IK-Vorschau
+und explizite Übernahme, Ablehnen eines unerreichbaren Ziels, alle sieben Wizardseiten,
+Greifer/Kubus, Pause/Resume/Stop/Reset, Sortieren, Einzelberechnung und Save/Open/Play.
+
+Paketierte direkt ladbare Projekte liegen unter `src/ros_robot_studio/data/examples/`:
+`SO101_PickAndPlace_Demo.studio.yaml` und `Generic_PickAndPlace_Demo.studio.yaml`.
+Der Menü-/CLI-Einstieg baut dieselben Beispieldaten über `motion.demos.pick_place_demo`
+neu auf und validiert sie gegen die tatsächliche URDF. Modellbezogene Beispiel-Jointwerte
+sind Teach-in-Daten; Solver und Taskgenerator enthalten keine SO-spezifischen Algorithmen.

@@ -1,0 +1,22 @@
+{
+  "verified_at": "2026-11-08T01:15:43.930087+00:00",
+  "model": "so101_follower",
+  "source_revision": "a758567c3978dfeefe282ede0500085a48fe8f78",
+  "native_renderer": "OpenGL meshes \u00b7 17/17 visuals \u00b7 original geometry",
+  "arm_axes": 5,
+  "ik_exact": true,
+  "failed_ik_not_applied": true,
+  "wizard_pages": 7,
+  "generated_task_steps": 13,
+  "cube_attachment_and_release": true,
+  "pause_resume_stop_reset": true,
+  "step_reorder_and_single_compute": true,
+  "project_roundtrip": true,
+  "hardware_access": false,
+  "ros_docker_started": false,
+  "screenshots": [
+    "docs/kinematics.png",
+    "docs/pick-place-editor.png",
+    "docs/pick-place-wizard.png"
+  ]
+}

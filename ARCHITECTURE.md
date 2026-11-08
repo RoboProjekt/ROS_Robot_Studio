@@ -8,6 +8,8 @@
 | `gui` | Vier Qt-Tabs, Assistent, Dialoge, Status, Worker, Theme und Strukturviewer |
 | `core` | Validierte Datenverträge und XDG-Einstellungen |
 | `projects` | Atomisches YAML-Speichern, Laden und URDF-Assetkopien |
+| `kinematics` | URDF-Ketten, Rang-/Konditionsanalyse, austauschbarer optionaler SciPy-IK-Solver |
+| `motion` | Framed Teach-in, versionierte Tasks, Pick-and-Place, kubische Trajektorien, Offline-Backend |
 | `robots` | Model Manager, Quell-Locks, STL-Import und gemeinsame homogene Vorwärtskinematik |
 | `ros_bridge` | Austauschbarer Signalvertrag, Offline-Transport, rosbridge-Client, Messpuffer |
 | `runtime` | Docker SDK, Status, Registry-Katalog, Installation, Start/Stop, Healthchecks |
@@ -125,7 +127,7 @@ exakt überprüfte installierte Revisionen. Ein File-Lock serialisiert Installat
 Alle diese I/O-Operationen laufen über den vorhandenen TaskRunner. Die XDG-Pfadverwaltung
 liegt jetzt unabhängig in `core.paths`; `core.settings.xdg_path` bleibt kompatibel verfügbar.
 
-Projektformat v2 speichert portable Modellreferenzen, Modellversion/-revision,
+Der zuvor eingeführte Projektformat-v2-Stand speichert portable Modellreferenzen, Modellversion/-revision,
 Gelenkwerte, Endeffektor und vorbereitete Backendzustände. v1-Dateien werden im Speicher
 angehoben. Eigene importierte URDFs behalten relative STL-Assets beim Speichern/Export;
 Katalogmodelle werden aus dem zentralen XDG-Datenverzeichnis aufgelöst und bei Bedarf
@@ -149,3 +151,41 @@ Die mitgelieferte unkalibrierte Implementierung verweigert jede Hardware-/ROS-Ab
 Isaac Sim ist ausschließlich deklarative Planung (USD-Pfad null, Mapping unkonfiguriert).
 Es werden keine Motorbefehle erzeugt, keine LeRobot-/Isaac-Bibliotheken installiert und
 keine Hardwaretreiber importiert.
+
+## Universelle Kinematik und Bewegungsprogramme (Format v3)
+
+`UniversalKinematicsEngine` nutzt `RobotModel.transforms` aus dem vorhandenen Parser.
+Ketten entstehen aus Parent/Child-Pfaden; Fixed/Mimic/Continuous/Prismatic/Revolute,
+Ursprünge, Achsen und dynamische Limits bleiben URDF-getrieben. Modell-Meshes sind optional.
+Jacobi-Rangtests erkennen eingeschränkte Posekontrolle; Konditionsdiagnosen sind numerisch.
+
+```text
+MotionWorkspace / PickPlaceWizard / PositionManager
+                  │
+       KinematicChain / SolverManager ─── optional SciPy 1.15.3
+                  │                         │
+            TaskCompiler ◀──── validierte FK/IK-Endpunkte
+                  │
+        TrajectoryGenerator ─── Cubic + analytische Geschwindigkeits-/Beschleunigungspeaks
+                  │
+           CompiledTask ─── CollisionValidator (noch unavailable; hardware_ready=false)
+                  │
+           ExecutionBackend
+                  ├── OfflinePreviewBackend ─── bestehender RobotView + virtueller Würfel
+                  └── ROS 2 / Isaac Sim / Hardware: nur Erweiterungsverträge
+```
+
+Numerische Suchläufe und vollständige Taskvalidierungen laufen im eigenen seriellen
+TaskRunner. Qt-Signale/Timer aktualisieren die Oberfläche; Stop und Kontextänderungen
+brechen Suchen kooperativ ab und verhindern die Übernahme veralteter Ergebnisse.
+Ein Robotertausch verwirft die berechnete Kette und Trajektorie. Original-URDFs werden
+nicht verändert. `motion.schema` und `core.validation` vermeiden zyklische Datenmodellimporte.
+SciPy wird erst im Solver geladen; die Basisanwendung bleibt ohne es startbar.
+
+`SavedPosition` bindet Jointwerte per Modellsignatur, kartesische Ziele per explizitem
+Frame/Tool. `MotionTask` enthält IDs, geordnete typisierte Schritte, Home, Bewegungsparameter
+und optionales virtuelles Objekt. Manuelle/Saved-PoseProvider funktionieren; externe TF-/Vision-
+Provider sind vorbereitet. Weitere Steuerstrukturen erfordern eine künftige Schema-/Interpreter-
+Erweiterung. Eine fremde Bibliothek kann keine Hardwarefreigabe aus einem IK-Erfolg ableiten.
+
+Ausführliche Konventionen, Algorithmusentscheidung und Grenzen: [KINEMATICS.md](docs/KINEMATICS.md).

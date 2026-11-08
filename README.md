@@ -2,10 +2,11 @@
 
 Eine startbare Desktop-Werkbank für ROS-2-Roboterprojekte. Der MVP bietet vier Tabs,
 URDF-Struktur- und Meshansicht, SO-101-Follower-Modellinstallation, virtuelle Gelenksteuerung,
+universelle URDF-basierte FK/IK, Teach-in, Pick-and-Place-Wizard, Offline-Trajektorien,
 Sensor- und TF-Konfiguration, portable YAML-Projekte und Live-Plots.
 Er funktioniert ohne Docker, ROS-Installation oder Roboterhardware.
 
-![SO-101 Follower mit originalen Meshes](docs/so101-pose.png)
+![Pick-and-Place mit originalem SO-101 und virtuellem Objekt](docs/pick-place-editor.png)
 ![Live Monitoring](docs/studio-monitoring.png)
 
 ## Start unter Ubuntu 22.04
@@ -74,18 +75,43 @@ Gelenkwerte, Modellrevision und Endeffektor werden normal mit dem Projekt gespei
 Das Beispiel `examples/so101/so101.studio.yaml` enthält nur eine portable Modellreferenz.
 Anleitung, Lizenz, Revision, Meshdetails und Abnahmetest: [SO101.md](docs/SO101.md).
 
+## Kinematics, Teach-in und Pick-and-Place
+
+```bash
+./start.sh --pick-place-demo
+```
+
+Öffnet die neu validierte **SO101_PickAndPlace_Demo**, bei fehlendem Modell mit
+Installationsangebot und generischer Offline-Alternative. Rechts im Robot-Tab:
+**Kinematics & Motion** für Chain-Analyse und kartesische Ziele, **Positions & Tasks**
+für Teach-in, Schritt-Editor, den siebenstufigen Pick-and-Place-Wizard und Wiedergabe.
+Die optionale SciPy-Komponente ist hier installiert. Auf einem neuen Rechner unter
+**Setup assistant → Component verification → Install Universal Kinematics Support**
+installieren oder `.venv/bin/python -m pip install -r requirements-kinematics.lock.txt` verwenden.
+
+Position Only, Toolachsenrichtung und Full Pose (bei geeignetem Kettenrang) verwenden
+dieselbe universelle numerische IK. Beim SO-101 bleiben fünf Armachsen vom Greifer
+getrennt; Full Pose ist deaktiviert. Joint- und kartesische Positionen sowie Tasks werden
+im Projektformat v3 gespeichert; v1/v2 bleiben ladbar. Alle Bewegungen sind kubische
+Gelenkraumtrajektorien; der Würfel folgt einer vereinfachten visuellen Greiferkopplung.
+
+**Collision checking not available – preview only.** Es gibt keine Hardwareausführung,
+Kollisionsprüfung, Kontaktphysik oder geradlinige kartesische Bahn. ROS-/Isaac-Ausführung
+sind vorbereitete Schnittstellen. [Bedienung und Grenzen](docs/KINEMATICS.md),
+[aktueller Abschlussbericht](docs/KINEMATICS_REPORT.md).
+
 ## Stand und Grenzen
 
 Der native OpenGL-Abnahmetest hat den echten SO-101 angezeigt, Qt-Regler und Kamera
 betätigt, FK mit Meshtransformationen verglichen und die Pose nach Speichern/Laden
-wiederhergestellt. **73 Tests bestanden**, drei ROS-Container-Tests wurden wegen fehlender
+wiederhergestellt. **73 Tests bestanden (SO-101-Erweiterung vor Kinematik)**, drei ROS-Container-Tests wurden wegen fehlender
 Docker-Zugriffsrechte übersprungen. [Aktueller SO-101-Bericht](docs/SO101_REPORT.md).
 Der [Prüfbericht der Grundanwendung](docs/VERIFICATION.md) bleibt als historischer Stand erhalten.
 
 Humble, Jazzy und Lyrical besitzen implementierte Runtime-Buildpfade und rosbridge-
 Demoanbindung; tatsächliche ROS-Containerläufe bleiben hier ungeprüft. Das SO-101-Modell
 benötigt diese Runtimes nicht. Hardware-/LeRobot-Ansteuerung, kalibrierte Joint-Mappings,
-Controller-/IK-Ausführung, Isaac Sim, TF-Publishing und Kamerakalibrierung sind noch offen.
+Controller-/Hardwareausführung, Isaac Sim, TF-Publishing und Kamerakalibrierung sind noch offen.
 Sensorgrenzen sind **keine zertifizierten Sicherheitsfunktionen**.
 
 ## Dokumentation
@@ -95,6 +121,8 @@ Sensorgrenzen sind **keine zertifizierten Sicherheitsfunktionen**.
 - [Entwicklung, Tests und Docker-Builds](DEVELOPMENT.md)
 - [Projektformat](docs/PROJECT_FORMAT.md)
 - [Umsetzungsstand und nächste Schritte](ROADMAP.md)
+- [Kinematik und Pick-and-Place](docs/KINEMATICS.md)
+- [Aktueller Kinematik-Abschlussbericht](docs/KINEMATICS_REPORT.md)
 - [SO-101-Abschlussbericht](docs/SO101_REPORT.md)
 - [Historischer MVP-Abschlussbericht](docs/FINAL_REPORT.md)
 - [Drittanbieter-Lizenzen](THIRD_PARTY_LICENSES.md)

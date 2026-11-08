@@ -1,14 +1,14 @@
-# Projektformat v2
+# Projektformat v3
 
 UTF-8-YAML, validiert durch `core.models.Project`. Unbekannte Felder und unbekannte
 Formatversionen werden mit verständlichen Validierungsfehlern abgewiesen. YAML verwendet
-`safe_load`; URDF-XML wird mit defusedxml gelesen. UUIDs identifizieren Projekte und Sensoren. v1-Dateien werden beim Laden im Speicher
-auf v2 angehoben und erst beim bewussten Speichern als v2 geschrieben. Ältere Studio-
-Versionen können v2-Projekte nicht lesen; vorhandene v1-Quelldateien bleiben beim Laden erhalten.
+`safe_load`; URDF-XML wird mit defusedxml gelesen. UUIDs identifizieren Projekte, Sensoren, Positionen, Tasks und Schritte. v1-/v2-Dateien
+werden beim Laden im Speicher auf v3 angehoben und erst beim bewussten Speichern als v3
+geschrieben. Ältere Studio-Versionen können v3 nicht lesen; Quelldateien bleiben beim Laden erhalten.
 
 | Feld | Bedeutung |
 | --- | --- |
-| `format_version` | Neu: 2; Version 1 wird beim Laden migriert |
+| `format_version` | Neu: 3; Versionen 1 und 2 werden beim Laden migriert |
 | `id`, `name`, `description` | Identität und Beschreibung |
 | `default_ros` | Gespeicherte Präferenz: humble, jazzy oder lyrical |
 | `robot` | Profil-ID, Modell-ID/-version/-revision, URDF, Gelenkpositionen, Endeffektor, Mapping, geplantes Sim-Backend sowie Hardware/Controller/IK |
@@ -19,7 +19,7 @@ Versionen können v2-Projekte nicht lesen; vorhandene v1-Quelldateien bleiben be
 Ein vollständiges direkt ladbares Beispiel liegt unter `examples/generic_robot/demo.studio.yaml`.
 
 ```yaml
-format_version: 2
+format_version: 3
 id: research-arm-01
 name: Research Arm
 description: Laboratory configuration
@@ -111,3 +111,26 @@ Vollständiges Beispiel: `examples/so101/so101.studio.yaml`; weitere Details: [S
 Originalmodell-Dateien liegen unter `$XDG_DATA_HOME/ros-robot-studio/robots/` (Standard:
 `~/.local/share/ros-robot-studio/robots/`). Das ist persistente Modellablage, kein
 flüchtiger Buildcache. `installation.json` hält Quellrevision, Dateihashes und Zeitpunkt fest.
+
+## Kinematik und Bewegungen in v3
+
+| Feld | Inhalt |
+| --- | --- |
+| `kinematics` | Modellsignatur, Base/Tool, aktive Arm-Joints, Greifer-Joints, Bestätigung, Solver, IK-Modus, Toleranzen, Gewichte, feste Mehrfachstarts und Suchlimits |
+| `positions` | Benannte Jointpositionen mit Modellsignatur oder kartesische Posen mit explizitem Frame/Tool, XYZ/RPY, Modus und optionaler Toolachse |
+| `tasks` | Task-Schema 1, ID/Name, geordnete Schritte mit IDs/Aktionen/Positionsreferenzen, Home, MotionSettings, virtuelles Objekt, Extensions |
+| `motion` | Projektweite Vorschauparameter für neue Wizardtasks; Speed, ausdrücklich Demo-Geschwindigkeiten bei fehlenden Limits, Beschleunigungsoverrides und Mindestzeit |
+| `execution_backend` | Ausschließlich `offline`; keine implizite ROS-/Hardwareausführung |
+
+Interne Zahlen sind SI. Jede Taskkopie behält eigene MotionSettings. Schrittaktionen sind
+`move_joint`, `move_cartesian`, `open_gripper`, `close_gripper`, `wait`, `move_relative`, `home`.
+Greiferaktionen enthalten explizite URDF-SI-Werte. Relative Ziele enthalten Referenzframe,
+Translation und Rotation; diese definieren einen IK-Endpunkt, keine gerade kartesische Bahn.
+Attach/Release-Flags koppeln ausschließlich das optionale Visualisierungsobjekt.
+
+Vollständige Beispiele unter `src/ros_robot_studio/data/examples/*PickAndPlace_Demo.studio.yaml`.
+Ein Schema-1-Bibliotheksexport enthält `schema_version`, `positions` und `tasks` ohne
+Benutzerpfade. Robotersignaturen und Framebindungen werden beim Import erhalten; fremde
+Jointpositionen werden beim Aufruf abgewiesen, kartesische Ziele erneut gelöst. Berechnete
+IK-Kandidaten und Laufzeittrajektorien werden nicht als bereits gültige Ausführungsfreigaben
+persistiert. Nach Öffnen/Robotertausch wird vor Playback erneut kompiliert.

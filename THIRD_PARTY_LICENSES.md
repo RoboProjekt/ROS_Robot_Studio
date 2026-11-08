@@ -11,6 +11,7 @@ Dependencies are not relicensed by Studio. Their distributed notices remain auth
 | PyOpenGL | 3.1.9 | BSD-style license; original package notices apply |
 | filelock | 3.18.0 | Unlicense |
 | SO-101 follower URDF/STLs (downloaded separately) | Revision a758567c3978dfeefe282ede0500085a48fe8f78 | Apache-2.0; original LICENSE and source README retained beside model |
+| SciPy (optional kinematics) | 1.15.3 | BSD-3-Clause; bundled OpenBLAS and other notices in the wheel retain their licenses |
 | NumPy | 2.2.6 | BSD-3-Clause; bundled numerical-library notices also apply |
 | Pydantic | 2.10.6 | MIT |
 | PyYAML | 6.0.2 | MIT |
