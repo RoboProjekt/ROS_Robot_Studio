@@ -1071,6 +1071,8 @@ class MotionWorkspace(QObject):
         self.progress.setValue(0)
 
     def tick(self):
+        if self.main.closed:
+            return
         now = time.monotonic()
         delta = now - self.last_tick
         self.last_tick = now

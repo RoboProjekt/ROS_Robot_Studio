@@ -2,6 +2,7 @@
 
 import math
 from itertools import product
+from uuid import uuid4
 
 import numpy as np
 from PySide6.QtCore import QPointF, Qt, QTimer, Signal
@@ -212,6 +213,7 @@ class RobotView(QWidget):
                 return
             import pyqtgraph.opengl as gl
 
+            self.mesh_shader = studio_shader()
             self.gl_view = OrbitMeshView(self.reset_camera, self)
             self.gl_view.setBackgroundColor("#111b29")
             self.gl_layout.addWidget(self.gl_view)
@@ -232,7 +234,7 @@ class RobotView(QWidget):
                 faces=geometry.faces,
                 color=visual.color,
                 smooth=False,
-                shader=studio_shader(),
+                shader=self.mesh_shader,
                 drawEdges=False,
                 glOptions="opaque",
             )
@@ -293,7 +295,7 @@ class RobotView(QWidget):
                     faces=faces,
                     color=(1.0, 0.65, 0.15, 1.0),
                     smooth=False,
-                    shader=studio_shader(),
+                    shader=self.mesh_shader,
                     glOptions="opaque",
                 )
                 self.object_item.setTransform(QMatrix4x4(*self.object_transform.flatten().tolist()))
@@ -401,32 +403,38 @@ def OrbitMeshView(reset_callback, parent):
 
 
 def studio_shader():
-    """Camera-relative fill lighting; original URDF material colors are retained."""
+    """Viewer-owned program: GL handles cannot outlive their OpenGL context.
+
+    PyQtGraph's named program registry caches compiled GL identifiers globally.
+    Give each viewer its own program so destroying one window cannot leave the
+    next window with a shader ID from its destroyed, unshared context.
+    """
     from pyqtgraph.opengl import shaders
 
-    if "studio_lit" not in shaders.ShaderProgram.names:
-        shaders.ShaderProgram(
-            "studio_lit",
-            [
-                shaders.VertexShader("""
-                varying vec3 normal;
-                void main() {
-                    normal = normalize(gl_NormalMatrix * gl_Normal);
-                    gl_FrontColor = gl_Color;
-                    gl_BackColor = gl_Color;
-                    gl_Position = ftransform();
-                }
-            """),
-                shaders.FragmentShader("""
-                varying vec3 normal;
-                void main() {
-                    vec3 n = normalize(normal);
-                    if (!gl_FrontFacing) n = -n;
-                    float key = max(dot(n, normalize(vec3(0.4, -0.3, 1.0))), 0.0);
-                    float fill = max(dot(n, normalize(vec3(-0.6, 0.4, 0.5))), 0.0);
-                    gl_FragColor = vec4(gl_Color.rgb * (0.40 + 0.45 * key + 0.15 * fill), gl_Color.a);
-                }
-            """),
-            ],
-        )
-    return "studio_lit"
+    name = "studio_lit_" + uuid4().hex
+    program = shaders.ShaderProgram(
+        name,
+        [
+            shaders.VertexShader("""
+            varying vec3 normal;
+            void main() {
+                normal = normalize(gl_NormalMatrix * gl_Normal);
+                gl_FrontColor = gl_Color;
+                gl_BackColor = gl_Color;
+                gl_Position = ftransform();
+            }
+        """),
+            shaders.FragmentShader("""
+            varying vec3 normal;
+            void main() {
+                vec3 n = normalize(normal);
+                if (!gl_FrontFacing) n = -n;
+                float key = max(dot(n, normalize(vec3(0.4, -0.3, 1.0))), 0.0);
+                float fill = max(dot(n, normalize(vec3(-0.6, 0.4, 0.5))), 0.0);
+                gl_FragColor = vec4(gl_Color.rgb * (0.40 + 0.45 * key + 0.15 * fill), gl_Color.a);
+            }
+        """),
+        ],
+    )
+    del shaders.ShaderProgram.names[name]
+    return program

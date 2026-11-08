@@ -31,6 +31,7 @@ from ros_robot_studio.core.robot_state import RobotStateManager
 from ros_robot_studio.core.settings import Settings, xdg_path
 from ros_robot_studio.gui.motion_workspace import MotionWorkspace
 from ros_robot_studio.gui.panels import MonitoringPanel, RobotPanel, RuntimePanel, SensorPanel
+from ros_robot_studio.gui.plots import close_plot
 from ros_robot_studio.gui.robot_monitor import StateSignals
 from ros_robot_studio.gui.sensor_dialog import SensorDialog
 from ros_robot_studio.gui.theme import DARK, LIGHT
@@ -546,6 +547,8 @@ class MainWindow(QMainWindow):
         self.mark_dirty()
 
     def refresh_model_catalog(self):
+        if self.closed:
+            return
         if self.runner.busy:
             QTimer.singleShot(100, self.refresh_model_catalog)
             return
@@ -893,6 +896,9 @@ class MainWindow(QMainWindow):
         self.transport.topic_info(topic)
 
     def receive_message(self, topic, message):
+        # Disconnecting a signal does not remove deliveries already queued by Qt.
+        if self.closed:
+            return
         self.monitor.receive(topic, message)
         if (
             self.mode == "ros"
@@ -947,12 +953,16 @@ class MainWindow(QMainWindow):
             )
 
     def connection_status(self, status):
+        if self.closed:
+            return
         self.ros_status = status
         self.monitor.connection.setText(status)
         self.runtime.ros_status.setText("Mode: " + self.mode + " · " + status)
         self.update_title()
 
     def transport_error(self, error):
+        if self.closed:
+            return
         self.monitor.errors.setText(error[:220])
         self.activity("ROS: " + error)
 
@@ -998,7 +1008,7 @@ class MainWindow(QMainWindow):
         self.runtime.remove.setEnabled(not busy and self.docker_status.available)
 
     def refresh_runtime(self):
-        if self.runner.busy:
+        if self.closed or self.runner.busy:
             return
 
         def done(status):
@@ -1157,7 +1167,7 @@ class MainWindow(QMainWindow):
         self.start_ros()
 
     def ros_start_failed(self):
-        if self.mode != "ros" or self.ros_execution.ready():
+        if self.closed or self.mode != "ros" or self.ros_execution.ready():
             return
         if self.runner.busy:
             QTimer.singleShot(100, self.ros_start_failed)
@@ -1168,6 +1178,8 @@ class MainWindow(QMainWindow):
         self.request_offline()
 
     def execution_changed(self, status):
+        if self.closed:
+            return
         if self.ros_execution.ready():
             self.ros_start_deadline.stop()
         if not hasattr(self, "motion"):
@@ -1300,7 +1312,7 @@ class MainWindow(QMainWindow):
             self.runner.run(lambda _: self.manager.logs(identifier), self.activity)
 
     def check_health(self):
-        if self.container_id and not self.runner.busy:
+        if not self.closed and self.container_id and not self.runner.busy:
             identifier = self.container_id
 
             def done(result):
@@ -1476,6 +1488,9 @@ class MainWindow(QMainWindow):
         )
 
     def closeEvent(self, event):
+        if self.closed:
+            event.accept()
+            return
         if self.motion.runner.busy or (self.motion.wizard and self.motion.wizard.runner.busy):
             self.motion.cancel_work()
             if self.motion.wizard:
@@ -1501,8 +1516,10 @@ class MainWindow(QMainWindow):
         self.motion.shutdown()
         self.timer.stop()
         self.health_timer.stop()
+        self.ros_start_deadline.stop()
         self.detach_transport()
-        if self.monitor.plot.plotItem is not None:
-            self.monitor.plot.close()
-        self.monitor.robot_state.plot.close()
+        self.monitor.field_list.blockSignals(True)
+        self.monitor.curves.clear()
+        close_plot(self.monitor.plot)
+        self.monitor.robot_state.shutdown()
         event.accept()

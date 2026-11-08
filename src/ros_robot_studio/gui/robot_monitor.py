@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ros_robot_studio.gui.plots import close_plot
 from ros_robot_studio.gui.robot_view import RobotView
 from ros_robot_studio.gui.widgets import label
 from ros_robot_studio.ros_bridge.transport import SampleBuffer
@@ -76,6 +77,12 @@ class RobotStatePanel(QWidget):
         self.time_basis = None
         self.available = set()
         self.restore_fields = []
+
+    def shutdown(self):
+        self.fields.blockSignals(True)
+        self.curves.clear()
+        self.state = None
+        close_plot(self.plot)
 
     def showEvent(self, event):
         super().showEvent(event)

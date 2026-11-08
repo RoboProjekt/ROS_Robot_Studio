@@ -5,7 +5,7 @@ Dependencies are not relicensed by Studio. Their distributed notices remain auth
 
 | Component | Version used | Upstream license / notice |
 | --- | --- | --- |
-| PySide6, Shiboken6, bundled Qt | 6.8.3 | LGPL-3.0 / GPL-3.0 / commercial options, module dependent. This application uses the open-source distribution. See [Qt for Python licensing](https://doc.qt.io/qtforpython-6/licenses.html) and bundled package notices. |
+| PySide6, Shiboken6, bundled Qt | 6.9.3 | LGPL-3.0 / GPL-3.0 / commercial options, module dependent. This application uses the open-source distribution. See [Qt for Python licensing](https://doc.qt.io/qtforpython-6/licenses.html) and bundled package notices. |
 | PyQtGraph | 0.13.7 | MIT |
 | trimesh | 4.6.8 | MIT |
 | PyOpenGL | 3.1.9 | BSD-style license; original package notices apply |

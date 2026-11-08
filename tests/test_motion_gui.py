@@ -240,3 +240,15 @@ def test_ros_settings_mapping_and_network_opt_in(window, qtbot):
     dialog.mapping.item(1, 1).setText(dialog.mapping.item(0, 1).text())
     with pytest.raises(ValueError):
         dialog.values()
+
+
+def test_repeated_window_close_is_idempotent(window, qtbot):
+    window.dirty = False
+    window.close()
+    window.close()
+    qtbot.wait(100)
+    assert window.closed
+    import shiboken6
+
+    assert not shiboken6.isValid(window.monitor.robot_state.plot)
+    assert not window.timer.isActive() and not window.motion.timer.isActive()

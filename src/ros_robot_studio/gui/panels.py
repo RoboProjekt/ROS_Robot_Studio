@@ -100,7 +100,7 @@ class RobotPanel(QWidget):
         controls = QHBoxLayout()
         controls.addWidget(button("Zero / default pose", self.joint_controls.reset_defaults))
         controls.addWidget(button("Save pose with project", self.save_pose_requested.emit))
-        self.follow_live = QCheckBox("Follow generic demo joints")
+        self.follow_live = QCheckBox("Follow generic demo joints", self)
         self.follow_live.setToolTip(
             "Preview only. Catalog robots never receive uncalibrated ROS or hardware mappings."
         )
