@@ -1610,6 +1610,15 @@ class MainWindow(QMainWindow):
                 self.dirty = False
                 event.ignore()
                 return
+        if self.wizard and (
+            self.wizard.runner.busy or self.wizard.process or self.wizard.verifying
+        ):
+            self.statusBar().showMessage(
+                "Waiting for the setup operation to finish before closing.", 5000
+            )
+            QTimer.singleShot(100, self, self.close)
+            event.ignore()
+            return
         if self.motion.runner.busy or (self.motion.wizard and self.motion.wizard.runner.busy):
             self.motion.cancel_work()
             if self.motion.wizard:

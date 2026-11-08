@@ -3,7 +3,7 @@
 import logging
 import time
 
-from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal
+from PySide6.QtCore import QObject, QRunnable, Qt, QThreadPool, Signal, Slot
 
 log = logging.getLogger(__name__)
 
@@ -50,6 +50,7 @@ class TaskRunner(QObject):
         self.pool.setMaxThreadCount(1)
         self.tasks = set()
         self.outcomes = {}
+        self.callbacks = {}
 
     @property
     def busy(self):
@@ -58,14 +59,38 @@ class TaskRunner(QObject):
     def run(self, function, done=lambda result: None, error=None):
         worker = Worker(function)
         self.tasks.add(worker)
-        worker.signals.done.connect(lambda result: self.outcomes.update({worker: (done, result)}))
-        worker.signals.error.connect(
-            lambda message: self.outcomes.update({worker: (error or self.failed.emit, message)})
-        )
-        worker.signals.progress.connect(self.progress.emit)
-        worker.signals.finished.connect(lambda: self._finish(worker))
+        self.callbacks[worker.signals] = (worker, done, error or self.failed.emit)
+        # Real receiver slots give queued events a QObject lifetime and GUI-thread
+        # context. Qt drops them when this runner is destroyed, including events
+        # already queued before the parent window was deleted.
+        worker.signals.done.connect(self._result, Qt.ConnectionType.QueuedConnection)
+        worker.signals.error.connect(self._error, Qt.ConnectionType.QueuedConnection)
+        worker.signals.progress.connect(self._progress, Qt.ConnectionType.QueuedConnection)
+        worker.signals.finished.connect(self._finished, Qt.ConnectionType.QueuedConnection)
         self.busy_changed.emit(True)
         self.pool.start(worker)
+
+    @Slot(object)
+    def _result(self, result):
+        job = self.callbacks.get(self.sender())
+        if job:
+            self.outcomes[job[0]] = (job[1], result)
+
+    @Slot(str)
+    def _error(self, message):
+        job = self.callbacks.get(self.sender())
+        if job:
+            self.outcomes[job[0]] = (job[2], message)
+
+    @Slot(str)
+    def _progress(self, message):
+        self.progress.emit(message)
+
+    @Slot()
+    def _finished(self):
+        job = self.callbacks.pop(self.sender(), None)
+        if job:
+            self._finish(job[0])
 
     def _finish(self, worker):
         self.tasks.discard(worker)
