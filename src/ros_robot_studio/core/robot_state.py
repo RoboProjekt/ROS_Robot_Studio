@@ -215,6 +215,15 @@ class RobotStateManager:
         state = self.backend_snapshot(backend_id)
         return not state or not state.valid or self.clock() - state.timestamp > maximum_age
 
+    def invalidate_backend(self, backend_id, reason):
+        with self.lock:
+            context = self.backend_sources.get(backend_id)
+            if context:
+                state = replace(context["state"], valid=False, diagnostic=reason)
+                context["state"] = state
+                if self.state.backend_id == backend_id:
+                    self._publish(replace(state, sequence=self.state.sequence + 1))
+
     def activate_backend(self, backend_id):
         with self.lock:
             context = self.backend_sources[backend_id]
@@ -320,6 +329,12 @@ class RobotStateManager:
                 sequence=state.sequence + 1,
             )
             if context is not None:
+                if self.state.backend_id == lease.backend_id:
+                    updated = replace(
+                        updated,
+                        execution_status=self.state.execution_status,
+                        progress=self.state.progress,
+                    )
                 context["state"] = updated
                 if self.state.backend_id == lease.backend_id:
                     self._publish(replace(updated, sequence=self.state.sequence + 1))

@@ -22,7 +22,9 @@ class BackendProfile(Model):
     )
     name: str = Field(min_length=1, max_length=120)
     backend_type: BackendType = "ros_demo"
-    domain_id: int = Field(default=DEFAULTS["ros_demo"]["domain_id"], ge=0, le=MAX_DOMAIN)
+    domain_id: int = Field(
+        default=DEFAULTS["ros_demo"]["domain_id"], ge=0, le=MAX_DOMAIN, strict=True
+    )
     distribution: Literal["humble", "jazzy", "lyrical"] = "humble"
     middleware: Literal["rmw_fastrtps_cpp"] = "rmw_fastrtps_cpp"
     connection_mode: Literal["local_installation", "existing", "remote"] = "existing"
