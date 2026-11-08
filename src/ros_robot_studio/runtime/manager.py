@@ -17,6 +17,7 @@ import docker
 from docker.errors import NotFound
 from ros_robot_studio.core.models import RuntimeConfig
 from ros_robot_studio.runtime.catalog import catalog, inspect_registry
+from ros_robot_studio.runtime.docker_diagnostics import classify, create_client, snapshot
 
 OWNER = "io.ros-robot-studio.managed"
 VERSION = "0.1.0"
@@ -52,18 +53,21 @@ class RuntimeStatus:
     containers: dict[str, str] = field(default_factory=dict)
     reason: str = "ready"
     image_ids: dict[str, str] = field(default_factory=dict)
+    diagnostics: dict = field(default_factory=dict)
 
 
 class RuntimeManager:
     def __init__(self, client_factory=None):
-        self.client_factory = client_factory or (lambda: docker.from_env(timeout=15))
+        self.client_factory = client_factory or create_client
         self.specs = catalog()
 
     def status(self) -> RuntimeStatus:
         client = None
+        diagnostics = snapshot()
         try:
             client = self.client_factory()
             client.ping()
+            diagnostics["engine"] = "running (API verified)"
             installed = []
             image_ids = {}
             for identifier, spec in self.specs.items():
@@ -81,25 +85,22 @@ class RuntimeManager:
                 c.id: c.status for c in client.containers.list(all=True, filters={"label": OWNER})
             }
             return RuntimeStatus(
-                True, "Docker daemon reachable", installed, containers, image_ids=image_ids
+                True,
+                "Docker daemon reachable",
+                installed,
+                containers,
+                image_ids=image_ids,
+                diagnostics=diagnostics,
             )
         except Exception as exc:
-            text = str(exc)
-            reason = (
-                "permission_denied"
-                if isinstance(exc, PermissionError)
-                or "Permission" in text
-                or "permission denied" in text
-                else "not_installed"
-                if not shutil.which("docker")
-                else "daemon_unreachable"
+            reason, hint = classify(diagnostics, exc)
+            diagnostics["api_error"] = str(exc)
+            return RuntimeStatus(
+                False,
+                f"Docker · {reason}: {hint}\nAPI: {exc}",
+                reason=reason,
+                diagnostics=diagnostics,
             )
-            hint = (
-                " Add your user to docker only after reviewing its root-level privileges; log out/in. Rootless Docker is an alternative."
-                if reason == "permission_denied"
-                else " Check Docker Engine and its service."
-            )
-            return RuntimeStatus(False, f"Docker {reason}: {exc}." + hint, reason=reason)
         finally:
             if client:
                 client.close()

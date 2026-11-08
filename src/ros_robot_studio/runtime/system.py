@@ -27,4 +27,5 @@ def system_report() -> dict:
         "Docker CLI": shutil.which("docker") or "Not installed",
         "Docker daemon / permissions": docker.message,
         "docker_available": docker.available,
+        "Docker process diagnostics": docker.diagnostics,
     }
