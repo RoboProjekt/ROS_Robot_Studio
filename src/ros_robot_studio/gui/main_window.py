@@ -1559,10 +1559,18 @@ class MainWindow(QMainWindow):
         if self.closed:
             event.accept()
             return
-        if hasattr(self, "backend_workspace") and self.backend_workspace.close_pending():
-            self.dirty = False
-            event.ignore()
-            return
+        if hasattr(self, "backend_workspace") and (
+            self.backend_manager.sessions or self.isaac_processes.processes
+        ):
+            # Preserve the normal save/discard decision before asynchronous
+            # backend shutdown; a cancelled close must keep the sessions alive.
+            if not self.confirm_discard():
+                event.ignore()
+                return
+            if self.backend_workspace.close_pending():
+                self.dirty = False
+                event.ignore()
+                return
         if self.motion.runner.busy or (self.motion.wizard and self.motion.wizard.runner.busy):
             self.motion.cancel_work()
             if self.motion.wizard:

@@ -94,3 +94,23 @@ def test_monitor_resets_when_switching_backend_identity_of_same_type(window, qtb
     states.activate_backend("b")
     assert len(window.monitor.robot_state.buffer.samples) == 1
     assert window.monitor.robot_state.state.ros_domain == 4
+
+
+def test_cancelled_close_preserves_unsaved_project_and_connected_backends(window, monkeypatch):
+    from unittest.mock import Mock
+
+    pending = Mock(return_value=True)
+    original_confirm = window.confirm_discard
+    monkeypatch.setattr(window.backend_workspace, "close_pending", pending)
+    monkeypatch.setattr(window, "confirm_discard", lambda: False)
+    window.backend_manager.sessions["pending"] = object()
+    window.dirty = True
+    try:
+        assert not window.close()
+        assert window.dirty and not window.closed
+        assert "pending" in window.backend_manager.sessions
+        pending.assert_not_called()
+    finally:
+        window.backend_manager.sessions.clear()
+        window.dirty = False
+        monkeypatch.setattr(window, "confirm_discard", original_confirm)

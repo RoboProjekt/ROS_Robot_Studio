@@ -235,11 +235,21 @@ def main():
             while w.runner.busy or w.motion.runner.busy:
                 app.processEvents()
                 QTest.qWait(10)
-            w.backend_manager.disconnect_all()
-            wait(lambda: not w.backend_manager.sessions and not w.runner.busy, check_errors=False)
-            for identity in list(w.isaac_processes.processes):
-                w.isaac_processes.stop(identity)
-            wait(lambda: not w.isaac_processes.processes, timeout=25, check_errors=False)
+            if report:
+                # Exercise Studio's real asynchronous close path with both the
+                # ROS session and the owned simulator still connected.
+                w.dirty = False
+                w.close()
+                wait(lambda: w.closed, timeout=40, check_errors=False)
+                assert not w.backend_manager.sessions and not w.isaac_processes.processes
+            else:
+                w.backend_manager.disconnect_all()
+                wait(
+                    lambda: not w.backend_manager.sessions and not w.runner.busy, check_errors=False
+                )
+                for identity in list(w.isaac_processes.processes):
+                    w.isaac_processes.stop(identity)
+                wait(lambda: not w.isaac_processes.processes, timeout=25, check_errors=False)
             if report:
                 sdk_pid = report["scene"]["simulator_process_id"]
                 status_file = Path("/proc") / str(sdk_pid) / "stat"
@@ -248,6 +258,7 @@ def main():
                 )
                 report["owned_simulator_stopped"] = True
                 report["owned_ros_container_removed"] = True
+                report["studio_close_stops_owned_resources"] = True
                 Path("docs/isaac-backend-verification.json").write_text(
                     json.dumps(report, indent=2) + "\n"
                 )
