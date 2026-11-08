@@ -1,3 +1,5 @@
+> **Historische Übergabe, fortgesetzt am 8. November 2026.** Der spätere ausdrückliche Fortsetzungsauftrag hebt die unten dokumentierte Pause auf. WIP `0e93253` wurde beibehalten. Die neue Implementierung beginnt mit `55bf1b0` (Backend-Sitzungen) und `979973f` (GUI/Quellenwechsel). Die finale Code-Abnahme umfasst 185 bestandene Tests ohne Fehler oder übersprungene Fälle sowie separate Stress-/GUI-Läufe. Der aktuelle Stand und offene Grenzen stehen in [BACKEND_VERIFICATION.md](BACKEND_VERIFICATION.md). Die nachfolgenden Abschnitte dokumentieren den früheren Pausenstand und sind keine aktuelle Funktionsbewertung.
+
 # Entwicklungsübergabe: sichere Pause vor dem Codex-Update
 
 Stand: **8. November 2026**. Repository:

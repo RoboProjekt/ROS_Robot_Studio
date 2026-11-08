@@ -1,0 +1,15 @@
+{
+  "attempts": 100,
+  "passed": 100,
+  "failed": 0,
+  "dds_initialized": false,
+  "gui_initialized": false,
+  "expected_ros_environment_checked": true,
+  "fatal_python_errors": 0,
+  "python_binary_checksum_mismatches": false,
+  "missing_optional_package_documentation": true,
+  "original_container_core_dumps": "zero-byte files; no usable native backtrace",
+  "kernel_evidence": "SIGSEGV inside python3.10; additional independent Python setup and browser faults observed",
+  "root_cause_confirmed": false,
+  "global_system_settings_changed": false
+}

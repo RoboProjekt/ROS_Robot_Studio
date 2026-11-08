@@ -1,0 +1,135 @@
+{
+  "verified_at": "2026-11-08T19:05:30.611443+00:00",
+  "implementation_commit": "a2dd24d6f760abc085543885a0cf804835a0396d",
+  "baseline_wip": "0e93253",
+  "command": "env -u PYTHONPATH .venv/bin/pytest -q -x --run-docker --run-model-download --run-isaac",
+  "passed": 185,
+  "failed": 0,
+  "skipped": 0,
+  "elapsed_seconds": 601.88,
+  "static_checks": {
+    "ruff_lint": true,
+    "ruff_format_files": 114,
+    "dependency_check": true,
+    "git_diff_check": true
+  },
+  "packages": {
+    "PySide6": "6.9.3",
+    "shiboken6": "6.9.3",
+    "pyqtgraph": "0.13.7",
+    "numpy": "2.2.6",
+    "PyOpenGL": "3.1.9",
+    "scipy": "1.15.3"
+  },
+  "ros_distributions": [
+    "humble",
+    "jazzy",
+    "lyrical"
+  ],
+  "domains": [
+    0,
+    1,
+    2,
+    10,
+    11
+  ],
+  "stress": {
+    "rounds": 12,
+    "adapter_starts": 36,
+    "passed": 12,
+    "failed": 0,
+    "unexpected_restarts": 0,
+    "sequential_rounds": 6,
+    "overlapping_rounds": 6
+  },
+  "bridge_recovery": {
+    "humble": {
+      "intentional_child_kills": 3,
+      "successful_restarts": 2,
+      "budget_exhaustion_stops_runtime": true,
+      "read_only": true,
+      "service_responds_after_restart": true,
+      "hardware_access": false,
+      "owned_container_removed": true,
+      "owned_network_removed": true,
+      "websocket_port_released": true
+    },
+    "jazzy": {
+      "intentional_child_kills": 3,
+      "successful_restarts": 2,
+      "budget_exhaustion_stops_runtime": true,
+      "read_only": true,
+      "service_responds_after_restart": true,
+      "hardware_access": false,
+      "owned_container_removed": true,
+      "owned_network_removed": true,
+      "websocket_port_released": true
+    },
+    "lyrical": {
+      "intentional_child_kills": 3,
+      "successful_restarts": 2,
+      "budget_exhaustion_stops_runtime": true,
+      "read_only": true,
+      "service_responds_after_restart": true,
+      "hardware_access": false,
+      "owned_container_removed": true,
+      "owned_network_removed": true,
+      "websocket_port_released": true
+    }
+  },
+  "motion_failure": {
+    "humble": {
+      "failure_detected_seconds": 0.06644381501246244,
+      "gui_error_visible": true,
+      "no_automatic_resume": true,
+      "other_backend_task_succeeded": true
+    },
+    "jazzy": {
+      "failure_detected_seconds": 0.06903320900164545,
+      "gui_error_visible": true,
+      "no_automatic_resume": true,
+      "other_backend_task_succeeded": true
+    },
+    "lyrical": {
+      "failure_detected_seconds": 0.06826728300075047,
+      "gui_error_visible": true,
+      "no_automatic_resume": true,
+      "other_backend_task_succeeded": true
+    }
+  },
+  "native_gui": {
+    "cycles": 20,
+    "opengl_cycles": 20,
+    "widget_leaks": 0,
+    "workers_joined": true
+  },
+  "asan": {
+    "cycles": 8,
+    "errors": 0,
+    "leak_detector_enabled": false,
+    "widget_leaks": 0
+  },
+  "isaac": {
+    "version": "5.1.0-rc.19+release.26219.9c81211b.gl",
+    "distribution": "humble",
+    "domain": 1,
+    "robot": "so101_follower",
+    "task_steps": 13,
+    "accepted_goals": 11,
+    "stable_targets": 11,
+    "jointstate_samples": 617,
+    "maximum_joint_error_at_confirmation": 0.00030000000000000003,
+    "zero_velocity_commands_observed": 68,
+    "source_files_unchanged": true,
+    "studio_close_stops_resources": true,
+    "physical_grasp_validated": false
+  },
+  "native_crash_root_cause_confirmed": false,
+  "root_cause_report": "ROS_BRIDGE_STABILITY.md",
+  "cleanup": {
+    "remaining_owned_containers": 0,
+    "remaining_owned_networks": 0,
+    "remaining_owned_isaac_processes": 0,
+    "docker_socket_acl": "awaiting user removal"
+  }
+}

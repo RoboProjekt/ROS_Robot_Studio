@@ -22,5 +22,27 @@
     0,
     0
   ],
-  "hardware_access": false
+  "hardware_access": false,
+  "start_mode": "overlapping",
+  "distinct_endpoints": true,
+  "runtime_health": {
+    "1": {
+      "restarts": 0,
+      "unexpected_exits": [],
+      "oom_killed": false,
+      "memory_bytes": 106864640
+    },
+    "2": {
+      "restarts": 0,
+      "unexpected_exits": [],
+      "oom_killed": false,
+      "memory_bytes": 106917888
+    },
+    "0": {
+      "restarts": 0,
+      "unexpected_exits": [],
+      "oom_killed": false,
+      "memory_bytes": 106999808
+    }
+  }
 }

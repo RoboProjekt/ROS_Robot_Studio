@@ -116,3 +116,9 @@ Konventionen: [KINEMATICS.md](docs/KINEMATICS.md).
 ROS-Action-Pause/Resume ist noch nicht implementiert; Stop cancelt, anschließend wird neu
 geplant. Kollisionsprüfung, Hardwarefreigabe und kalibrierte Sim-to-Real-Mappings bleiben
 zukünftige Arbeiten. [Aktueller Bericht](docs/ROS_RUNTIME_VERIFICATION.md).
+
+## Universelle Backends, Stand der Fortsetzung
+
+Implementiert: portable Backend-Profile, editierbare Domains, gleichzeitige Verbindungen, aktiver Quellenwechsel, GUI-Verwaltung, Diagnose, striktes Hardware-Monitoring und getrennte Isaac-Prozess-/Szenenverwaltung. Der vorhandene Taskeditor und die universelle Kinematik bleiben gemeinsam. Tatsächlich geprüfte Ergebnisse stehen im [Backend-Prüfbericht](docs/BACKEND_VERIFICATION.md).
+
+Weiter vorbereitet: native MuJoCo-Integration, Gazebo mit ros_gz_bridge, Hardwareausführung, Kameras/erweiterte Sensorbrücken sowie physikalische Griff-/Kontaktvalidierung. Die generierte Isaac-Szene ist eine Gelenk-/ROS-Simulation; ein stabiler realitätsnaher Objektgriff benötigt gesonderte Modellierung und Prüfung.

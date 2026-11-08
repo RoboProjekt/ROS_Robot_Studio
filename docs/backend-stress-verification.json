@@ -1,0 +1,681 @@
+{
+  "rounds": [
+    {
+      "round": 1,
+      "mode": "overlapping",
+      "passed": true,
+      "returncode": 0,
+      "unexpected_restarts": 0,
+      "unexpected_exits": 0,
+      "domain_result": {
+        "domains": [
+          1,
+          2,
+          0
+        ],
+        "network": "shared host loopback, explicit UDP whitelist; no shared IPC",
+        "same_topic_across_domains": true,
+        "isolated_jointstates": true,
+        "separate_ros_graphs": true,
+        "separate_subscriptions": true,
+        "observations": {
+          "1": 30,
+          "2": 30,
+          "0": 30
+        },
+        "hardware_read_only": true,
+        "hardware_execution_blocked": true,
+        "raw_publish_blocked": true,
+        "command_spy_counts": [
+          0,
+          0,
+          0
+        ],
+        "hardware_access": false,
+        "start_mode": "overlapping",
+        "distinct_endpoints": true,
+        "runtime_health": {
+          "1": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106950656
+          },
+          "2": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106868736
+          },
+          "0": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106926080
+          }
+        }
+      }
+    },
+    {
+      "round": 2,
+      "mode": "sequential",
+      "passed": true,
+      "returncode": 0,
+      "unexpected_restarts": 0,
+      "unexpected_exits": 0,
+      "domain_result": {
+        "domains": [
+          1,
+          2,
+          0
+        ],
+        "network": "shared host loopback, explicit UDP whitelist; no shared IPC",
+        "same_topic_across_domains": true,
+        "isolated_jointstates": true,
+        "separate_ros_graphs": true,
+        "separate_subscriptions": true,
+        "observations": {
+          "1": 30,
+          "2": 30,
+          "0": 30
+        },
+        "hardware_read_only": true,
+        "hardware_execution_blocked": true,
+        "raw_publish_blocked": true,
+        "command_spy_counts": [
+          0,
+          0,
+          0
+        ],
+        "hardware_access": false,
+        "start_mode": "sequential",
+        "distinct_endpoints": true,
+        "runtime_health": {
+          "1": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106983424
+          },
+          "2": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 107171840
+          },
+          "0": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106954752
+          }
+        }
+      }
+    },
+    {
+      "round": 3,
+      "mode": "overlapping",
+      "passed": true,
+      "returncode": 0,
+      "unexpected_restarts": 0,
+      "unexpected_exits": 0,
+      "domain_result": {
+        "domains": [
+          1,
+          2,
+          0
+        ],
+        "network": "shared host loopback, explicit UDP whitelist; no shared IPC",
+        "same_topic_across_domains": true,
+        "isolated_jointstates": true,
+        "separate_ros_graphs": true,
+        "separate_subscriptions": true,
+        "observations": {
+          "1": 30,
+          "2": 30,
+          "0": 30
+        },
+        "hardware_read_only": true,
+        "hardware_execution_blocked": true,
+        "raw_publish_blocked": true,
+        "command_spy_counts": [
+          0,
+          0,
+          0
+        ],
+        "hardware_access": false,
+        "start_mode": "overlapping",
+        "distinct_endpoints": true,
+        "runtime_health": {
+          "1": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106844160
+          },
+          "2": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106876928
+          },
+          "0": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106860544
+          }
+        }
+      }
+    },
+    {
+      "round": 4,
+      "mode": "sequential",
+      "passed": true,
+      "returncode": 0,
+      "unexpected_restarts": 0,
+      "unexpected_exits": 0,
+      "domain_result": {
+        "domains": [
+          1,
+          2,
+          0
+        ],
+        "network": "shared host loopback, explicit UDP whitelist; no shared IPC",
+        "same_topic_across_domains": true,
+        "isolated_jointstates": true,
+        "separate_ros_graphs": true,
+        "separate_subscriptions": true,
+        "observations": {
+          "1": 30,
+          "2": 30,
+          "0": 30
+        },
+        "hardware_read_only": true,
+        "hardware_execution_blocked": true,
+        "raw_publish_blocked": true,
+        "command_spy_counts": [
+          0,
+          0,
+          0
+        ],
+        "hardware_access": false,
+        "start_mode": "sequential",
+        "distinct_endpoints": true,
+        "runtime_health": {
+          "1": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106967040
+          },
+          "2": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106876928
+          },
+          "0": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106864640
+          }
+        }
+      }
+    },
+    {
+      "round": 5,
+      "mode": "overlapping",
+      "passed": true,
+      "returncode": 0,
+      "unexpected_restarts": 0,
+      "unexpected_exits": 0,
+      "domain_result": {
+        "domains": [
+          1,
+          2,
+          0
+        ],
+        "network": "shared host loopback, explicit UDP whitelist; no shared IPC",
+        "same_topic_across_domains": true,
+        "isolated_jointstates": true,
+        "separate_ros_graphs": true,
+        "separate_subscriptions": true,
+        "observations": {
+          "1": 30,
+          "2": 30,
+          "0": 30
+        },
+        "hardware_read_only": true,
+        "hardware_execution_blocked": true,
+        "raw_publish_blocked": true,
+        "command_spy_counts": [
+          0,
+          0,
+          0
+        ],
+        "hardware_access": false,
+        "start_mode": "overlapping",
+        "distinct_endpoints": true,
+        "runtime_health": {
+          "1": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106942464
+          },
+          "2": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106860544
+          },
+          "0": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106860544
+          }
+        }
+      }
+    },
+    {
+      "round": 6,
+      "mode": "sequential",
+      "passed": true,
+      "returncode": 0,
+      "unexpected_restarts": 0,
+      "unexpected_exits": 0,
+      "domain_result": {
+        "domains": [
+          1,
+          2,
+          0
+        ],
+        "network": "shared host loopback, explicit UDP whitelist; no shared IPC",
+        "same_topic_across_domains": true,
+        "isolated_jointstates": true,
+        "separate_ros_graphs": true,
+        "separate_subscriptions": true,
+        "observations": {
+          "1": 30,
+          "2": 30,
+          "0": 30
+        },
+        "hardware_read_only": true,
+        "hardware_execution_blocked": true,
+        "raw_publish_blocked": true,
+        "command_spy_counts": [
+          0,
+          0,
+          0
+        ],
+        "hardware_access": false,
+        "start_mode": "sequential",
+        "distinct_endpoints": true,
+        "runtime_health": {
+          "1": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106971136
+          },
+          "2": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106852352
+          },
+          "0": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106917888
+          }
+        }
+      }
+    },
+    {
+      "round": 7,
+      "mode": "overlapping",
+      "passed": true,
+      "returncode": 0,
+      "unexpected_restarts": 0,
+      "unexpected_exits": 0,
+      "domain_result": {
+        "domains": [
+          1,
+          2,
+          0
+        ],
+        "network": "shared host loopback, explicit UDP whitelist; no shared IPC",
+        "same_topic_across_domains": true,
+        "isolated_jointstates": true,
+        "separate_ros_graphs": true,
+        "separate_subscriptions": true,
+        "observations": {
+          "1": 30,
+          "2": 30,
+          "0": 30
+        },
+        "hardware_read_only": true,
+        "hardware_execution_blocked": true,
+        "raw_publish_blocked": true,
+        "command_spy_counts": [
+          0,
+          0,
+          0
+        ],
+        "hardware_access": false,
+        "start_mode": "overlapping",
+        "distinct_endpoints": true,
+        "runtime_health": {
+          "1": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106876928
+          },
+          "2": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106881024
+          },
+          "0": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106864640
+          }
+        }
+      }
+    },
+    {
+      "round": 8,
+      "mode": "sequential",
+      "passed": true,
+      "returncode": 0,
+      "unexpected_restarts": 0,
+      "unexpected_exits": 0,
+      "domain_result": {
+        "domains": [
+          1,
+          2,
+          0
+        ],
+        "network": "shared host loopback, explicit UDP whitelist; no shared IPC",
+        "same_topic_across_domains": true,
+        "isolated_jointstates": true,
+        "separate_ros_graphs": true,
+        "separate_subscriptions": true,
+        "observations": {
+          "1": 30,
+          "2": 30,
+          "0": 30
+        },
+        "hardware_read_only": true,
+        "hardware_execution_blocked": true,
+        "raw_publish_blocked": true,
+        "command_spy_counts": [
+          0,
+          0,
+          0
+        ],
+        "hardware_access": false,
+        "start_mode": "sequential",
+        "distinct_endpoints": true,
+        "runtime_health": {
+          "1": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 107278336
+          },
+          "2": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 107159552
+          },
+          "0": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106815488
+          }
+        }
+      }
+    },
+    {
+      "round": 9,
+      "mode": "overlapping",
+      "passed": true,
+      "returncode": 0,
+      "unexpected_restarts": 0,
+      "unexpected_exits": 0,
+      "domain_result": {
+        "domains": [
+          1,
+          2,
+          0
+        ],
+        "network": "shared host loopback, explicit UDP whitelist; no shared IPC",
+        "same_topic_across_domains": true,
+        "isolated_jointstates": true,
+        "separate_ros_graphs": true,
+        "separate_subscriptions": true,
+        "observations": {
+          "1": 30,
+          "2": 30,
+          "0": 30
+        },
+        "hardware_read_only": true,
+        "hardware_execution_blocked": true,
+        "raw_publish_blocked": true,
+        "command_spy_counts": [
+          0,
+          0,
+          0
+        ],
+        "hardware_access": false,
+        "start_mode": "overlapping",
+        "distinct_endpoints": true,
+        "runtime_health": {
+          "1": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106913792
+          },
+          "2": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 107139072
+          },
+          "0": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106885120
+          }
+        }
+      }
+    },
+    {
+      "round": 10,
+      "mode": "sequential",
+      "passed": true,
+      "returncode": 0,
+      "unexpected_restarts": 0,
+      "unexpected_exits": 0,
+      "domain_result": {
+        "domains": [
+          1,
+          2,
+          0
+        ],
+        "network": "shared host loopback, explicit UDP whitelist; no shared IPC",
+        "same_topic_across_domains": true,
+        "isolated_jointstates": true,
+        "separate_ros_graphs": true,
+        "separate_subscriptions": true,
+        "observations": {
+          "1": 30,
+          "2": 30,
+          "0": 30
+        },
+        "hardware_read_only": true,
+        "hardware_execution_blocked": true,
+        "raw_publish_blocked": true,
+        "command_spy_counts": [
+          0,
+          0,
+          0
+        ],
+        "hardware_access": false,
+        "start_mode": "sequential",
+        "distinct_endpoints": true,
+        "runtime_health": {
+          "1": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106893312
+          },
+          "2": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106938368
+          },
+          "0": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106848256
+          }
+        }
+      }
+    },
+    {
+      "round": 11,
+      "mode": "overlapping",
+      "passed": true,
+      "returncode": 0,
+      "unexpected_restarts": 0,
+      "unexpected_exits": 0,
+      "domain_result": {
+        "domains": [
+          1,
+          2,
+          0
+        ],
+        "network": "shared host loopback, explicit UDP whitelist; no shared IPC",
+        "same_topic_across_domains": true,
+        "isolated_jointstates": true,
+        "separate_ros_graphs": true,
+        "separate_subscriptions": true,
+        "observations": {
+          "1": 30,
+          "2": 30,
+          "0": 30
+        },
+        "hardware_read_only": true,
+        "hardware_execution_blocked": true,
+        "raw_publish_blocked": true,
+        "command_spy_counts": [
+          0,
+          0,
+          0
+        ],
+        "hardware_access": false,
+        "start_mode": "overlapping",
+        "distinct_endpoints": true,
+        "runtime_health": {
+          "1": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 107151360
+          },
+          "2": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106840064
+          },
+          "0": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106901504
+          }
+        }
+      }
+    },
+    {
+      "round": 12,
+      "mode": "sequential",
+      "passed": true,
+      "returncode": 0,
+      "unexpected_restarts": 0,
+      "unexpected_exits": 0,
+      "domain_result": {
+        "domains": [
+          1,
+          2,
+          0
+        ],
+        "network": "shared host loopback, explicit UDP whitelist; no shared IPC",
+        "same_topic_across_domains": true,
+        "isolated_jointstates": true,
+        "separate_ros_graphs": true,
+        "separate_subscriptions": true,
+        "observations": {
+          "1": 30,
+          "2": 30,
+          "0": 30
+        },
+        "hardware_read_only": true,
+        "hardware_execution_blocked": true,
+        "raw_publish_blocked": true,
+        "command_spy_counts": [
+          0,
+          0,
+          0
+        ],
+        "hardware_access": false,
+        "start_mode": "sequential",
+        "distinct_endpoints": true,
+        "runtime_health": {
+          "1": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106881024
+          },
+          "2": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106848256
+          },
+          "0": {
+            "restarts": 0,
+            "unexpected_exits": [],
+            "oom_killed": false,
+            "memory_bytes": 106868736
+          }
+        }
+      }
+    }
+  ],
+  "passed": 12,
+  "failed": 0,
+  "unexpected_restarts": 0,
+  "hardware_access": false,
+  "crash_recovery_is_not_hidden": true
+}

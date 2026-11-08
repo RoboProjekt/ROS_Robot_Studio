@@ -1,5 +1,7 @@
 # Abschlussbericht: ROS Runtime, Unified Robot State und Live Monitoring
 
+> Spätere Multi-Domain-/Isaac-Fortsetzung: [aktueller Integrationsbericht](BACKEND_VERIFICATION.md). Die Zahlen und Isaac-Einschränkungen dieses älteren Berichts beziehen sich auf seinen damaligen Prüfstand.
+
 Stand: 8. November 2026 · Ubuntu 22.04 amd64 · Desktop Python 3.10/PySide6 6.9.3.
 Die bestehende Anwendung wurde erweitert. Git war zu Beginn sauber; kein Remote-Push.
 
@@ -190,3 +192,7 @@ sauber als Konvertierungsfehler abgewiesen. Remote-/Hardwarebetrieb benötigt we
   enthält diesen Bericht, Anleitungen, Screenshots und Prüfdaten; Hash siehe `git log`.
 
 Keine Images, Modellpakete, Installationsdaten oder Laufzeitlogs wurden in Git aufgenommen.
+
+## Spätere Stabilisierung der ROS-Kindprozesse
+
+Bridge und Discovery besitzen inzwischen eine auf zwei Versuche pro Kindprozess begrenzte Wiederanlaufüberwachung. Ein Bewegungsabbruch bleibt bis zur ausdrücklichen Neuverbindung gesperrt. Die ursprüngliche native SIGSEGV-Ursache ist nicht abschließend bewiesen; Paket-, Bootstrap-, Kernel- und wiederholte DDS-Prüfungen sind im [Stabilitätsbericht](ROS_BRIDGE_STABILITY.md) dokumentiert. Maßgebliche finale Gesamtzahlen: [Integrationsbericht](BACKEND_VERIFICATION.md).

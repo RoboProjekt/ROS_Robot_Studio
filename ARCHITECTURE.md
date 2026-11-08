@@ -232,3 +232,9 @@ Details: [Robot State Manager](docs/ROBOT_STATE_MANAGER.md), [ROS-Ausführung](d
 Die frühere Darstellung „ROS/Isaac nur vorbereitet“ in den Kinematik-Abschnitten beschreibt
 den Stand vor dieser Erweiterung. ROS-Simulation ist implementiert; echte Hardware und
 Isaac-Szenenabnahme bleiben getrennte, nicht freigegebene bzw. offene Arbeiten.
+
+## Universal Backend Manager (Fortsetzung 8. November 2026)
+
+Die bisherige Kinematik, Taskengine und State-Verwaltung werden über `backends/manager.py` und `gui/backend_workspace.py` an mehrere getrennte ROS-Sitzungen gebunden. Jede Sitzung besitzt Transport, Domainumgebung, Container, Port, Graph, Controllerstatus und Source-Lease. Der gemeinsame RobotStateManager enthält getrennte Backend-Kontexte; nur eine aktive Quelle projiziert nach Viewer/Monitoring. Der gemeinsame ROS2ExecutionBackend prüft zusätzlich aktive Backend-ID, Sitzungskennung und Modellsignatur.
+
+`data/plugins/backend-*.yaml` erweitert den vorhandenen PluginRegistry deklarativ. Reale Hardware ist in Profil, Runtime und Transport schreibgeschützt. Isaac-SDK-Code liegt ausschließlich im extern gestarteten Szenenskript, nicht im Desktopprozess. Projektprofile sind portabel, installationsabhängige Pfade liegen lokal in Settings. [Ausführliche Architektur](docs/ROS_BACKEND_MANAGER.md), [DDS-Konfiguration](docs/ROS_MULTI_DOMAIN.md).

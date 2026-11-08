@@ -1,14 +1,14 @@
 {
-  "verified_at": "2026-11-08T11:53:26.598344+00:00",
+  "verified_at": "2026-11-08T19:02:36.668751+00:00",
   "distribution": "lyrical",
   "robot": "so101_follower",
   "runtime_image": "ros-robot-studio/lyrical:0.1.0",
-  "image_id": "sha256:2250265f366b2fa92ddd039306ae181caa1e31581fa8464dc425b62d273b93eb",
+  "image_id": "sha256:37df51cd93c5019759db1086561e76668babde8e1d0bacf50c012c703d2b5def",
   "docker_access": true,
   "ros_graph": true,
   "native_action": true,
   "task_steps": 13,
-  "jointstate_samples": 772,
+  "jointstate_samples": 750,
   "positions_velocities_consistent": true,
   "offline_monitoring": true,
   "mode_roundtrip_twice": true,
@@ -16,5 +16,5 @@
   "runtime_diagnostics": true,
   "old_source_rejected": true,
   "hardware_access": false,
-  "isaac_sim": "NOT TESTED: no running compatible scene"
+  "isaac_sim": "Separate acceptance: see isaac-backend-verification.json"
 }

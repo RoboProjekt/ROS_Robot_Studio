@@ -12,8 +12,8 @@
   "pending_events_ignored": true,
   "widget_leaks": 0,
   "workers_joined": true,
-  "elapsed_seconds": 122.11,
+  "elapsed_seconds": 120.23,
   "instrumentation": "libasan.so.6; detect_leaks=0, alloc_dealloc_mismatch=0",
   "address_sanitizer_errors": 0,
-  "phase": "before final transport callback release refinement"
+  "phase": "final code after a2dd24d"
 }

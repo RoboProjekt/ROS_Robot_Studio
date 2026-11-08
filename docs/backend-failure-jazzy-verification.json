@@ -1,0 +1,34 @@
+{
+  "domains": [
+    10,
+    11
+  ],
+  "distribution": "jazzy",
+  "robot": "so101_follower",
+  "distinct_ports": true,
+  "distinct_containers": true,
+  "distinct_control_namespaces": true,
+  "simultaneous_connections": true,
+  "native_action_task_steps": 13,
+  "inactive_backend_unchanged_during_task": true,
+  "inactive_samples_checked": 993,
+  "switch_and_cancel": true,
+  "viewer_and_monitoring_consistent": true,
+  "offline_keeps_background_connections": true,
+  "late_active_lease_rejected": true,
+  "hardware_access": false,
+  "network": "separate owned private bridges; DDS-domain isolation tested separately",
+  "bridge_killed_during_motion": true,
+  "task_failed_immediately": true,
+  "stale_state_observed": true,
+  "reconnect_does_not_resume_task": true,
+  "backend_switch_after_crash": true,
+  "other_backend_task_succeeded": true,
+  "failed_backend_unchanged_while_other_executes": true,
+  "no_new_goals_after_failure": true,
+  "failure_detected_seconds": 0.06903320900164545,
+  "gui_error_visible": true,
+  "expected_errors": [
+    "ROS connection lost; execution aborted; no automatic continuation"
+  ]
+}

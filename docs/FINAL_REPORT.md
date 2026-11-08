@@ -1,5 +1,7 @@
 # Abschlussbericht – ROS Robot Studio 0.1.0
 
+> Spätere Multi-Domain-/Isaac-Fortsetzung: [aktueller Integrationsbericht](BACKEND_VERIFICATION.md). Die Zahlen und Isaac-Einschränkungen dieses älteren Berichts beziehen sich auf seinen damaligen Prüfstand.
+
 Historischer MVP-Stand vom 7. November 2026. Die folgende SO-101-Erweiterung wird in
 [SO101_REPORT.md](SO101_REPORT.md) dokumentiert.
 

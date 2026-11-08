@@ -216,7 +216,7 @@ def main():
                 runtime_diagnostics=True,
                 old_source_rejected=True,
                 hardware_access=False,
-                isaac_sim="NOT TESTED: no running compatible scene",
+                isaac_sim="Separate acceptance: see isaac-backend-verification.json",
             )
             Path("docs").mkdir(exist_ok=True)
             Path(f"docs/ros-{args.distro}-verification.json").write_text(

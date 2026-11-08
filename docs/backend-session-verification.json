@@ -3,6 +3,7 @@
     10,
     11
   ],
+  "distribution": "humble",
   "robot": "so101_follower",
   "distinct_ports": true,
   "distinct_containers": true,
@@ -10,7 +11,7 @@
   "simultaneous_connections": true,
   "native_action_task_steps": 13,
   "inactive_backend_unchanged_during_task": true,
-  "inactive_samples_checked": 775,
+  "inactive_samples_checked": 1016,
   "switch_and_cancel": true,
   "viewer_and_monitoring_consistent": true,
   "offline_keeps_background_connections": true,

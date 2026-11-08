@@ -59,6 +59,14 @@ Projektstandard nicht. **Save selected ROS as project default** übernimmt die A
 bewusst in das Projekt. Bei laufender Containerdemo wird die alte Runtime vor einem
 Versionswechsel gestoppt. Das Projekt bleibt erhalten.
 
+## Mehrere ROS-Backends
+
+**Backends…** öffnet den universellen Connection Manager: Profile hinzufügen, Distribution und Domain einstellen, mehrere Verbindungen herstellen und eine Quelle aktivieren. Vorgeschlagen sind Real Robot 0, Isaac 1, MuJoCo 2, Gazebo 3 und ROS Demo 10; alle Domainwerte sind änderbar. Viewer und Live Monitoring folgen ausschließlich dem aktiven Backend. Offline bleibt ohne Simulatorinstallation verfügbar.
+
+Isaac 5.1 läuft als eigenständiger Prozess mit URDF→USD-Szenenprüfung und echter ROS-Rückmeldung. Installationspfade werden nur lokal gespeichert. Real Robot bleibt ausschließlich lesend; MuJoCo/Gazebo sind klar als vorbereitete Plugins gekennzeichnet.
+
+[Bedienung](docs/BACKEND_CONNECTION_MANAGER.md) · [Isaac](docs/ISAAC_SIM_INTEGRATION.md) · [Architektur](docs/ROS_BACKEND_MANAGER.md) · [aktuelle Prüfergebnisse](docs/BACKEND_VERIFICATION.md).
+
 ## SO-101 Follower
 
 Unter **Robot Configuration → Select robot** den SO-101 Follower auswählen. Falls nötig,

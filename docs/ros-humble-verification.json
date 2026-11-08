@@ -1,14 +1,14 @@
 {
-  "verified_at": "2026-11-08T11:51:55.321931+00:00",
+  "verified_at": "2026-11-08T19:01:00.668409+00:00",
   "distribution": "humble",
   "robot": "so101_follower",
   "runtime_image": "ros-robot-studio/humble:0.1.0",
-  "image_id": "sha256:d14bbc582a83a8a0c94db79d1b2441f34846f599791a24141dfc6ac9048044a0",
+  "image_id": "sha256:c29d54b6801234240b2c2ee9a1db310b8b278c722cf884db9b1d7429abdd7d1f",
   "docker_access": true,
   "ros_graph": true,
   "native_action": true,
   "task_steps": 13,
-  "jointstate_samples": 729,
+  "jointstate_samples": 788,
   "positions_velocities_consistent": true,
   "offline_monitoring": true,
   "mode_roundtrip_twice": true,
@@ -16,5 +16,5 @@
   "runtime_diagnostics": true,
   "old_source_rejected": true,
   "hardware_access": false,
-  "isaac_sim": "NOT TESTED: no running compatible scene"
+  "isaac_sim": "Separate acceptance: see isaac-backend-verification.json"
 }

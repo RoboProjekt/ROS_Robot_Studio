@@ -145,3 +145,9 @@ Die Qt-Pakete PySide6, Addons, Essentials und Shiboken müssen gemeinsam Version
 verwenden; `./start.sh --prepare-only` übernimmt den geprüften Lockstand. Historische
 6.8.3-Installationen werden ausschließlich in `.venv` aktualisiert. Details zur
 [GUI-Stabilisierung](docs/GUI_STABILITY_REPORT.md).
+
+## Optionale externe Simulatoren
+
+Isaac Sim ist keine Startvoraussetzung. Im Backend Connection Manager kann eine vorhandene 5.1-Installation erkannt oder manuell gewählt werden. Installationspfad und Szenenpfad werden lokal pro Profil-ID gespeichert; beim Übertragen eines Projekts die lokale Zuordnung erneut auswählen. Humble ist die erste tatsächlich verwendete Isaac-ROS-Version; Jazzy ist im Adapter vorgesehen, Lyrical für Isaac gesperrt. Keine Isaac-/Omniverse-Pakete in die Studio-.venv installieren.
+
+Mehrere ROS-Verbindungen verwenden separate Adaptercontainer und freie Loopback-Ports. Externe DDS-Verbindungen benötigen die ausdrückliche Hostnetzfreigabe des Profils. Lokales DDS nutzt UDP-Loopback ohne Host-IPC. Dockerzugriff über die bereits eingerichtete Benutzergruppe verwenden; der normale Programmstart verändert keine Socketrechte. [Bedienung](docs/BACKEND_CONNECTION_MANAGER.md), [Netzwerkdetails](docs/ROS_MULTI_DOMAIN.md).

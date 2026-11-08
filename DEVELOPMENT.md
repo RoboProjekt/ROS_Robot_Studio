@@ -215,3 +215,15 @@ Berechnungen können mit konkurrierenden Tests länger als 150 Sekunden dauern. 
 Prüfungen validieren Framebuffer und Shaderprogramme in jedem neu erstellten Kontext.
 Die Tests lassen GC eingeschaltet, liefern nach Close noch gequeue-te Nachrichten aus,
 prüfen `DeferredDelete`, joinen die Threadpools und verlangen keine verbleibenden Widgets.
+
+## Backend- und Isaac-Entwicklung
+
+Der WIP-Stand `0e93253` wurde mit Codex 0.167.0 fortgesetzt. PySide6 6.9.3 und die vorhandene projektlokale Umgebung bleiben erhalten. Neue Tests betreffen Profil-/Domainvalidierung, Quellenisolation, Manager-Lebenszyklus, GUI und den beaufsichtigten Isaac-Prozess.
+
+```bash
+env -u PYTHONPATH .venv/bin/pytest -q --run-docker --run-model-download --run-isaac
+```
+
+`--run-isaac` startet ausdrücklich die vorhandene lokale GPU-Simulation; ohne diese Option wird der betreffende Integrationstest sichtbar übersprungen. Keine implizite Simulatorinstallation. Einzelne Akzeptanzskripte: `scripts/verify_backend_sessions.py`, `scripts/verify_ros_domains.py`, `scripts/verify_isaac_backend.py`. Für GUI-Screenshots unterstützen die Sitzungs-/Isaacskripte `--screenshots` in einer nativen Desktop-Sitzung. [Prüfbericht](docs/BACKEND_VERIFICATION.md).
+
+Die abschließende Stabilisierung wurde nach Code-Freeze mit 185 Tests ohne Fehler/Skips sowie separaten DDS-Stress-, nativen GUI- und ASan-Läufen geprüft. Die ursprüngliche native Bridge-Ursache bleibt als Unsicherheit dokumentiert; die begrenzte Prozessüberwachung und Bewegungsabbrüche sind gezielt getestet. Siehe [ROS-Bridge-Stabilität](docs/ROS_BRIDGE_STABILITY.md).

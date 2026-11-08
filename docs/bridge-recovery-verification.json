@@ -1,0 +1,35 @@
+{
+  "humble": {
+    "intentional_child_kills": 3,
+    "successful_restarts": 2,
+    "budget_exhaustion_stops_runtime": true,
+    "read_only": true,
+    "service_responds_after_restart": true,
+    "hardware_access": false,
+    "owned_container_removed": true,
+    "owned_network_removed": true,
+    "websocket_port_released": true
+  },
+  "jazzy": {
+    "intentional_child_kills": 3,
+    "successful_restarts": 2,
+    "budget_exhaustion_stops_runtime": true,
+    "read_only": true,
+    "service_responds_after_restart": true,
+    "hardware_access": false,
+    "owned_container_removed": true,
+    "owned_network_removed": true,
+    "websocket_port_released": true
+  },
+  "lyrical": {
+    "intentional_child_kills": 3,
+    "successful_restarts": 2,
+    "budget_exhaustion_stops_runtime": true,
+    "read_only": true,
+    "service_responds_after_restart": true,
+    "hardware_access": false,
+    "owned_container_removed": true,
+    "owned_network_removed": true,
+    "websocket_port_released": true
+  }
+}
