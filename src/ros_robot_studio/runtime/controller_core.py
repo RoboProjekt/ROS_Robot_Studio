@@ -123,3 +123,41 @@ class SimulatedTrajectory:
                 span,
             )
         return q, v, a
+
+
+class TargetConvergence:
+    """Require distinct fresh observations inside tolerance over a stable interval."""
+
+    def __init__(self, target, tolerance, minimum_samples=5, minimum_seconds=0.2):
+        self.target = dict(target)
+        self.tolerance = tolerance
+        self.minimum_samples = minimum_samples
+        self.minimum_seconds = minimum_seconds
+        self.last_sequence = -1
+        self.last_timestamp = None
+        self.since = None
+        self.samples = 0
+        self.maximum_error = math.inf
+        self.stable_seconds = 0.0
+
+    def observe(self, positions, sequence, timestamp):
+        if sequence <= self.last_sequence:
+            return False
+        self.last_sequence = sequence
+        backwards = self.last_timestamp is not None and timestamp < self.last_timestamp
+        self.last_timestamp = timestamp
+        self.maximum_error = max(abs(positions[n] - value) for n, value in self.target.items())
+        if (
+            backwards
+            or not math.isfinite(self.maximum_error)
+            or self.maximum_error > self.tolerance
+        ):
+            self.samples = 0
+            self.since = None
+            self.stable_seconds = 0.0
+            return False
+        self.samples += 1
+        if self.since is None:
+            self.since = timestamp
+        self.stable_seconds = timestamp - self.since
+        return self.samples >= self.minimum_samples and self.stable_seconds >= self.minimum_seconds

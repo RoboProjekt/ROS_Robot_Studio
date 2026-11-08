@@ -15,9 +15,18 @@ from ros_robot_studio.robots.model_manager import RobotModelManager
 def pytest_addoption(parser):
     parser.addoption("--run-docker", action="store_true", default=False)
     parser.addoption("--run-model-download", action="store_true", default=False)
+    parser.addoption("--run-isaac", action="store_true", default=False)
 
 
 def pytest_collection_modifyitems(config, items):
+    if not config.getoption("--run-isaac"):
+        for item in items:
+            if "isaac" in item.keywords:
+                item.add_marker(
+                    pytest.mark.skip(
+                        reason="Explicit --run-isaac required; starts local GPU simulator"
+                    )
+                )
     if not config.getoption("--run-docker"):
         for item in items:
             if "integration" in item.keywords:

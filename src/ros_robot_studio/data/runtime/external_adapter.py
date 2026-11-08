@@ -1,5 +1,6 @@
 """Optional Isaac-compatible JointState command adapter. Observed states determine success."""
 
+import json
 import threading
 import time
 
@@ -12,7 +13,7 @@ from rosidl_runtime_py.convert import message_to_ordereddict
 from sensor_msgs.msg import JointState
 
 from ros_robot_studio.robots.urdf import parse_urdf
-from ros_robot_studio.runtime.controller_core import SimulatedTrajectory
+from ros_robot_studio.runtime.controller_core import SimulatedTrajectory, TargetConvergence
 
 
 class IsaacSimROSAdapter(Node):
@@ -30,6 +31,7 @@ class IsaacSimROSAdapter(Node):
         self.model = parse_urdf(config["urdf"])
         self.q = None
         self.received = 0.0
+        self.state_sequence = 0
         self.lock = threading.RLock()
         self.busy = False
         self.mapping = {
@@ -60,6 +62,7 @@ class IsaacSimROSAdapter(Node):
             with self.lock:
                 self.q = q
                 self.received = time.monotonic()
+                self.state_sequence += 1
         except (ValueError, KeyError):
             return
 
@@ -97,6 +100,9 @@ class IsaacSimROSAdapter(Node):
             started = self.get_clock().now().nanoseconds * 1e-9
             previous = started
             wall_started = time.monotonic()
+            convergence = TargetConvergence(
+                trajectory.sample(trajectory.duration)[0], self.config.get("goal_tolerance", 0.002)
+            )
             while True:
                 now = self.get_clock().now().nanoseconds * 1e-9
                 if now < previous:
@@ -121,16 +127,19 @@ class IsaacSimROSAdapter(Node):
                     self.commands.publish(message)
                 else:
                     target = trajectory.sample(trajectory.duration)[0]
-                    if all(
-                        abs(self.q[n] - value) <= self.config.get("goal_tolerance", 0.002)
-                        for n, value in target.items()
-                    ):
-                        break
+                    # Always send the exact terminal position and zero velocity.
+                    # Isaac retains the previous velocity command when omitted;
+                    # a transient crossing is not a settled position result.
                     message = JointState()
                     message.header.stamp = self.get_clock().now().to_msg()
                     message.name = [self.mapping[n] for n in target]
                     message.position = list(target.values())
+                    message.velocity = [0.0] * len(target)
                     self.commands.publish(message)
+                    with self.lock:
+                        reached = convergence.observe(self.q, self.state_sequence, self.received)
+                    if reached:
+                        break
                 feedback = FollowJointTrajectory.Feedback()
                 feedback.joint_names = list(self.q)
                 feedback.actual.positions = list(self.q.values())
@@ -139,6 +148,15 @@ class IsaacSimROSAdapter(Node):
                 time.sleep(0.02)
             goal.succeed()
             result.error_code = 0
+            result.error_string = json.dumps(
+                dict(
+                    stable_target_reached=True,
+                    samples=convergence.samples,
+                    stable_seconds=convergence.stable_seconds,
+                    maximum_position_error=convergence.maximum_error,
+                    commanded_terminal_velocity=0.0,
+                )
+            )
         except Exception as exc:
             goal.abort()
             result.error_code = -1

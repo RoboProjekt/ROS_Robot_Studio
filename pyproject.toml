@@ -30,6 +30,7 @@ ros_robot_studio = ["data/**/*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = ["integration: requires explicit --run-docker and installed owned runtime",
+           "isaac: requires explicit --run-isaac and compatible local simulator",
            "model_download: explicitly downloads the pinned original SO-101 files"]
 
 [tool.ruff]

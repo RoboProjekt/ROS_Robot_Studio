@@ -1,11 +1,14 @@
 """Local Isaac installation/process/scene management. No Isaac APIs in desktop Python."""
 
+import hashlib
 import json
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
+from uuid import uuid4
 
-from PySide6.QtCore import QObject, QProcess, QProcessEnvironment, Signal
+from PySide6.QtCore import QObject, QProcess, QProcessEnvironment, QTimer, Signal
 
 from ros_robot_studio.projects.store import atomic_text
 
@@ -60,8 +63,9 @@ class IsaacSimInstallationManager:
 
 
 class IsaacSimSceneManager:
-    def prepare(self, profile, model, directory, positions=None):
+    def prepare(self, profile, model, directory, positions=None, existing_scene=None):
         from ros_robot_studio.kinematics.engine import UniversalKinematicsEngine
+        from ros_robot_studio.robots.urdf import origin_transform
 
         directory = Path(directory).expanduser().resolve()
         directory.mkdir(parents=True, exist_ok=True)
@@ -71,11 +75,16 @@ class IsaacSimSceneManager:
             )
         q = dict(positions or model.default_configuration())
         model.configuration(q)
+        if any(name != remote for name, remote in profile.joint_mapping.items()):
+            raise ValueError(
+                "Generated/imported Isaac scenes retain URDF joint names; use identity mapping or connect an existing external ROS scene"
+            )
         signature = UniversalKinematicsEngine(model).signature
         if profile.model_signature and signature != profile.model_signature:
             raise ValueError("Backend model signature differs from selected robot")
         request = dict(
             schema_version=1,
+            request_id=uuid4().hex,
             backend_id=profile.id,
             model_signature=signature,
             urdf=str(model.source_path.resolve()),
@@ -89,7 +98,13 @@ class IsaacSimSceneManager:
             or {j.name: j.name for j in model.joints if j.movable},
             expected_joints={
                 j.name: dict(
-                    kind=j.kind, lower=j.lower, upper=j.upper, axis=list(j.axis), effort=j.effort
+                    kind=j.kind,
+                    lower=j.lower,
+                    upper=j.upper,
+                    axis=list(j.axis),
+                    rpy=list(j.rpy),
+                    axis_parent=(origin_transform(j.xyz, j.rpy)[:3, :3] @ j.axis).tolist(),
+                    effort=j.effort,
                 )
                 for j in model.joints
                 if j.movable
@@ -98,6 +113,23 @@ class IsaacSimSceneManager:
                 n: matrix[:3, 3].tolist() for n, matrix in model.transforms(q).items()
             },
         )
+        from ros_robot_studio.robots.geometry import resolve_mesh_uri
+
+        files = [model.source_path] + [
+            resolve_mesh_uri(reference, model.source_path.parent)
+            for reference in model.mesh_references
+        ]
+        request["source_files"] = {
+            str(file.resolve()): hashlib.sha256(file.read_bytes()).hexdigest() for file in files
+        }
+        if existing_scene:
+            scene = Path(existing_scene).expanduser().resolve()
+            if not scene.is_file() or scene.suffix.lower() not in (".usd", ".usda", ".usdc"):
+                raise ValueError("Select an existing USD scene")
+            if scene in (directory / "studio-scene.usd", directory / "scene.usd"):
+                raise ValueError("Use a separate output directory when opening an existing scene")
+            request["existing_scene"] = str(scene)
+            request["source_files"][str(scene)] = hashlib.sha256(scene.read_bytes()).hexdigest()
         path = directory / "scene-request.json"
         atomic_text(path, json.dumps(request, indent=2))
         return path
@@ -108,7 +140,8 @@ class IsaacSimSceneManager:
             (Path(request["output_directory"]) / "scene-validation.json").read_text()
         )
         if (
-            report["model_signature"] != request["model_signature"]
+            report.get("request_id") != request.get("request_id")
+            or report["model_signature"] != request["model_signature"]
             or report["domain_id"] != request["domain_id"]
         ):
             raise ValueError("Scene provenance/domain mismatch")
@@ -121,14 +154,26 @@ class IsaacSimProcessManager(QObject):
     changed = Signal(str)
     log = Signal(str, str)
     error = Signal(str, str)
+    ready = Signal(str, object)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.processes = {}
         self.requests = {}
         self.tails = {}
+        self.ready_reports = {}
+        self.stopping = set()
 
     def start(self, profile, installation, request, headless=False, build_only=False):
+        data = json.loads(Path(request).read_text())
+        if (
+            data.get("backend_id") != profile.id
+            or data.get("domain_id") != profile.domain_id
+            or (profile.model_signature and data.get("model_signature") != profile.model_signature)
+        ):
+            raise ValueError(
+                "Scene request does not match this backend/domain/model; create a new request"
+            )
         if profile.id in self.processes:
             raise ValueError("This backend already owns an Isaac process")
         if profile.distribution not in installation.bridge_distributions:
@@ -156,10 +201,25 @@ class IsaacSimProcessManager(QObject):
             "LD_LIBRARY_PATH",
             str(installation.path / "exts/isaacsim.ros2.bridge" / profile.distribution / "lib"),
         )
-        environment.insert("FASTRTPS_DEFAULT_PROFILES_FILE", str(DDS_PROFILE))
+        environment.insert("ROS_LOCALHOST_ONLY", "0")
+        environment.insert("ROS_AUTOMATIC_DISCOVERY_RANGE", "SUBNET")
+        environment.insert(
+            "FASTRTPS_DEFAULT_PROFILES_FILE",
+            str(
+                DDS_PROFILE.with_name("fastdds_localhost.xml")
+                if profile.discovery == "localhost"
+                else DDS_PROFILE
+            ),
+        )
         process.setProcessEnvironment(environment)
-        process.setProgram(str(installation.python_launcher))
-        args = [str(SCENE_SCRIPT), "--request", str(request)]
+        process.setProgram(sys.executable)
+        args = [
+            str(SCENE_SCRIPT.with_name("process_launcher.py")),
+            str(installation.python_launcher),
+            str(SCENE_SCRIPT),
+            "--request",
+            str(request),
+        ]
         if headless:
             args.append("--headless")
         if build_only:
@@ -167,12 +227,12 @@ class IsaacSimProcessManager(QObject):
         process.setArguments(args)
         process.readyReadStandardOutput.connect(lambda: self._read(profile.id, process))
         process.finished.connect(lambda code, status: self._finished(profile.id, process, code))
-        process.errorOccurred.connect(
-            lambda error: self.error.emit(profile.id, process.errorString())
-        )
+        process.errorOccurred.connect(lambda error: self._process_error(profile.id, process))
         self.processes[profile.id] = process
         self.requests[profile.id] = str(request)
         self.tails[profile.id] = ""
+        self.ready_reports.pop(profile.id, None)
+        self.stopping.discard(profile.id)
         process.start()
         self.changed.emit(profile.id)
         return process
@@ -181,22 +241,58 @@ class IsaacSimProcessManager(QObject):
         text = bytes(process.readAllStandardOutput()).decode(errors="replace")
         self.tails[backend_id] = (self.tails.get(backend_id, "") + text)[-100000:]
         self.log.emit(backend_id, text[-10000:])
+        if backend_id not in self.ready_reports and "STUDIO_SCENE_READY " in self.tails[backend_id]:
+            try:
+                report = IsaacSimSceneManager().validate_result(self.requests[backend_id])
+            except (OSError, ValueError, KeyError) as exc:
+                self.error.emit(backend_id, "Isaac scene validation failed: " + str(exc))
+            else:
+                self.ready_reports[backend_id] = report
+                self.ready.emit(backend_id, report)
+                self.changed.emit(backend_id)
 
     def _finished(self, backend_id, process, code):
         self._read(backend_id, process)
         if self.processes.get(backend_id) is process:
             self.processes.pop(backend_id, None)
-        if code:
+        if backend_id not in self.stopping and (code or backend_id not in self.ready_reports):
             self.error.emit(backend_id, f"Isaac process exited with code {code}; see process log")
+        self.stopping.discard(backend_id)
         self.changed.emit(backend_id)
         process.deleteLater()
+
+    def _process_error(self, backend_id, process):
+        if self.processes.get(backend_id) is process and backend_id not in self.stopping:
+            self.error.emit(backend_id, process.errorString())
+            if process.state() == QProcess.ProcessState.NotRunning:
+                self.processes.pop(backend_id, None)
+                self.changed.emit(backend_id)
+                process.deleteLater()
 
     def stop(self, backend_id):
         # Only processes created and retained here can be stopped; no process-name killing.
         process = self.processes.get(backend_id)
         if process:
+            self.stopping.add(backend_id)
             process.terminate()
+            # Kit can hang while shutting down a renderer. Only this retained
+            # child process may be killed, never another simulator instance.
+            QTimer.singleShot(15000, self, lambda: self._stop_timeout(backend_id, process))
+
+    def _stop_timeout(self, backend_id, process):
+        if (
+            self.processes.get(backend_id) is process
+            and process.state() != QProcess.ProcessState.NotRunning
+        ):
+            self.log.emit(
+                backend_id, "Isaac did not stop within 15 seconds; terminating owned child.\n"
+            )
+            process.kill()
 
     def status(self, backend_id):
         process = self.processes.get(backend_id)
-        return process.state().name if process else "Not owned / stopped"
+        return (
+            ("Scene ready" if backend_id in self.ready_reports else process.state().name)
+            if process
+            else "Not owned / stopped"
+        )
