@@ -66,6 +66,7 @@ class BackendSession:
     controller_time: float = 0.0
     remote_busy: bool = False
     clock_seen: bool = False
+    last_clock_received: float = 0.0
     last_clock: float | None = None
     requires_reconnect: bool = False
     cancelled: bool = False
@@ -368,6 +369,7 @@ class ROSBackendManager(QObject):
                     )
                 session.last_clock = value
                 session.clock_seen = True
+                session.last_clock_received = self.clock()
             elif topic == session.payload["control_namespace"] + "/events":
                 data = json.loads(message.get("data", ""))
                 if (
@@ -440,6 +442,14 @@ class ROSBackendManager(QObject):
                 except ValueError as exc:
                     self.failed.emit(str(exc))
         if changed:
+            self.changed.emit()
+
+    def select_profile(self, backend_id):
+        if backend_id is not None and backend_id not in self.profiles:
+            raise ValueError("Unknown backend profile")
+        if self.selected_id != backend_id:
+            self.selected_id = backend_id
+            self.profiles_changed.emit()
             self.changed.emit()
 
     def activate(self, backend_id):

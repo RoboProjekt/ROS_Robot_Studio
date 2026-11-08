@@ -164,7 +164,9 @@ class IsaacSimProcessManager(QObject):
         self.ready_reports = {}
         self.stopping = set()
 
-    def start(self, profile, installation, request, headless=False, build_only=False):
+    def start(
+        self, profile, installation, request, headless=False, build_only=False, auto_play=False
+    ):
         data = json.loads(Path(request).read_text())
         if (
             data.get("backend_id") != profile.id
@@ -220,6 +222,8 @@ class IsaacSimProcessManager(QObject):
             "--request",
             str(request),
         ]
+        if auto_play:
+            args.append("--auto-play")
         if headless:
             args.append("--headless")
         if build_only:
@@ -296,3 +300,40 @@ class IsaacSimProcessManager(QObject):
             if process
             else "Not owned / stopped"
         )
+
+    def external_instances(self, installation):
+        """Read-only discovery. Never acquire or stop processes found by name."""
+        owned = {int(p.processId()) for p in self.processes.values() if p.processId()}
+        found = []
+        records = {}
+        for directory in Path("/proc").glob("[0-9]*"):
+            try:
+                pid = int(directory.name)
+                status = (directory / "status").read_text()
+                parent = int(
+                    next(
+                        line.split()[1] for line in status.splitlines() if line.startswith("PPid:")
+                    )
+                )
+                executable = (directory / "exe").resolve()
+                command = (
+                    (directory / "cmdline")
+                    .read_bytes()
+                    .replace(b"\0", b" ")
+                    .decode(errors="replace")
+                )
+                records[pid] = (parent, executable, command)
+            except (OSError, ValueError, StopIteration):
+                pass
+        for pid, (_, executable, command) in records.items():
+            if not executable.is_relative_to(installation.path):
+                continue
+            if "python" not in executable.name and "kit" not in executable.name:
+                continue
+            current, seen = pid, set()
+            while current in records and current not in seen and current not in owned:
+                seen.add(current)
+                current = records[current][0]
+            if current not in owned:
+                found.append(dict(pid=pid, executable=str(executable), command=command[:250]))
+        return found

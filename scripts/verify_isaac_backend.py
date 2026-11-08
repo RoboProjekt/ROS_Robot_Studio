@@ -90,7 +90,7 @@ def main():
                 data["capture_image"] = str(request.parent / "isaac-so101.png")
                 request.write_text(json.dumps(data, indent=2))
             process = w.isaac_processes.start(
-                profile, installation, request, headless=not args.screenshots
+                profile, installation, request, headless=not args.screenshots, auto_play=True
             )
             w.start_profile_ros(profile.id)
             wait(lambda: profile.id in w.isaac_processes.ready_reports)

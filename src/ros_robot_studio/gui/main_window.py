@@ -7,7 +7,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QByteArray, Qt, QTimer
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
@@ -20,7 +20,6 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressDialog,
     QSpinBox,
-    QTabWidget,
     QToolBar,
     QVBoxLayout,
 )
@@ -39,6 +38,7 @@ from ros_robot_studio.gui.theme import DARK, LIGHT
 from ros_robot_studio.gui.widgets import label
 from ros_robot_studio.gui.wizard import SetupWizard
 from ros_robot_studio.gui.workers import TaskRunner
+from ros_robot_studio.gui.workspace import Workspace
 from ros_robot_studio.motion.ros_backend import ROS2ExecutionBackend
 from ros_robot_studio.plugins.registry import PluginRegistry
 from ros_robot_studio.projects.store import (
@@ -89,6 +89,8 @@ class MainWindow(QMainWindow):
         self.ros_status = "Offline demo"
         self.mode = "offline"
         self.docker_status = RuntimeStatus(False, "Checking Docker…")
+        self.docker_dialog = None
+        self.last_docker_failure = None
         self.wizard = None
         self.runner = TaskRunner(self)
         self.runner.failed.connect(self.show_error)
@@ -98,7 +100,7 @@ class MainWindow(QMainWindow):
         self.resize(1480, 1020)
         self.setMinimumSize(1050, 760)
         self.setUnifiedTitleAndToolBarOnMac(True)
-        self.tabs = QTabWidget()
+        self.tabs = Workspace(self)
         self.robot_panel = RobotPanel(self.registry, models=self.model_manager)
         self.sensor_panel = SensorPanel()
         self.monitor = MonitoringPanel()
@@ -136,9 +138,28 @@ class MainWindow(QMainWindow):
         self.health_timer.timeout.connect(self.check_health)
         self.health_timer.start()
         self.backend_workspace = BackendWorkspace(self)
+        from ros_robot_studio.gui.simulation_header import install_header
+
+        self.simulation_header = install_header(self)
+        self.restore_workspace()
+        view = self.menuBar().addMenu("View")
+        view.addAction("Reset workspace layout", self.tabs.reset)
+        view.addAction("Save workspace layout", self.save_workspace)
+        view.addAction("Restore saved workspace layout", self.restore_workspace)
         QTimer.singleShot(0, self.refresh_runtime)
         if show_wizard and not self.settings.get("setup_complete", False):
             QTimer.singleShot(250, self.open_wizard)
+
+    def save_workspace(self):
+        self.settings.set("workspace_layout", self.tabs.state())
+        self.settings.set("window_geometry", bytes(self.saveGeometry().toBase64()).decode())
+
+    def restore_workspace(self):
+        if not self.tabs.restore(self.settings.get("workspace_layout", {})):
+            self.tabs.reset()
+        geometry = self.settings.get("window_geometry", "")
+        if isinstance(geometry, str) and geometry:
+            self.restoreGeometry(QByteArray.fromBase64(geometry.encode()))
 
     def open_backend_connections(self):
         self.backend_workspace.open()
@@ -173,7 +194,6 @@ class MainWindow(QMainWindow):
         file_menu.addAction(save_as)
         self.file_actions.append(save_as)
         toolbar.addSeparator()
-        toolbar.addWidget(label("  ROS runtime  ", "subtitle"))
         self.distro = QComboBox()
         for identifier, spec in self.manager.specs.items():
             self.distro.addItem(spec.name, identifier)
@@ -181,7 +201,6 @@ class MainWindow(QMainWindow):
             "Session runtime. Switching does not overwrite the project’s saved default."
         )
         self.distro.currentIndexChanged.connect(self.switch_distro)
-        toolbar.addWidget(self.distro)
         self.start_action = toolbar.addAction("▶  Start ROS demo", self.start_ros)
         self.stop_action = toolbar.addAction("■  Stop", self.stop_ros)
         self.offline_action = toolbar.addAction("Offline demo", self.request_offline)
@@ -189,6 +208,7 @@ class MainWindow(QMainWindow):
         toolbar.addAction("Settings", self.open_settings)
         toolbar.addAction("Backends…", self.open_backend_connections)
         help_menu = self.menuBar().addMenu("Help")
+        help_menu.addAction("Docker diagnostics", self.open_docker_diagnostics)
         help_menu.addAction("Setup assistant", self.open_wizard)
         help_menu.addAction("Open demo project", self.open_demo)
         help_menu.addAction("Open Pick-and-Place demo", self.open_pick_place_demo)
@@ -1058,12 +1078,24 @@ class MainWindow(QMainWindow):
         self.runtime.install.setEnabled(not busy and self.docker_status.available)
         self.runtime.remove.setEnabled(not busy and self.docker_status.available)
 
+    def open_docker_diagnostics(self):
+        from ros_robot_studio.gui.docker_diagnostics import DockerDiagnosticsDialog
+
+        if self.docker_dialog is None:
+            self.docker_dialog = DockerDiagnosticsDialog(self)
+        self.docker_dialog.update_status(self.docker_status)
+        self.docker_dialog.show()
+        self.docker_dialog.raise_()
+        self.docker_dialog.activateWindow()
+
     def refresh_runtime(self):
         if self.closed or self.runner.busy:
             return
 
         def done(status):
             self.docker_status = status
+            if self.docker_dialog:
+                self.docker_dialog.update_status(status)
             self.runtime.docker_status.setText(
                 "● Docker ready"
                 if status.available
@@ -1093,8 +1125,9 @@ class MainWindow(QMainWindow):
                 ]
                 for column, value in enumerate(values):
                     self.runtime.table.setItem(row, column, QTableWidgetItem(value))
-            if not status.available:
+            if not status.available and status.message != self.last_docker_failure:
                 self.activity(status.message)
+            self.last_docker_failure = None if status.available else status.message
             self.busy_changed(self.runner.busy)
             self.update_title()
             if self.initial_model_check_pending:
@@ -1144,11 +1177,7 @@ class MainWindow(QMainWindow):
             return
         distro = self.selected_distro
         if not self.docker_status.available:
-            self.show_error(
-                self.docker_status.message
-                + "\nOpen Help → Setup assistant for guided Docker diagnosis."
-            )
-            self.open_wizard()
+            self.open_docker_diagnostics()
             return
         if distro not in self.docker_status.installed:
             if (
@@ -1591,7 +1620,9 @@ class MainWindow(QMainWindow):
             self.dirty = False
             self.stop_ros(after=self.close)
             return
+        self.save_workspace()
         self.closed = True
+        self.simulation_header.timer.stop()
         if hasattr(self, "backend_workspace"):
             self.backend_workspace.shutdown()
         self.ros_execution.disconnect_backend()

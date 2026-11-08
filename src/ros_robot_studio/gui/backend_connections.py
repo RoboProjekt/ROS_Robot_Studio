@@ -109,6 +109,8 @@ class BackendProfileDialog(QDialog):
         self.installation = QLineEdit(local.get("installation_path", ""))
         self.scene = QLineEdit(local.get("scene_path", ""))
         self.scene_directory = QLineEdit(local.get("scene_directory", ""))
+        self.auto_play = QCheckBox("Auto Play owned simulation (explicit opt-in)")
+        self.auto_play.setChecked(local.get("auto_play", False))
         self.headless = QCheckBox("Run owned Isaac process headless")
         self.headless.setChecked(local.get("headless", False))
         for title, entry, select_file in [
@@ -124,6 +126,7 @@ class BackendProfileDialog(QDialog):
             form.addRow(title, row)
         form.addRow(button("Detect Isaac Sim 5.1", self.detect))
         form.addRow(self.headless)
+        form.addRow(self.auto_play)
         form.addRow(
             label(
                 "Local paths are saved only in this computer’s Settings. Existing/remote simulations do not require a local installation.",
@@ -264,6 +267,7 @@ class BackendProfileDialog(QDialog):
             scene_path=self.scene.text().strip(),
             scene_directory=self.scene_directory.text().strip(),
             headless=self.headless.isChecked(),
+            auto_play=self.auto_play.isChecked(),
         )
 
     def validate(self):
@@ -280,6 +284,7 @@ class BackendConnectionsDialog(QDialog):
         super().__init__(main)
         self.main = main
         self.manager = main.backend_manager
+        self.displayed_selection = None
         self.setWindowTitle("ROS Backend Connection Manager")
         self.resize(1120, 820)
         body = QVBoxLayout(self)
@@ -361,6 +366,9 @@ class BackendConnectionsDialog(QDialog):
 
     def refresh(self, *_):
         selected = self.selected_id()
+        if self.manager.selected_id != self.displayed_selection:
+            selected = self.manager.selected_id
+            self.displayed_selection = selected
         self.table.blockSignals(True)
         self.table.setRowCount(len(self.manager.profiles))
         for row, profile in enumerate(self.manager.profiles.values()):
@@ -475,8 +483,9 @@ class BackendConnectionsDialog(QDialog):
         else:
             self.manager.add(profile, bind_current=False)
         local = dict(self.main.settings.get("backend_local", {}))
-        local[profile.id] = editor.local_values()
+        local[profile.id] = dict(local.get(profile.id, {}), **editor.local_values())
         self.main.settings.set("backend_local", local)
+        self.main.backend_workspace.local_changed.emit()
         self.refresh()
 
     def add(self):
@@ -619,6 +628,7 @@ class BackendConnectionsDialog(QDialog):
                 values["scene_request"] = str(request)
                 settings[identity] = values
                 self.main.settings.set("backend_local", settings)
+                self.main.backend_workspace.local_changed.emit()
                 self.details.setPlainText(
                     "Scene request prepared. Start Isaac to import and validate the articulation: "
                     + str(request)
@@ -634,23 +644,7 @@ class BackendConnectionsDialog(QDialog):
         self.perform(work)
 
     def start_isaac(self):
-        def work():
-            identity = self.selected_id()
-            profile = self.manager.profiles[identity]
-            local = self.local(identity)
-            if not local.get("scene_request"):
-                raise ValueError("Create the scene request first")
-            installation = IsaacSimInstallationManager().validate(
-                local.get("installation_path", "")
-            )
-            self.main.isaac_processes.start(
-                profile,
-                installation,
-                Path(local["scene_request"]),
-                headless=local.get("headless", False),
-            )
-
-        self.perform(work)
+        self.perform(lambda: self.main.simulation_header.start_profile(self.selected_id()))
 
     def stop_isaac(self):
         self.main.isaac_processes.stop(self.selected_id())

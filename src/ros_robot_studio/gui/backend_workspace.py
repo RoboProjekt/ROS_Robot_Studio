@@ -1,6 +1,6 @@
 """Integrate backend sessions with the existing single active viewer/execution UI."""
 
-from PySide6.QtCore import QObject, QTimer
+from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtWidgets import QComboBox, QHBoxLayout, QMessageBox
 
 from ros_robot_studio.backends.isaac import IsaacSimProcessManager
@@ -10,6 +10,8 @@ from ros_robot_studio.gui.widgets import button, label
 
 
 class BackendWorkspace(QObject):
+    local_changed = Signal()
+
     def __init__(self, main):
         super().__init__(main)
         self.main = main
@@ -142,7 +144,8 @@ class BackendWorkspace(QObject):
             self.main.stop_ros(after=lambda: self.connect(identity, True))
             return
         if not self.main.docker_status.available:
-            raise ValueError(self.main.docker_status.message)
+            self.main.open_docker_diagnostics()
+            return
         if profile.distribution not in self.main.docker_status.installed:
             if (
                 QMessageBox.question(

@@ -15,6 +15,7 @@ def main():
     parser.add_argument("--request", type=Path, required=True)
     parser.add_argument("--headless", action="store_true")
     parser.add_argument("--build-only", action="store_true")
+    parser.add_argument("--auto-play", action="store_true")
     parser.add_argument("--max-seconds", type=float, default=0)
     args, _ = parser.parse_known_args()
     request = json.loads(args.request.read_text())
@@ -315,6 +316,7 @@ def run_scene(args, app, request, output, source_hashes):
         drive_damping=50.0,
     )
     (output / "scene-validation.json").write_text(json.dumps(report, indent=2))
+    world.pause()
     print("STUDIO_SCENE_READY " + json.dumps(report), flush=True)
     running = True
 
@@ -329,15 +331,19 @@ def run_scene(args, app, request, output, source_hashes):
     image_requested = False
     try:
         if not args.build_only:
-            world.play()
+            if args.auto_play:
+                world.play()
             while (
                 running
                 and app.is_running()
                 and (not args.max_seconds or time.monotonic() - start < args.max_seconds)
             ):
                 before = time.monotonic()
-                world.step(render=True)
-                frames += 1
+                if world.is_playing():
+                    world.step(render=True)
+                    frames += 1
+                else:
+                    app.update()
                 if request.get("capture_image") and frames >= 60 and not image_requested:
                     from omni.kit.viewport.utility import (
                         capture_viewport_to_file,
