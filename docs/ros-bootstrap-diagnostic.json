@@ -11,5 +11,6 @@
   "original_container_core_dumps": "zero-byte files; no usable native backtrace",
   "kernel_evidence": "SIGSEGV inside python3.10; additional independent Python setup and browser faults observed",
   "root_cause_confirmed": false,
-  "global_system_settings_changed": false
+  "global_system_settings_changed": false,
+  "user_reported_cpu_ram_tuning": "unknown"
 }

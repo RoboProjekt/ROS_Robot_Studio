@@ -69,3 +69,7 @@ git diff --check
 Ohne ausdrückliche Testoptionen werden Docker-/Download-/Isaac-Prüfungen sichtbar übersprungen; es werden keine Simulatoren automatisch installiert. Der endgültige Gesamtlauf und die Bereinigung werden in `backend-final-verification.json` festgehalten. Große USD-Assets, Images und Caches bleiben außerhalb von Git. Ein zweiter physischer Ubuntu-PC wurde nicht verwendet; Portabilität wurde über isolierte Settings, portable Projektdateien und fehlende Simulatorinstallation geprüft.
 
 Lokale Implementierungscommits: `55bf1b0` (Sitzungen), `979973f` (GUI), `2c7b759` (DDS-Loopback), `0aa698d` (Isaac und stabile Ziele), `41df07a` (vorhandene USD-Szenen). `2737238` enthält die Transport-Lebensdauerbereinigung, `1d477f0` den Schutz ungespeicherter Projekte, `b695dd8` die begrenzte ROS-Prozessüberwachung und `a2dd24d` die Domain-Stress-/Bewegungsausfalltests. Die folgenden Abschlusscommits enthalten die Berichte und geprüften Messdaten.
+
+## Abschließende Bereinigung
+
+Nach Abschluss aller Tests wurden keine eigenen Container, Testnetzwerke oder Isaac-Prozesse mehr festgestellt. Der Benutzer entfernte anschließend die temporäre Docker-Socket-ACL. Die erneute native Prüfung bestätigt: kein zusätzlicher Benutzereintrag, Eigentümer `root`, Gruppe `docker`, Modus `0660`. Der dauerhafte Docker-Gruppenzugriff bleibt bestehen; ältere Sitzungen benötigen gegebenenfalls eine neue Anmeldung. Es wurden keine Berechtigungen durch den Agenten geändert.

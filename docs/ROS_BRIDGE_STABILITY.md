@@ -18,6 +18,8 @@ Folgende Eingrenzungen wurden tatsächlich vorgenommen:
 - **Netzwerk:** eigene Loopback-WebSocket-Ports, richtige Domain-Umgebung, explizites UDP-Loopback-Profil ohne Host-IPC. Die Pakettypen und identischen Topicnamen wurden mit tatsächlichen ROS-Teilnehmern geprüft. Kein belegter Port bzw. Bind-Fehler wurde als Ursache des SIGSEGV nachgewiesen.
 - **Startreihenfolge:** wiederholte überlappende und sequenzielle ROS-Initialisierung mit identischer Domainprüfung. Unerwartete Kindprozessneustarts werden dabei ausdrücklich als Stressfehler gewertet.
 
+Der Benutzer konnte nicht bestätigen, ob RAM-/CPU-Tuning aktiv ist. Es wurde daraus keine Hardwareursache abgeleitet und keine Tuning-Einstellung verändert.
+
 **Die ursprüngliche native Fehlerursache ist nicht abschließend identifiziert.** Erfolgreiche Wiederholungen gelten als begrenzter Stabilitätsnachweis und nicht als Beweis, dass ein Upstream-/Umgebungsfehler unmöglich geworden ist.
 
 ## Implementierte Fehlerbehandlung
