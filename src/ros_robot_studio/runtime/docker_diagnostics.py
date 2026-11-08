@@ -84,6 +84,14 @@ def snapshot():
         endpoint="unknown",
     )
     try:
+        data["no_new_privileges"] = next(
+            line.split()[1]
+            for line in Path("/proc/self/status").read_text().splitlines()
+            if line.startswith("NoNewPrivs:")
+        )
+    except (OSError, StopIteration):
+        pass
+    try:
         context, host, _ = endpoint()
         data.update(context=context, endpoint=host)
     except ValueError as exc:
@@ -102,6 +110,14 @@ def snapshot():
             )
         except OSError:
             data["socket_mode"] = "missing"
+        if shutil.which("getfacl") and path.exists():
+            try:
+                result = subprocess.run(
+                    ["getfacl", "-cp", str(path)], capture_output=True, text=True, timeout=2
+                )
+                data["socket_acl"] = result.stdout.strip() or result.stderr.strip()
+            except (OSError, subprocess.SubprocessError):
+                pass
         if str(path) in ("/var/run/docker.sock", "/run/docker.sock"):
             try:
                 result = subprocess.run(

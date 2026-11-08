@@ -206,17 +206,8 @@ class ROSBackendManager(QObject):
             raise ValueError("Backend model ID/revision differs from the selected robot")
         self.registry.get(profile.backend_type).configure_joint_mapping(profile, model)
 
-    def connect_profile(self, backend_id, activate=False):
-        if self.closed:
-            raise ValueError("Backend manager is shut down")
-        if backend_id in self.sessions:
-            session = self.sessions[backend_id]
-            if session.cancelled:
-                raise ValueError("Wait for disconnect to finish")
-            if activate:
-                session.activate_when_ready = True
-                self.refresh()
-            return session
+    def validate_connection(self, backend_id):
+        """Side-effect-free checks shared by simulator and ROS startup."""
         profile = BackendProfile.model_validate(self.profiles[backend_id].model_dump())
         if not profile.enabled:
             raise ValueError("Backend profile is disabled")
@@ -230,6 +221,21 @@ class ROSBackendManager(QObject):
         ]
         if failures:
             raise ValueError("; ".join(failures))
+        return profile
+
+    def connect_profile(self, backend_id, activate=False):
+        if self.closed:
+            raise ValueError("Backend manager is shut down")
+        if backend_id in self.sessions:
+            session = self.sessions[backend_id]
+            if session.cancelled:
+                raise ValueError("Wait for disconnect to finish")
+            if activate:
+                session.activate_when_ready = True
+                self.refresh()
+            return session
+        profile = self.validate_connection(backend_id)
+        plugin = self.registry.get(profile.backend_type)
         port = self.ports.acquire(backend_id, profile.port)
         try:
             config = profile.runtime_config(port)
@@ -367,9 +373,10 @@ class ROSBackendManager(QObject):
                     self.execution_invalidated.emit(
                         profile.id, "Simulation clock reset; reconnect and replan"
                     )
+                if session.last_clock is not None and value > session.last_clock:
+                    session.last_clock_received = self.clock()
                 session.last_clock = value
                 session.clock_seen = True
-                session.last_clock_received = self.clock()
             elif topic == session.payload["control_namespace"] + "/events":
                 data = json.loads(message.get("data", ""))
                 if (

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from uuid import uuid4
@@ -37,6 +38,7 @@ class SimulationHeader(QWidget):
         self.main, self.workspace = main, main.backend_workspace
         self.manager, self.processes = main.backend_manager, main.isaac_processes
         self.pending = set()
+        self.scene_ready_keys = {}
         body = QGridLayout(self)
         body.setContentsMargins(4, 3, 4, 3)
         body.addWidget(QLabel("ROS Runtime"), 0, 0)
@@ -183,11 +185,17 @@ class SimulationHeader(QWidget):
         connection = session.status if session else "Disconnected"
         if p.backend_type == "isaac_sim":
             owned = p.id in self.processes.processes
-            scene = owned and p.id in self.processes.ready_reports
+            scene = (
+                owned
+                and p.id in self.processes.ready_reports
+                and p.id not in self.processes.stopping
+                and self.scene_ready_keys.get(p.id) == self.scene_key(p)
+            )
             bridge = bool(session and session.transport and session.transport.connected)
             playing = bool(
                 bridge
                 and session.clock_seen
+                and session.last_clock_received > 0
                 and self.manager.clock() - session.last_clock_received < 1.5
             )
             state = bool(session and "joint_state_feedback" in session.capabilities.available)
@@ -195,7 +203,7 @@ class SimulationHeader(QWidget):
                 active and session and session.capabilities.execution_permitted and playing
             )
             self.status.setText(
-                f"Process: {'Running (owned)' if owned else 'External / not owned'} · Scene: {'Loaded & validated' if scene else 'Unverified'} · "
+                f"Process: {'Stopping (owned)' if p.id in self.processes.stopping else 'Running (owned)' if owned else 'Not owned / external unverified'} · Scene: {'Loaded & validated' if scene else 'Unverified'} · "
                 f"Bridge: {'Connected' if bridge else 'Waiting'} · Play: {'Playing' if playing else 'Paused / waiting'} · "
                 f"State: {'Available' if state else 'Waiting'} · {'Simulation Ready' if ready else connection}"
             )
@@ -360,7 +368,7 @@ class SimulationHeader(QWidget):
             return
         if self.main.runner.busy:
             raise ValueError("Wait for the current runtime operation")
-        self.manager._validate_binding(p)
+        self.manager.validate_connection(identity)
         local = self.local(identity)
         installation = IsaacSimInstallationManager().validate(local.get("installation_path", ""))
         if p.distribution not in installation.bridge_distributions:
@@ -383,24 +391,23 @@ class SimulationHeader(QWidget):
                 raise ValueError(
                     "The owned process uses another scene/model. Change the scene and confirm stopping it first"
                 )
+            if any(
+                hashlib.sha256(Path(file).read_bytes()).hexdigest() != digest
+                for file, digest in data.get("source_files", {}).items()
+            ):
+                raise ValueError(
+                    "Scene sources changed. Stop the owned simulator and restart with a fresh scene request"
+                )
             self.workspace.connect(identity, activate=True)
             return
         external = self.processes.external_instances(installation)
-        if external:
-            message = QMessageBox(self)
-            message.setWindowTitle("Isaac Sim is already running")
-            message.setText(
-                f"Found {len(external)} external Isaac process(es). Studio cannot verify or replace their scene. Connect to their existing ROS interfaces, or explicitly start another instance with the selected scene."
-            )
-            connect = message.addButton("Connect existing ROS", QMessageBox.ButtonRole.AcceptRole)
-            another = message.addButton("Start another instance", QMessageBox.ButtonRole.ActionRole)
-            message.addButton(QMessageBox.StandardButton.Cancel)
-            message.setDefaultButton(connect)
-            message.exec()
-            if message.clickedButton() == connect:
+        other_owned = [key for key in self.processes.processes if key != identity]
+        if external or other_owned:
+            action = self.existing_instance_action(other_owned, external)
+            if action == "connect":
                 self.workspace.connect(identity, activate=True)
                 return
-            if message.clickedButton() != another:
+            if action != "start":
                 return
         if p.distribution not in self.main.docker_status.installed:
             raise ValueError(
@@ -434,7 +441,46 @@ class SimulationHeader(QWidget):
             prepared,
         )
 
+    def existing_instance_action(self, owned, external):
+        message = QMessageBox(self)
+        message.setWindowTitle("Isaac Sim is already running")
+        message.setText(
+            f"Found {len(owned)} other owned and {len(external)} external Isaac process(es). "
+            "Connect to existing ROS interfaces, or explicitly start another instance with the selected scene. "
+            "Existing instances and their scenes will not be changed."
+        )
+        connect = message.addButton("Connect existing ROS", QMessageBox.ButtonRole.AcceptRole)
+        another = message.addButton("Start another instance", QMessageBox.ButtonRole.ActionRole)
+        message.addButton(QMessageBox.StandardButton.Cancel)
+        message.setDefaultButton(connect)
+        message.exec()
+        return (
+            "connect"
+            if message.clickedButton() == connect
+            else "start"
+            if message.clickedButton() == another
+            else "cancel"
+        )
+
+    def scene_key(self, profile):
+        return (
+            self.local(profile.id).get("scene_path", ""),
+            profile.model_signature,
+            profile.domain_id,
+        )
+
     def scene_ready(self, identity, report):
+        profile = self.manager.profiles.get(identity)
+        if profile:
+            try:
+                data = json.loads(Path(self.processes.requests[identity]).read_text())
+                self.scene_ready_keys[identity] = (
+                    data.get("existing_scene", ""),
+                    report.get("model_signature"),
+                    report.get("domain_id"),
+                )
+            except (OSError, ValueError, KeyError):
+                self.scene_ready_keys.pop(identity, None)
         self.pending.discard(identity)
         self.refresh_status()
 

@@ -335,3 +335,78 @@ def test_invalid_docker_context_is_diagnostic_not_worker_exception(tmp_path, mon
 
     status = RuntimeManager().status()
     assert not status.available and status.reason == "invalid_context"
+
+
+def test_disabled_profile_is_rejected_before_simulator_start(studio):
+    w = studio
+    p = w.backend_manager.add(
+        new_profile("isaac_sim", enabled=False, connection_mode="local_installation")
+    )
+    w.docker_status = RuntimeStatus(True, "Test API")
+    with pytest.raises(ValueError, match="disabled"):
+        w.simulation_header.start_profile(p.id)
+    assert not w.isaac_processes.processes
+
+
+def test_isaac_other_owned_or_external_instance_requires_choice(studio, tmp_path, monkeypatch):
+    from ros_robot_studio.backends.isaac import IsaacSimInstallationManager
+
+    w, header = studio, studio.simulation_header
+    p = w.backend_manager.add(
+        new_profile(
+            "isaac_sim",
+            connection_mode="local_installation",
+            network_confirmed=True,
+            simulation_confirmed=True,
+        )
+    )
+    w.backend_manager.select_profile(p.id)
+    scene = tmp_path / "scene.usd"
+    scene.write_text("test")
+    header.assign_scene(str(scene))
+    w.docker_status = RuntimeStatus(True, "Test API", installed=["humble"])
+    installation = MagicMock(bridge_distributions=["humble"])
+    monkeypatch.setattr(IsaacSimInstallationManager, "validate", lambda *args: installation)
+    monkeypatch.setattr(w.isaac_processes, "external_instances", lambda *args: [{"pid": 123}])
+    choice = MagicMock(return_value="cancel")
+    monkeypatch.setattr(header, "existing_instance_action", choice)
+    header.start_profile(p.id)
+    choice.assert_called_once_with([], [{"pid": 123}])
+    assert not w.isaac_processes.processes
+    # Also prompt for an already owned process belonging to a different profile.
+    monkeypatch.setattr(w.isaac_processes, "external_instances", lambda *args: [])
+    w.isaac_processes.processes["other-backend"] = MagicMock()
+    try:
+        choice.reset_mock()
+        header.start_profile(p.id)
+        choice.assert_called_once_with(["other-backend"], [])
+    finally:
+        w.isaac_processes.processes.clear()
+
+
+def test_scene_status_does_not_reuse_validation_for_new_selection(studio):
+    w, header = studio, studio.simulation_header
+    p = w.backend_manager.add(new_profile("isaac_sim"))
+    w.backend_manager.select_profile(p.id)
+    w.isaac_processes.processes[p.id] = MagicMock()
+    w.isaac_processes.ready_reports[p.id] = {"valid": True}
+    try:
+        header.scene_ready_keys[p.id] = ("old-scene.usd", p.model_signature, p.domain_id)
+        header.refresh_status()
+        assert "Scene: Unverified" in header.status.text()
+    finally:
+        w.isaac_processes.processes.clear()
+        w.isaac_processes.ready_reports.clear()
+
+
+def test_setup_access_help_does_not_recommend_adding_an_existing_group(studio):
+    w = studio
+    w.open_wizard()
+    wizard = w.wizard
+    wizard.system_diagnostics = dict(account_groups=["docker"], effective_groups=["local-user"])
+    wizard.docker_status_text = "Current process lacks effective socket group"
+    wizard.docker_access_help()
+    text = wizard.docker_output.toPlainText()
+    assert "already belongs" in text and "Do not add the group again" in text
+    assert "usermod" not in text
+    wizard.reject()

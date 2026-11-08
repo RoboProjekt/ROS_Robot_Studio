@@ -79,6 +79,11 @@ def run_scene(args, app, request, output, source_hashes):
     world.get_physics_context().set_gravity(0.0)
     stage = omni.usd.get_context().get_stage()
     UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
+    # A reopened Studio scene can carry its old playback graph. Remove that
+    # graph before reset/validation steps so manual startup publishes no stale
+    # ROS clock/state or receives commands from a previous request/domain.
+    if request.get("existing_scene") and stage.GetPrimAtPath("/World/ROS2").IsValid():
+        stage.RemovePrim("/World/ROS2")
     if not request.get("existing_scene"):
         world.scene.add_default_ground_plane(z_position=-0.75)
         # Procedural mounting table; no network asset dependency.
@@ -240,6 +245,7 @@ def run_scene(args, app, request, output, source_hashes):
     assert neutral_error < 0.002, f"Imported link poses differ from existing FK: {neutral_error} m"
     world.get_physics_context().set_gravity(-9.81)
 
+    world.pause()
     # Explicit per-graph domain context, initialized before any publishers/subscribers.
     keys = og.Controller.Keys
     graph = "/World/ROS2"

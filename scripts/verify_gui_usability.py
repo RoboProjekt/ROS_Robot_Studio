@@ -156,6 +156,30 @@ def verify(cycles, output):
                     and d.step().target_pose.position[0] == 0.08025
                 )
                 d.deleteLater()
+                for _, action in StepDialog.ACTIONS:
+                    dialog = StepDialog(
+                        w.motion.chain, w.motion.positions, w.motion.current(), parent=w
+                    )
+                    dialog.show()
+                    choose(dialog.action, dialog.action.findData(action))
+                    type_number(dialog.duration, "1.25")
+                    if action == "move_relative":
+                        type_number(dialog.relative[0], "1.5")
+                    elif action == "move_joint":
+                        type_number(next(iter(dialog.joints.controls.values()))[1], "5")
+                    elif action in ("open_gripper", "close_gripper"):
+                        spin, _ = next(iter(dialog.gripper_values.values()))
+                        type_number(spin, str(spin.minimum()))
+                    QTest.mouseClick(
+                        dialog.findChild(QDialogButtonBox).button(
+                            QDialogButtonBox.StandardButton.Save
+                        ),
+                        Qt.MouseButton.LeftButton,
+                    )
+                    assert dialog.result() == QDialog.DialogCode.Accepted
+                    assert dialog.step().action == action and dialog.step().duration == 1.25
+                    dialog.deleteLater()
+                dialog = None
                 # Real RuntimeManager in this actual visible Studio process; no fake permission result.
                 diagnostics = dict(w.docker_status.diagnostics)
                 diagnostics["reason"] = w.docker_status.reason
@@ -177,7 +201,37 @@ def verify(cycles, output):
                     if kind == "isaac_sim":
                         scene = Path(".bootstrap/isaac-acceptance/scene.usd").resolve()
                         assert scene.is_file()
-                        w.simulation_header.assign_scene(str(scene))
+                        original_picker = QFileDialog.getOpenFileName
+
+                        def picker(parent, title, initial, filters):
+                            chooser = QFileDialog(parent, title)
+                            chooser.setOption(QFileDialog.Option.DontUseNativeDialog)
+                            chooser.setFileMode(QFileDialog.FileMode.ExistingFile)
+                            chooser.setNameFilter(filters)
+
+                            def enter_file():
+                                entry = chooser.findChild(QLineEdit, "fileNameEdit")
+                                assert entry is not None
+                                QTest.mouseClick(entry, Qt.MouseButton.LeftButton)
+                                QTest.keyClick(
+                                    entry, Qt.Key.Key_A, Qt.KeyboardModifier.ControlModifier
+                                )
+                                QTest.keyClicks(entry, str(scene))
+                                QTest.keyClick(entry, Qt.Key.Key_Return)
+
+                            QTimer.singleShot(250, chooser, enter_file)
+                            QTimer.singleShot(5000, chooser, chooser.reject)
+                            accepted = chooser.exec() == QDialog.DialogCode.Accepted
+                            files = chooser.selectedFiles() if accepted else []
+                            chooser.deleteLater()
+                            assert accepted and files, "Native Qt file chooser input failed"
+                            return files[0], filters
+
+                        QFileDialog.getOpenFileName = picker
+                        try:
+                            QTest.mouseClick(w.simulation_header.browse, Qt.MouseButton.LeftButton)
+                        finally:
+                            QFileDialog.getOpenFileName = original_picker
                         assert w.simulation_header.scene.currentData() == str(scene)
                         capture(w, "simulation-runtime-header.png")
                         QTest.mouseClick(w.simulation_header.scene, Qt.MouseButton.LeftButton)
@@ -225,6 +279,8 @@ def verify(cycles, output):
         cycles=cycles,
         native_platform=app.platformName(),
         real_mouse_keyboard=True,
+        task_actions_mouse_keyboard=[action for _, action in StepDialog.ACTIONS],
+        scene_file_dialog_mouse_keyboard=True,
         layouts=layouts,
         opengl_after_drag=True,
         listener_subscription_duplicates=0,

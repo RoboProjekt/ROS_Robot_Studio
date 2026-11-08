@@ -70,3 +70,15 @@ def test_motion_failure_and_backend_switch_do_not_resume_old_goal(distro):
     assert report["reconnect_does_not_resume_task"]
     assert report["other_backend_task_succeeded"]
     assert report["failed_backend_unchanged_while_other_executes"]
+
+
+@pytest.mark.integration
+@pytest.mark.isaac
+def test_real_isaac_header_manual_pause_and_explicit_auto_play():
+    if not IsaacSimInstallationManager().detect():
+        pytest.skip("Compatible local Isaac Sim 5.1 installation required")
+    report = run("verify_isaac_header.py", "isaac-header-verification.json", 280)
+    assert report["manual_play_default"] and report["paused_without_clock_or_motion"]
+    assert report["auto_play_explicit_checkbox"] and report["task_status"] == "succeeded"
+    assert report["task_steps"] == 13 and report["source_unmodified"]
+    assert report["owned_resources_removed"]

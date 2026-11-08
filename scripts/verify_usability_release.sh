@@ -18,7 +18,7 @@ if missing:
     raise SystemExit('Current owned runtime images missing: ' + ', '.join(sorted(missing)))
 print('Docker preflight passed in the effective test-process session', flush=True)
 PY
-QT_QPA_PLATFORM=offscreen .venv/bin/pytest -q --run-docker --run-model-download --run-isaac \
+QT_QPA_PLATFORM=offscreen .venv/bin/pytest -q -o faulthandler_timeout=180 --run-docker --run-model-download --run-isaac \
   --junitxml=.bootstrap/usability-release/regression.xml 2>&1 | tee .bootstrap/usability-release/regression.log
 QT_QPA_PLATFORM=xcb .venv/bin/python scripts/verify_gui_usability.py --cycles 8 --output docs \
   2>&1 | tee .bootstrap/usability-release/native.log

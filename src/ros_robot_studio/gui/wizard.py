@@ -53,6 +53,8 @@ class SetupWizard(QWizard):
         self.report_lines = []
         self.checked = {}
         self.available = False
+        self.system_diagnostics = {}
+        self.docker_status_text = "Run the system check to inspect current process access."
         self.local_installed = []
         self.verify_callback = verify_callback
 
@@ -225,6 +227,8 @@ class SetupWizard(QWizard):
 
         def done(report):
             self.available = report["docker_available"]
+            self.system_diagnostics = report.get("Docker process diagnostics", {})
+            self.docker_status_text = report["Docker daemon / permissions"]
             self.system_text.setPlainText(
                 "\n\n".join(f"{k}: {v}" for k, v in report.items() if k != "docker_available")
             )
@@ -244,17 +248,23 @@ class SetupWizard(QWizard):
 
     def docker_access_help(self):
         user = getpass.getuser()
+        account = self.system_diagnostics.get("account_groups", [])
+        process = self.system_diagnostics.get("effective_groups", [])
+        group_help = (
+            "Your account already belongs to docker. This running process does not: sign out of the desktop completely, sign in and relaunch Studio. Do not add the group again."
+            if "docker" in account and "docker" not in process
+            else "Your process already has the docker group. Check the selected endpoint, socket ACL and API details."
+            if "docker" in process
+            else f"If this installation uses a root-owned docker-group socket, review the group's root-level host access before explicitly authorizing membership for {user}. Rootless Docker is an alternative."
+        )
         self.docker_output.setPlainText(
-            f"Docker daemon must be reachable as {user}.\n\n"
-            "1. Engine missing: review the optional signed Ubuntu installer.\n"
-            "2. Daemon stopped: inspect `systemctl status docker` and its logs.\n"
-            "3. Permission denied: the docker group grants root-level host access.\n"
-            f"   After explicit approval, run in a normal terminal: sudo usermod -aG docker {user}\n"
-            "   Log out and back in, then restart Studio. Rootless Docker is an alternative.\n"
-            "4. A running application keeps old groups. NoNewPrivs can prevent PolicyKit/sudo inside an agent.\n"
-            "5. Never make docker.sock world writable. No permissions are changed by this dialog.\n"
-            "6. Engine accessible but image missing: install the selected Studio runtime.\n"
-            "7. Container exits: inspect its logs. Container running but ROS disconnected: check loopback port/health."
+            self.docker_status_text + "\n\n" + group_help + "\n\n"
+            "Engine missing: review the optional signed Ubuntu installer.\n"
+            "Engine stopped: inspect systemctl status docker and its logs.\n"
+            "A socket's existence alone does not prove a running Engine.\n"
+            "Never make docker.sock world writable. No permissions are changed by this dialog.\n"
+            "Engine accessible but image missing: install the selected Studio runtime.\n"
+            "Container exits: inspect its logs. Running container but ROS disconnected: check loopback port and health."
         )
 
     def authorize_docker(self):
