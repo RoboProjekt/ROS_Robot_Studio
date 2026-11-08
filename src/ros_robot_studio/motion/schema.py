@@ -90,6 +90,9 @@ class TaskStep(Model):
         "home",
     ]
     position_id: str | None = None
+    target_pose: CartesianPose | None = None
+    joint_values: dict[str, float] = Field(default_factory=dict)
+    model_signature: str = ""
     gripper_values: dict[str, float] = Field(default_factory=dict)
     duration: float = Field(default=0, ge=0, le=3600)
     relative_xyz: tuple[float, float, float] = (0, 0, 0)

@@ -150,10 +150,33 @@ class TaskCompiler:
                 progress(f"{index + 1}/{len(task.steps)} · {step.name or step.action}")
                 target = dict(current)
                 if step.action in ("move_joint", "move_cartesian"):
-                    position = self.positions.get(step.position_id)
-                    if position.kind != ("joint" if step.action == "move_joint" else "cartesian"):
-                        raise ValueError("Action and saved position type disagree")
-                    target = self.resolve_position(position, current, cancel)
+                    if step.target_pose is not None:
+                        if step.action != "move_cartesian" or step.position_id or step.joint_values:
+                            raise ValueError("Ambiguous direct Cartesian target")
+                        target = self._ik(
+                            step.target_pose,
+                            current,
+                            step.target_pose.mode,
+                            step.target_pose.axis,
+                            cancel,
+                        )
+                    elif step.joint_values:
+                        if step.action != "move_joint" or step.position_id:
+                            raise ValueError("Ambiguous direct joint target")
+                        position = SavedPosition(
+                            name=step.name or "Direct joint target",
+                            kind="joint",
+                            joints=step.joint_values,
+                            model_signature=step.model_signature,
+                        )
+                        target = self.resolve_position(position, current, cancel)
+                    else:
+                        position = self.positions.get(step.position_id)
+                        if position.kind != (
+                            "joint" if step.action == "move_joint" else "cartesian"
+                        ):
+                            raise ValueError("Action and saved position type disagree")
+                        target = self.resolve_position(position, current, cancel)
                 elif step.action == "home":
                     reference = step.position_id or task.home_position_id
                     if reference:

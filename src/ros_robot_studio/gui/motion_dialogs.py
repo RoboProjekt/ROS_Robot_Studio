@@ -230,55 +230,90 @@ class StepDialog(QDialog):
         self.action.setCurrentIndex(self.action.findData(value.action))
         form.addRow("Name", self.name)
         form.addRow("Action", self.action)
-        self.target = QComboBox()
-        form.addRow("Saved position", self.target)
         self.duration = number(value.duration, 0, 3600, suffix=" s")
         form.addRow("Minimum move time / wait", self.duration)
+        layout.addLayout(form)
+        self.target_row = QWidget()
+        targets = QFormLayout(self.target_row)
+        targets.setContentsMargins(0, 0, 0, 0)
+        self.target = QComboBox()
+        targets.addRow("Target source", self.target)
+        layout.addWidget(self.target_row)
+        self.cartesian = PoseEditor(chain, current, value.target_pose)
+        layout.addWidget(self.cartesian)
+        self.joints = JointControls()
+        matching = not value.joint_values or value.model_signature == chain.engine.signature
+        self.joints.set_model(
+            chain.model, value.joint_values if matching and value.joint_values else current
+        )
+        layout.addWidget(self.joints)
+        self.binding_warning = label(
+            "Direct joint target belongs to a different robot. Re-teach before saving.",
+            "warning",
+            True,
+        )
+        self.binding_warning.setVisible(not matching)
+        self.joint_binding_matches = matching
+        self.joints.configuration_changed.connect(self.reteach_joint)
+        self.relative_panel = QWidget()
+        relative_body = QVBoxLayout(self.relative_panel)
+        relative_body.setContentsMargins(0, 0, 0, 0)
         self.frame = QComboBox()
         self.frame.addItems(chain.model.links)
         self.frame.setCurrentText(value.reference_frame or chain.base_link)
-        form.addRow("Relative reference frame", self.frame)
-        layout.addLayout(form)
+        relative_body.addWidget(QLabel("Relative reference frame"))
+        relative_body.addWidget(self.frame)
         self.relative = []
         grid = QGridLayout()
         for index, (name, val) in enumerate(
             zip(
-                ["dX · mm", "dY · mm", "dZ · mm", "dRoll · °", "dPitch · °", "dYaw · °"],
+                ["dX", "dY", "dZ", "dRoll", "dPitch", "dYaw"],
                 (*value.relative_xyz, *value.relative_rpy),
             )
         ):
-            widget = number(val * 1000 if index < 3 else math.degrees(val))
+            widget = number(
+                val * 1000 if index < 3 else math.degrees(val), suffix=" mm" if index < 3 else " °"
+            )
             self.relative.append(widget)
             grid.addWidget(QLabel(name), index // 3 * 2, index % 3)
             grid.addWidget(widget, index // 3 * 2 + 1, index % 3)
-        layout.addLayout(grid)
+        relative_body.addLayout(grid)
+        layout.addWidget(self.relative_panel)
+        self.gripper_panel = QWidget()
+        grip = QFormLayout(self.gripper_panel)
+        grip.setContentsMargins(0, 0, 0, 0)
         self.gripper_values = {}
-        grip = QFormLayout()
         for name in chain.gripper_joints:
             joint = chain.engine.joints[name]
-            factor = 1 if joint.kind == "prismatic" else 180 / math.pi
+            factor = 1000 if joint.kind == "prismatic" else 180 / math.pi
             widget = number(
                 value.gripper_values.get(name, current[name]) * factor,
                 joint.lower * factor if joint.lower is not None else -180,
                 joint.upper * factor if joint.upper is not None else 180,
-                suffix=" m" if joint.kind == "prismatic" else " °",
+                suffix=" mm" if joint.kind == "prismatic" else " °",
             )
             self.gripper_values[name] = (widget, factor)
             grip.addRow(name, widget)
-        layout.addLayout(grip)
+        if not self.gripper_values:
+            grip.addRow(
+                QLabel("Confirm gripper joints in chain setup before using a gripper action.")
+            )
+        layout.addWidget(self.gripper_panel)
         self.attach = QCheckBox("Attach virtual object on close (nonphysical)")
         self.attach.setChecked(value.attach_object)
         self.release = QCheckBox("Release virtual object on open")
         self.release.setChecked(value.release_object)
         layout.addWidget(self.attach)
         layout.addWidget(self.release)
-        layout.addWidget(
-            label(
-                "Moves use synchronized joint-space curves. Relative motion solves an endpoint; a straight Cartesian path is not available.",
-                "warning",
-                True,
-            )
+        self.notice = label(
+            "Moves use synchronized joint-space curves. Cartesian / relative motion solves an endpoint; a straight Cartesian path is not available.",
+            "warning",
+            True,
         )
+        layout.addWidget(self.notice)
+        self.target_cache = {}
+        self.previous_action = None
+        self.target.currentIndexChanged.connect(self.update_target)
         self.action.currentIndexChanged.connect(self.update_action)
         self.update_action()
         index = self.target.findData(value.position_id)
@@ -291,38 +326,69 @@ class StepDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
+    def reteach_joint(self, *_):
+        self.joint_binding_matches = True
+        self.binding_warning.hide()
+
     def update_action(self, *_):
         action = self.action.currentData()
+        if self.previous_action:
+            self.target_cache[self.previous_action] = self.target.currentData()
+        self.target.blockSignals(True)
         self.target.clear()
-        self.target.addItem(
-            "Default virtual home" if action == "home" else "Select position…", None
-        )
+        self.target.addItem("Default virtual home" if action == "home" else "Direct input", None)
         for p in self.positions.positions:
             if (action in ("home", "move_joint") and p.kind == "joint") or (
                 action == "move_cartesian" and p.kind == "cartesian"
             ):
                 self.target.addItem(p.name, p.id)
-        self.target.setEnabled(action in ("move_joint", "move_cartesian", "home"))
-        self.frame.setEnabled(action == "move_relative")
-        for widget in self.relative:
-            widget.setEnabled(action == "move_relative")
-        for widget, _ in self.gripper_values.values():
-            widget.setEnabled(action in ("open_gripper", "close_gripper"))
-        self.attach.setEnabled(action == "close_gripper")
-        self.release.setEnabled(action == "open_gripper")
+        self.target.setCurrentIndex(max(0, self.target.findData(self.target_cache.get(action))))
+        self.target.blockSignals(False)
+        self.previous_action = action
+        self.target_row.setVisible(action in ("move_joint", "move_cartesian", "home"))
+        self.relative_panel.setVisible(action == "move_relative")
+        self.gripper_panel.setVisible(action in ("open_gripper", "close_gripper"))
+        self.attach.setVisible(action == "close_gripper")
+        self.release.setVisible(action == "open_gripper")
+        self.notice.setVisible(action in ("move_joint", "move_cartesian", "move_relative", "home"))
+        self.update_target()
+        self.adjustSize()
+
+    def update_target(self, *_):
+        direct = self.target.currentData() is None
+        action = self.action.currentData()
+        self.cartesian.setVisible(direct and action == "move_cartesian")
+        self.joints.setVisible(direct and action == "move_joint")
+        self.binding_warning.setVisible(
+            direct and action == "move_joint" and not self.joint_binding_matches
+        )
 
     def step(self):
         action = self.action.currentData()
-        if action in ("move_joint", "move_cartesian") and not self.target.currentData():
-            raise ValueError("Select a saved position")
+        direct = self.target.currentData() is None
+        if action == "move_joint" and direct and not self.joint_binding_matches:
+            raise ValueError("Re-teach the direct joint target for the current robot")
+        if action in ("open_gripper", "close_gripper") and not self.gripper_values:
+            raise ValueError("Confirm gripper joints first")
         data = dict(
             name=self.name.text().strip(),
             action=action,
-            position_id=self.target.currentData(),
+            position_id=self.target.currentData()
+            if action in ("move_joint", "move_cartesian", "home")
+            else None,
+            target_pose=self.cartesian.pose() if action == "move_cartesian" and direct else None,
+            joint_values=dict(self.joints.values) if action == "move_joint" and direct else {},
+            model_signature=self.chain.engine.signature
+            if action == "move_joint" and direct
+            else "",
             duration=self.duration.value(),
-            relative_xyz=tuple(s.value() / 1000 for s in self.relative[:3]),
-            relative_rpy=tuple(math.radians(s.value()) for s in self.relative[3:]),
-            reference_frame=self.frame.currentText(),
+            relative_xyz=tuple(s.value() / 1000 for s in self.relative[:3])
+            if action == "move_relative"
+            else (0, 0, 0),
+            relative_rpy=tuple(math.radians(s.value()) for s in self.relative[3:])
+            if action == "move_relative"
+            else (0, 0, 0),
+            reference_frame=self.frame.currentText() if action == "move_relative" else "",
             gripper_values={n: s.value() / factor for n, (s, factor) in self.gripper_values.items()}
             if action in ("open_gripper", "close_gripper")
             else {},
