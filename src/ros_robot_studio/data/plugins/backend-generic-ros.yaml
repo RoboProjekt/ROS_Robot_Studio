@@ -1,0 +1,20 @@
+schema_version: 1
+id: backend-generic-ros
+name: Generic ROS 2 Backend
+version: 0.1.0
+kind: backend
+description: Generic ROS 2 Backend via isolated ROS runtime contexts; execution policy
+  is independent of the domain ID.
+distributions:
+- humble
+- jazzy
+- lyrical
+interfaces:
+- sensor_msgs/msg/JointState
+capabilities:
+- joint_state_feedback
+- simulation_execution
+parameters:
+  backend_type: generic_ros
+  execution_policy: simulation
+status: implemented

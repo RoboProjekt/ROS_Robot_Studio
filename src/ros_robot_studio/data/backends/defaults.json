@@ -1,0 +1,8 @@
+{
+  "real_robot": {"name": "Real Robot", "domain_id": 0},
+  "isaac_sim": {"name": "NVIDIA Isaac Sim", "domain_id": 1},
+  "mujoco": {"name": "MuJoCo", "domain_id": 2},
+  "gazebo": {"name": "Gazebo", "domain_id": 3},
+  "ros_demo": {"name": "ROS Demo Controller", "domain_id": 10},
+  "generic_ros": {"name": "Generic ROS 2 Backend", "domain_id": 0}
+}

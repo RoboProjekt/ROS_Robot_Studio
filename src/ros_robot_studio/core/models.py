@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from pydantic import Field, model_validator
 
+from ros_robot_studio.backends.profiles import BackendProfile
 from ros_robot_studio.core.validation import Model as Model
 from ros_robot_studio.motion.schema import (
     KinematicSettings,
@@ -155,6 +156,8 @@ class RuntimeConfig(Model):
 
 
 class Project(Model):
+    backends: list[BackendProfile] = Field(default_factory=list)
+    active_backend: str | None = None
     format_version: Literal[3] = 3
     kinematics: KinematicSettings = Field(default_factory=KinematicSettings)
     positions: list[SavedPosition] = Field(default_factory=list)
@@ -173,6 +176,11 @@ class Project(Model):
 
     @model_validator(mode="after")
     def unique_sensors(self) -> Project:
+        backend_ids = [p.id for p in self.backends]
+        if len(set(backend_ids)) != len(backend_ids):
+            raise ValueError("Backend IDs must be unique")
+        if self.active_backend is not None and self.active_backend not in backend_ids:
+            raise ValueError("Active backend must reference an existing profile")
         for library, title in [(self.positions, "position"), (self.tasks, "task")]:
             ids = [item.id for item in library]
             if len(ids) != len(set(ids)):

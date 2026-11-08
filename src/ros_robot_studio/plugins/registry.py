@@ -15,7 +15,9 @@ class PluginManifest(Model):
     id: str = Field(pattern=r"^[a-z][a-z0-9-]+$")
     name: str = Field(min_length=1)
     version: str = Field(pattern=r"^\d+\.\d+\.\d+$")
-    kind: Literal["robot", "hardware", "controller", "ik", "sensor", "perception", "ros-adapter"]
+    kind: Literal[
+        "robot", "hardware", "controller", "ik", "sensor", "perception", "ros-adapter", "backend"
+    ]
     description: str
     distributions: list[Distro]
     packages: dict[str, list[str]] = Field(default_factory=dict)

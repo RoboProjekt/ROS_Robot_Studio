@@ -1,0 +1,20 @@
+schema_version: 1
+id: backend-ros-demo
+name: ROS Demo Controller
+version: 0.1.0
+kind: backend
+description: ROS Demo Controller via isolated ROS runtime contexts; execution policy
+  is independent of the domain ID.
+distributions:
+- humble
+- jazzy
+- lyrical
+interfaces:
+- sensor_msgs/msg/JointState
+capabilities:
+- joint_state_feedback
+- simulation_execution
+parameters:
+  backend_type: ros_demo
+  execution_policy: simulation
+status: implemented

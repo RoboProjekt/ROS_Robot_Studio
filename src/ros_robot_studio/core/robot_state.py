@@ -22,6 +22,7 @@ class StateLease:
     instance: str
     epoch: int
     backend: str
+    backend_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -49,6 +50,9 @@ class RobotState:
     diagnostic: str
     sequence: int
     progress: float = 0.0
+    backend_id: str = ""
+    ros_domain: int | None = None
+    ros_distribution: str = ""
 
     def fields(self):
         fields = {f"position.{n}": v for n, v in self.positions.items()}
@@ -77,6 +81,8 @@ class RobotStateManager:
         self.epoch = 0
         self.instance = ""
         self.last_source_time = None
+        self.backend_sources = {}
+        self.backend_epoch = 0
 
     def subscribe(self, callback):
         with self.lock:
@@ -91,6 +97,7 @@ class RobotStateManager:
 
     def bind(self, model, robot, positions, base=None, end=None):
         with self.lock:
+            self.backend_sources.clear()
             self.model = model
             self.instance = uuid4().hex
             self.epoch += 1
@@ -146,7 +153,7 @@ class RobotStateManager:
             return StateLease(self.instance, self.epoch, self.state.backend)
 
     def activate_source(self, backend, source):
-        if backend not in ("offline", "ros_simulation", "external_simulation"):
+        if backend not in ("offline", "ros_simulation", "external_simulation", "ros_read_only"):
             raise ValueError("Hardware state sources are disabled")
         with self.lock:
             self.epoch += 1
@@ -156,6 +163,9 @@ class RobotStateManager:
                 replace(
                     state,
                     backend=backend,
+                    backend_id="",
+                    ros_domain=None,
+                    ros_distribution="",
                     source=source,
                     velocities=None,
                     accelerations=None,
@@ -172,6 +182,61 @@ class RobotStateManager:
             )
             return self.lease()
 
+    def register_backend(self, backend_id, domain, distribution, backend="external_simulation"):
+        """Register another source inside this same authority; no second state manager."""
+        with self.lock:
+            if not self.state:
+                raise ValueError("Bind a robot before connecting backends")
+            self.backend_epoch += 1
+            lease = StateLease(self.instance, self.backend_epoch, backend, backend_id)
+            state = replace(
+                self.state,
+                backend_id=backend_id,
+                ros_domain=domain,
+                ros_distribution=distribution,
+                backend=backend,
+                valid=False,
+                source="Waiting for backend feedback",
+                source_timestamp=None,
+                velocities=None,
+                accelerations=None,
+                efforts=None,
+                execution_status="read_only" if backend == "ros_read_only" else "idle",
+            )
+            self.backend_sources[backend_id] = dict(lease=lease, state=state, last_time=None)
+            return lease
+
+    def backend_snapshot(self, backend_id):
+        with self.lock:
+            context = self.backend_sources.get(backend_id)
+            return context["state"] if context else None
+
+    def backend_stale(self, backend_id, maximum_age=1.0):
+        state = self.backend_snapshot(backend_id)
+        return not state or not state.valid or self.clock() - state.timestamp > maximum_age
+
+    def activate_backend(self, backend_id):
+        with self.lock:
+            context = self.backend_sources[backend_id]
+            self.epoch += 1
+            self.last_source_time = context["last_time"]
+            self._publish(replace(context["state"], sequence=self.state.sequence + 1))
+            return self.lease()
+
+    def remove_backend(self, backend_id):
+        with self.lock:
+            self.backend_sources.pop(backend_id, None)
+            if self.state and self.state.backend_id == backend_id:
+                self.activate_source("offline", "local simulation")
+
+    def _lease_state(self, lease):
+        if lease.backend_id:
+            context = self.backend_sources.get(lease.backend_id)
+            if context and context["lease"] == lease and lease.instance == self.instance:
+                return context["state"]
+            return None
+        return self.state if lease == self.lease() else None
+
     def update(
         self,
         lease,
@@ -186,16 +251,18 @@ class RobotStateManager:
         progress=None,
     ):
         with self.lock:
-            if lease != self.lease():
+            state = self._lease_state(lease)
+            if state is None:
                 return False
-            state = self.state
+            context = self.backend_sources.get(lease.backend_id) if lease.backend_id else None
+            last_time = context["last_time"] if context else self.last_source_time
             now = self.clock()
             if not math.isfinite(now):
                 raise ValueError("Invalid receive timestamp")
             if source_timestamp is not None:
                 if not math.isfinite(source_timestamp) or source_timestamp < 0:
                     raise ValueError("Invalid source timestamp")
-                if self.last_source_time is not None and source_timestamp <= self.last_source_time:
+                if last_time is not None and source_timestamp <= last_time:
                     return False
             independent = set(self.model.default_configuration())
             if set(positions) - independent:
@@ -230,33 +297,41 @@ class RobotStateManager:
                     @ transforms[state.end_effector]
                 )
             if source_timestamp is not None:
-                self.last_source_time = source_timestamp
-            self._publish(
-                replace(
-                    state,
-                    positions=frozen(resolved),
-                    velocities=frozen(velocities),
-                    accelerations=frozen(accelerations),
-                    efforts=frozen(efforts),
-                    pose=pose,
-                    timestamp=now,
-                    source_timestamp=source_timestamp,
-                    source=source or state.source,
-                    execution_status=status or state.execution_status,
-                    progress=state.progress
-                    if progress is None
-                    else min(1.0, max(0.0, float(progress))),
-                    valid=valid,
-                    diagnostic="Missing joints: " + ", ".join(sorted(missing)) if missing else "",
-                    sequence=state.sequence + 1,
-                )
+                if context is not None:
+                    context["last_time"] = source_timestamp
+                else:
+                    self.last_source_time = source_timestamp
+            updated = replace(
+                state,
+                positions=frozen(resolved),
+                velocities=frozen(velocities),
+                accelerations=frozen(accelerations),
+                efforts=frozen(efforts),
+                pose=pose,
+                timestamp=now,
+                source_timestamp=source_timestamp,
+                source=source or state.source,
+                execution_status=status or state.execution_status,
+                progress=state.progress
+                if progress is None
+                else min(1.0, max(0.0, float(progress))),
+                valid=valid,
+                diagnostic="Missing joints: " + ", ".join(sorted(missing)) if missing else "",
+                sequence=state.sequence + 1,
             )
+            if context is not None:
+                context["state"] = updated
+                if self.state.backend_id == lease.backend_id:
+                    self._publish(replace(updated, sequence=self.state.sequence + 1))
+            else:
+                self._publish(updated)
             return valid
 
     def joint_state(self, lease, message, mapping=None):
         """Map ROS names, never array order. Reject malformed, unknown and inconsistent mimic data."""
         with self.lock:
-            if lease != self.lease():
+            state = self._lease_state(lease)
+            if state is None:
                 return False
             names = message.get("name", [])
             positions = message.get("position", [])
@@ -268,7 +343,7 @@ class RobotStateManager:
                 or len(names) != len(positions)
             ):
                 raise ValueError("JointState names/positions must be unique and aligned")
-            mapping = mapping or {n: n for n in self.state.joint_names}
+            mapping = mapping or {n: n for n in state.joint_names}
             if len(set(mapping.values())) != len(mapping):
                 raise ValueError("Joint mapping must be one-to-one")
             inverse = {remote: local for local, remote in mapping.items()}

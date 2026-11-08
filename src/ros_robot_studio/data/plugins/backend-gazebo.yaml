@@ -1,0 +1,21 @@
+schema_version: 1
+id: backend-gazebo
+name: "Gazebo \xB7 ros_gz_bridge prepared"
+version: 0.1.0
+kind: backend
+description: "Gazebo \xB7 ros_gz_bridge prepared via isolated ROS runtime contexts;\
+  \ execution policy is independent of the domain ID."
+distributions:
+- humble
+- jazzy
+- lyrical
+interfaces:
+- sensor_msgs/msg/JointState
+capabilities:
+- joint_state_feedback
+parameters:
+  backend_type: gazebo
+  execution_policy: prepared
+status: planned
+dependencies:
+- ros_gz_bridge (future, not installed automatically)

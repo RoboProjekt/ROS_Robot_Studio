@@ -179,16 +179,23 @@ class RuntimeManager:
             from ros_robot_studio.runtime.robot_config import simulation_config
 
             payload = robot_config or simulation_config()
-            if payload.get("profile") not in ("managed_simulation", "external_simulation"):
-                raise ValueError("Only simulation profiles are allowed")
+            if payload.get("profile") not in (
+                "managed_simulation",
+                "external_simulation",
+                "read_only",
+            ):
+                raise ValueError("Unknown backend runtime profile")
             if payload.get("profile") == "external_simulation" and not payload.get(
                 "external_simulation_confirmed"
             ):
                 raise ValueError("External simulation requires explicit confirmation")
             if config.network == "host" and (
                 not config.external_network_confirmed
-                or payload.get("profile") != "external_simulation"
-                or not payload.get("external_simulation_confirmed")
+                or payload.get("profile") not in ("external_simulation", "read_only")
+                or (
+                    payload.get("profile") == "external_simulation"
+                    and not payload.get("external_simulation_confirmed")
+                )
             ):
                 raise ValueError(
                     "Host networking requires an explicitly confirmed external simulation profile"
@@ -207,6 +214,8 @@ class RuntimeManager:
                     "studio.project": project_id,
                     "studio.distro": distro,
                     "studio.integration": str(integration).lower(),
+                    "studio.backend_id": payload.get("backend_id", ""),
+                    "studio.domain_id": str(config.domain_id),
                     "studio.network": network.id if network else "",
                 },
                 **(

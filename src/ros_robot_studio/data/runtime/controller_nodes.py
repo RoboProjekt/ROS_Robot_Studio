@@ -139,9 +139,10 @@ class ActionGateway(Node):
         self.config = config
         self.controller = controller
         self.client = ActionClient(self, FollowJointTrajectory, config["action"])
-        self.events = self.create_publisher(String, "/studio/execution/events", 10)
-        self.create_subscription(String, "/studio/execution/command", self.command, 10)
-        self.create_subscription(String, "/studio/execution/heartbeat", self.heartbeat, 10)
+        control = config.get("control_namespace", "/studio/execution")
+        self.events = self.create_publisher(String, control + "/events", 10)
+        self.create_subscription(String, control + "/command", self.command, 10)
+        self.create_subscription(String, control + "/heartbeat", self.heartbeat, 10)
         self.goal_handle = None
         self.pending = None
         self.last_heartbeat = time.monotonic()

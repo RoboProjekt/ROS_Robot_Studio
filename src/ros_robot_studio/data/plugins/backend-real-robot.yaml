@@ -1,0 +1,19 @@
+schema_version: 1
+id: backend-real-robot
+name: "Real Robot \xB7 read only"
+version: 0.1.0
+kind: backend
+description: "Real Robot \xB7 read only via isolated ROS runtime contexts; execution\
+  \ policy is independent of the domain ID."
+distributions:
+- humble
+- jazzy
+- lyrical
+interfaces:
+- sensor_msgs/msg/JointState
+capabilities:
+- joint_state_feedback
+parameters:
+  backend_type: real_robot
+  execution_policy: read_only
+status: implemented

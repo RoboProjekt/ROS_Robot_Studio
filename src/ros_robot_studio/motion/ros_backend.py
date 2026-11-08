@@ -31,6 +31,9 @@ class ROS2ExecutionBackend(QObject):
         self.wait_until = None
         self.await_feedback_until = None
         self.session = ""
+        self.backend_id = ""
+        self.control_namespace = "/studio/execution"
+        self.read_only = False
         self.model = None
         self.lease = None
         self.config = None
@@ -48,10 +51,13 @@ class ROS2ExecutionBackend(QObject):
         self.config = config
         self.session = payload["session"]
         self.signature = payload["model_signature"]
+        self.backend_id = payload.get("backend_id", "")
+        self.control_namespace = payload.get("control_namespace", "/studio/execution")
+        self.read_only = payload.get("profile") == "read_only"
         self.lease = lease
         self.status = "connected"
         self.reconnect_required = False
-        transport.subscribe("/studio/execution/events", "std_msgs/msg/String")
+        transport.subscribe(self.control_namespace + "/events", "std_msgs/msg/String")
         transport.message.connect(self.receive)
         transport.connection_changed.connect(self.connection_changed)
         self.timer.start()
@@ -89,7 +95,9 @@ class ROS2ExecutionBackend(QObject):
 
     def ready(self):
         return bool(
-            self.transport
+            not self.read_only
+            and (not self.backend_id or self.states.snapshot().backend_id == self.backend_id)
+            and self.transport
             and self.transport.connected
             and self.controller
             and self.clock() - self.controller_time < 1.5
@@ -98,16 +106,24 @@ class ROS2ExecutionBackend(QObject):
         )
 
     def send(self, operation, **data):
+        if self.read_only or (
+            self.backend_id and self.states.snapshot().backend_id != self.backend_id
+        ):
+            raise ConnectionError("Command blocked: backend is read only or no longer active")
         if not self.transport or not self.transport.connected:
             raise ConnectionError("ROS transport unavailable")
         payload = dict(
             operation=operation, session=self.session, model_signature=self.signature, **data
         )
         self.transport.publish(
-            "/studio/execution/command", "std_msgs/msg/String", {"data": json.dumps(payload)}
+            self.control_namespace + "/command",
+            "std_msgs/msg/String",
+            {"data": json.dumps(payload)},
         )
 
     def execute(self, plan):
+        if self.read_only:
+            raise ValueError("Read-only backend cannot execute motion")
         if self.config.profile not in ("managed_simulation", "external_simulation"):
             raise ValueError("Hardware execution is disabled")
         if (
@@ -173,7 +189,7 @@ class ROS2ExecutionBackend(QObject):
             self.fail(str(exc))
 
     def receive(self, topic, message):
-        if topic != "/studio/execution/events" or not self.transport:
+        if topic != self.control_namespace + "/events" or not self.transport:
             return
         try:
             data = json.loads(message.get("data", ""))
@@ -216,9 +232,14 @@ class ROS2ExecutionBackend(QObject):
     def tick(self):
         if not self.transport:
             return
-        if self.transport.connected and not self.reconnect_required:
+        if (
+            self.transport.connected
+            and not self.reconnect_required
+            and not self.read_only
+            and (not self.backend_id or self.states.snapshot().backend_id == self.backend_id)
+        ):
             self.transport.publish(
-                "/studio/execution/heartbeat", "std_msgs/msg/String", {"data": self.session}
+                self.control_namespace + "/heartbeat", "std_msgs/msg/String", {"data": self.session}
             )
         if self.status == "connected" and self.ready():
             self.status = "ready"

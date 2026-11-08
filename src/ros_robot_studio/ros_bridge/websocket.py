@@ -121,7 +121,7 @@ class RosbridgeTransport(Transport):
         }
         if message_type:
             data["type"] = message_type
-        if topic.startswith("/studio/execution/"):
+        if topic.startswith("/studio/") and "/execution/" in topic:
             data["throttle_rate"] = 0
             data["queue_length"] = 100
         self.send(data)
@@ -185,7 +185,7 @@ class RosbridgeTransport(Transport):
                 return
             if data.get("op") == "publish" and data.get("topic") in self.subscriptions:
                 if isinstance(data.get("msg"), dict):
-                    if data["topic"].startswith("/studio/execution/"):
+                    if data["topic"].startswith("/studio/") and "/execution/" in data["topic"]:
                         self.message.emit(data["topic"], data["msg"])
                     else:
                         self.latest[data["topic"]] = data["msg"]

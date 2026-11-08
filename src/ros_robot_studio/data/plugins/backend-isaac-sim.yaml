@@ -1,0 +1,19 @@
+schema_version: 1
+id: backend-isaac-sim
+name: NVIDIA Isaac Sim 5.1
+version: 0.1.0
+kind: backend
+description: NVIDIA Isaac Sim 5.1 via isolated ROS runtime contexts; execution policy
+  is independent of the domain ID.
+distributions:
+- humble
+- jazzy
+interfaces:
+- sensor_msgs/msg/JointState
+capabilities:
+- joint_state_feedback
+- simulation_execution
+parameters:
+  backend_type: isaac_sim
+  execution_policy: simulation
+status: implemented
