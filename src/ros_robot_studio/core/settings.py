@@ -1,19 +1,10 @@
 """XDG application paths and atomic, version-independent user preferences."""
 
 import json
-import os
 from pathlib import Path
 
+from ros_robot_studio.core.paths import xdg_path as xdg_path
 from ros_robot_studio.projects.store import atomic_text
-
-
-def xdg_path(kind: str) -> Path:
-    base = {
-        "config": ("XDG_CONFIG_HOME", ".config"),
-        "cache": ("XDG_CACHE_HOME", ".cache"),
-        "state": ("XDG_STATE_HOME", ".local/state"),
-    }[kind]
-    return Path(os.environ.get(base[0], str(Path.home() / base[1]))) / "ros-robot-studio"
 
 
 class Settings:

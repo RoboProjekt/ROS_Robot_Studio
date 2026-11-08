@@ -1,12 +1,18 @@
 {
   "id": "so101",
-  "name": "SO-101 \u00b7 provisional profile",
+  "name": "SO-101 Follower \u00b7 offline model",
   "kind": "robot",
-  "description": "Planning metadata only. LeRobot/ROS driver, URDF, calibration and supported interfaces must be verified against the actual hardware before use.",
-  "capabilities": [],
+  "description": "Original pinned new_calib follower URDF and STL model. Offline FK, joint controls and mesh viewer implemented. ROS drivers, hardware and Isaac Sim are not configured.",
+  "capabilities": [
+    "offline-viewer",
+    "urdf-meshes",
+    "forward-kinematics",
+    "virtual-joint-control"
+  ],
   "hardware": [
     "SO-101"
   ],
   "distributions": [],
-  "version": "0.1.0"
+  "version": "0.2.0",
+  "status": "implemented"
 }

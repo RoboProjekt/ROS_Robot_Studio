@@ -40,8 +40,9 @@ def test_invalid_urdf(text):
 def test_plugins_and_compatibility():
     registry = PluginRegistry()
     assert not registry.errors
-    assert registry.plugins["so101"].status == "planned"
-    assert registry.plugins["so101"].capabilities == []
+    assert registry.plugins["so101"].status == "implemented"
+    assert "offline-viewer" in registry.plugins["so101"].capabilities
+    assert registry.plugins["so101"].distributions == []
     project = demo_project()
     assert check(project, "jazzy", registry).compatible
     project.robot.profile = "so101"

@@ -55,14 +55,40 @@ class Sensor(Model):
         return self
 
 
+class SimulationAsset(Model):
+    format: Literal["usd"] = "usd"
+    path: str | None = None
+
+
+class SimulationSettings(Model):
+    backend: Literal["isaac_sim"] = "isaac_sim"
+    status: Literal["planned"] = "planned"
+    asset: SimulationAsset = Field(default_factory=SimulationAsset)
+    joint_mapping: Literal["not_configured"] = "not_configured"
+
+
 class Robot(Model):
     profile: str = "generic-arm"
+    model_id: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_-]{1,64}$")
+    model_version: str | None = None
+    source_revision: str | None = Field(default=None, pattern=r"^[a-f0-9]{40}$")
+    joint_positions: dict[str, float] = Field(default_factory=dict)
+    joint_mapping_status: Literal["not_calibrated"] = "not_calibrated"
+    simulation: SimulationSettings = Field(default_factory=SimulationSettings)
     urdf: str | None = None
     source_xacro: str | None = None
     hardware: str | None = None
     controller: str | None = None
     ik_solver: str | None = None
     end_effector: str = ""
+
+    @model_validator(mode="after")
+    def model_reference_complete(self):
+        if self.model_id and (not self.model_version or not self.source_revision or not self.urdf):
+            raise ValueError(
+                "Catalog robots require model version, source revision and URDF reference"
+            )
+        return self
 
 
 class Monitoring(Model):
@@ -80,7 +106,7 @@ class RuntimeConfig(Model):
 
 
 class Project(Model):
-    format_version: Literal[1] = 1
+    format_version: Literal[2] = 2
     id: str = Field(default_factory=lambda: str(uuid4()))
     name: str = Field(default="Untitled robot", min_length=1, max_length=120)
     description: str = ""

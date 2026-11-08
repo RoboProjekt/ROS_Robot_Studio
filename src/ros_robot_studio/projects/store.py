@@ -17,7 +17,10 @@ EXAMPLE_URDF = DATA / "examples" / "generic_arm.urdf"
 def load_project(path: Path) -> Project:
     if path.stat().st_size > 2_000_000:
         raise ValueError("Project exceeds 2 MB limit")
-    return Project.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if isinstance(data, dict) and data.get("format_version", 1) == 1:
+        data = dict(data, format_version=2)
+    return Project.model_validate(data)
 
 
 def atomic_text(path: Path, text: str) -> None:
@@ -45,19 +48,48 @@ def save_project(project: Project, path: Path) -> None:
 def asset_path(reference: str | None, project_path: Path | None) -> Path:
     if not reference:
         return EXAMPLE_URDF
+    if reference.startswith("model://"):
+        from ros_robot_studio.robots.model_manager import RobotModelManager
+
+        return RobotModelManager().resolve(reference)
     path = Path(reference)
     return (
         path if path.is_absolute() else (project_path.parent if project_path else Path.cwd()) / path
     )
 
 
-def portable_copy(project: Project, old_path: Path | None, destination: Path) -> Project:
+def portable_copy(
+    project: Project, old_path: Path | None, destination: Path, models=None
+) -> Project:
     """Copy the parsed URDF beside the project, so Save As and export stay usable."""
     result = project.model_copy(deep=True)
+    if project.robot.model_id:
+        from ros_robot_studio.robots.model_manager import RobotModelManager
+
+        spec = (models or RobotModelManager()).spec(
+            project.robot.model_id, project.robot.source_revision
+        )
+        if project.robot.model_version != spec.model_version:
+            raise ValueError("Saved model version does not match the reviewed model catalog")
+        result.robot.urdf = spec.reference
+        return result
     source = asset_path(project.robot.urdf, old_path)
     target = destination.parent / (destination.stem + ".assets") / "robot.urdf"
     if source.resolve() != target.resolve():
         atomic_text(target, source.read_text(encoding="utf-8"))
+    # Keep relative STL assets with custom URDFs as well; never rewrite the source URDF.
+    import shutil
+
+    from ros_robot_studio.robots.geometry import resolve_mesh_uri
+    from ros_robot_studio.robots.urdf import parse_urdf
+
+    model = parse_urdf(source)
+    for reference in model.mesh_references:
+        mesh = resolve_mesh_uri(reference, source.parent)
+        destination_mesh = target.parent / reference
+        destination_mesh.parent.mkdir(parents=True, exist_ok=True)
+        if mesh.resolve() != destination_mesh.resolve():
+            shutil.copyfile(mesh, destination_mesh)
     result.robot.urdf = str(target.relative_to(destination.parent))
     # Xacro is provenance only. Exported runtime uses the expanded URDF.
     if result.robot.source_xacro:

@@ -24,3 +24,9 @@ credentials*
 *.pt
 *.stl
 *.dae
+# Downloaded robot models and optional local test caches
+.robots/
+robot-cache/
+*.stl
+*.obj
+*.ply

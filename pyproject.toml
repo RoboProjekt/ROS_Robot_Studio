@@ -11,6 +11,7 @@ license = {text = "Apache-2.0"}
 dependencies = [
   "PySide6==6.8.3", "pyqtgraph==0.13.7", "numpy==2.2.6",
   "pydantic==2.10.6", "PyYAML==6.0.2", "defusedxml==0.7.1", "docker==7.1.0",
+  "trimesh==4.6.8", "PyOpenGL==3.1.9", "filelock==3.18.0",
 ]
 
 [project.optional-dependencies]
@@ -27,7 +28,8 @@ ros_robot_studio = ["data/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["integration: requires explicit --run-docker and installed owned runtime"]
+markers = ["integration: requires explicit --run-docker and installed owned runtime",
+           "model_download: explicitly downloads the pinned original SO-101 files"]
 
 [tool.ruff]
 line-length = 100

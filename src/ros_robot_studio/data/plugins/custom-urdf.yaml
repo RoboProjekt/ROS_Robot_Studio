@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "id": "custom-urdf",
+  "name": "Custom URDF",
+  "version": "0.1.0",
+  "kind": "robot",
+  "description": "Imported URDF with offline kinematics and local STL visuals. No hardware or ROS driver configured.",
+  "distributions": [],
+  "capabilities": [
+    "offline-viewer",
+    "urdf-import"
+  ],
+  "status": "implemented"
+}
