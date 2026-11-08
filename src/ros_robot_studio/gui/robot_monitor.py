@@ -110,7 +110,13 @@ class RobotStatePanel(QWidget):
                 )
 
     def receive(self, state, model):
-        key = (state.instance, state.backend)
+        key = (
+            state.instance,
+            state.backend,
+            state.backend_id,
+            state.ros_domain,
+            state.ros_distribution,
+        )
         if key != self.source_key:
             self.reset()
             self.source_key = key
@@ -209,7 +215,7 @@ class RobotStatePanel(QWidget):
                 else 0
             )
             self.overview.setText(
-                f"{state.name} · Model: {state.robot_id} · {state.revision[:12]}\nBackend: {state.backend} · Source: {state.source} · Execution: {state.execution_status}\nState: {'STALE / INVALID' if stale or not state.valid else 'VALID'} · {frequency:.1f} Hz · timestamp {state.source_timestamp if state.source_timestamp is not None else state.timestamp:.6f} · receive age {time.monotonic() - state.timestamp:.2f} s"
+                f"{state.name} · Model: {state.robot_id} · {state.revision[:12]}\nBackend ID: {state.backend_id or 'local'} · Domain: {state.ros_domain if state.ros_domain is not None else 'N/A'} · ROS: {state.ros_distribution or 'N/A'}\nBackend: {state.backend} · Source: {state.source} · Execution: {state.execution_status}\nState: {'STALE / INVALID' if stale or not state.valid else 'VALID'} · {frequency:.1f} Hz · timestamp {state.source_timestamp if state.source_timestamp is not None else state.timestamp:.6f} · receive age {time.monotonic() - state.timestamp:.2f} s"
             )
         for name, curve in self.curves.items():
             curve.setData(*self.buffer.series(name, self.latest_time, window))

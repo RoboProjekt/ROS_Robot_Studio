@@ -29,6 +29,7 @@ from ros_robot_studio.compatibility.checker import check
 from ros_robot_studio.core.models import Project, Robot
 from ros_robot_studio.core.robot_state import RobotStateManager
 from ros_robot_studio.core.settings import Settings, xdg_path
+from ros_robot_studio.gui.backend_workspace import BackendWorkspace
 from ros_robot_studio.gui.motion_workspace import MotionWorkspace
 from ros_robot_studio.gui.panels import MonitoringPanel, RobotPanel, RuntimePanel, SensorPanel
 from ros_robot_studio.gui.plots import close_plot
@@ -134,9 +135,19 @@ class MainWindow(QMainWindow):
         self.health_timer.setInterval(10000)
         self.health_timer.timeout.connect(self.check_health)
         self.health_timer.start()
+        self.backend_workspace = BackendWorkspace(self)
         QTimer.singleShot(0, self.refresh_runtime)
         if show_wizard and not self.settings.get("setup_complete", False):
             QTimer.singleShot(250, self.open_wizard)
+
+    def open_backend_connections(self):
+        self.backend_workspace.open()
+
+    def start_profile_ros(self, identity, activate=False):
+        self.backend_workspace.connect(identity, activate)
+
+    def activate_backend(self, identity):
+        self.backend_workspace.activate(identity)
 
     def build_toolbar(self):
         toolbar = QToolBar("Workspace")
@@ -176,6 +187,7 @@ class MainWindow(QMainWindow):
         self.offline_action = toolbar.addAction("Offline demo", self.request_offline)
         toolbar.addSeparator()
         toolbar.addAction("Settings", self.open_settings)
+        toolbar.addAction("Backends…", self.open_backend_connections)
         help_menu = self.menuBar().addMenu("Help")
         help_menu.addAction("Setup assistant", self.open_wizard)
         help_menu.addAction("Open demo project", self.open_demo)
@@ -246,6 +258,8 @@ class MainWindow(QMainWindow):
     def collect(self):
         result = self.project.model_copy(deep=True)
         self.robot_panel.collect(result)
+        if hasattr(self, "backend_workspace"):
+            self.backend_workspace.collect(result)
         result.execution_backend = "ros2_simulation" if self.mode == "ros" else "offline"
         self.motion.collect(result)
         result.monitoring.source = (
@@ -282,6 +296,8 @@ class MainWindow(QMainWindow):
         if hasattr(self, "timer"):
             self.timer.setInterval(round(1000 / self.project.monitoring.update_hz))
         self.robot_panel.update_compatibility(self.selected_distro)
+        if hasattr(self, "backend_workspace"):
+            self.backend_workspace.load(self.project)
         self.loading = False
         self.dirty = False
         self.update_title()
@@ -732,6 +748,8 @@ class MainWindow(QMainWindow):
         return dict(self.robot_panel.joint_controls.values)
 
     def bind_robot_state(self, robot, model):
+        if hasattr(self, "backend_workspace"):
+            self.backend_workspace.reset_model()
         if self.mode == "ros":
             self.ros_execution.abort()
             self.detach_transport()
@@ -820,12 +838,21 @@ class MainWindow(QMainWindow):
             old, self.transport = self.transport, None
             if hasattr(self, "ros_execution") and self.ros_execution.transport is old:
                 self.ros_execution.disconnect_backend()
-            old.status.disconnect()
-            old.graph.disconnect()
-            old.message.disconnect()
-            old.error.disconnect()
-            old.disconnect_transport()
-            old.deleteLater()
+            for signal, slot in (
+                (old.status, self.connection_status),
+                (old.graph, self.monitor.set_graph),
+                (old.message, getattr(self, "_transport_message_slot", None)),
+                (old.error, self.transport_error),
+            ):
+                if slot is not None:
+                    try:
+                        signal.disconnect(slot)
+                    except (RuntimeError, TypeError):
+                        pass
+            managed = hasattr(self, "backend_manager") and self.backend_manager.owns_transport(old)
+            if not managed:
+                old.disconnect_transport()
+                old.deleteLater()
         self.selected_topic = ""
         self.monitor.clear_graph()
 
@@ -836,21 +863,28 @@ class MainWindow(QMainWindow):
         self.transport = transport
         transport.status.connect(self.connection_status)
         transport.graph.connect(self.monitor.set_graph)
-        transport.message.connect(
+        self._transport_message_slot = (
             lambda topic, message, t=transport: self.receive_message(topic, message)
             if self.transport is t
             else None
         )
+        transport.message.connect(self._transport_message_slot)
         transport.error.connect(self.transport_error)
         transport.subscribe(self.project.execution.state_topic, "sensor_msgs/msg/JointState")
         if self.project.execution.profile == "external_simulation":
             transport.subscribe(self.project.execution.clock_topic, "rosgraph_msgs/msg/Clock")
             transport.subscribe(self.project.execution.tf_topic, "tf2_msgs/msg/TFMessage")
-        transport.connect_transport()
+        if not (
+            hasattr(self, "backend_manager") and self.backend_manager.owns_transport(transport)
+        ):
+            transport.connect_transport()
         self.monitor.choose_topic(self.project.monitoring.topic)
         self.loading = was_loading
 
     def start_offline(self):
+        if hasattr(self, "backend_manager") and self.backend_manager.active_id:
+            self.backend_workspace.offline()
+            return
         if hasattr(self, "ros_start_deadline"):
             self.ros_start_deadline.stop()
         if hasattr(self, "ros_execution"):
@@ -872,9 +906,13 @@ class MainWindow(QMainWindow):
         self.mode_status.setText("OFFLINE / SIMULATED")
         self.attach_transport(OfflineTransport(self, state_provider=self.state_manager.snapshot))
         self.monitor.container.setText("Container: none")
+        self.motion.busy_changed(self.motion.runner.busy)
         self.update_title()
 
     def request_offline(self):
+        if hasattr(self, "backend_manager") and self.backend_manager.active_id:
+            self.backend_workspace.offline()
+            return
         if self.runner.busy:
             return
         if self.container_id:
@@ -910,7 +948,14 @@ class MainWindow(QMainWindow):
             if getattr(self, "last_ros_clock", None) is not None and stamp < self.last_ros_clock:
                 self.ros_execution.fail("Simulation clock reset; reconnect and replan")
             self.last_ros_clock = stamp
-        if self.mode == "ros" and topic == self.project.execution.state_topic:
+        if (
+            self.mode == "ros"
+            and topic == self.project.execution.state_topic
+            and not (
+                hasattr(self, "backend_manager")
+                and self.backend_manager.owns_transport(self.transport)
+            )
+        ):
             try:
                 self.state_manager.joint_state(
                     self.ros_lease, message, self.project.execution.joint_mapping or None
@@ -1083,6 +1128,12 @@ class MainWindow(QMainWindow):
             self.start_ros()
 
     def start_ros(self, checked=False):
+        if hasattr(self, "backend_manager") and self.backend_manager.profiles:
+            try:
+                self.backend_workspace.start_selected()
+            except ValueError as exc:
+                self.show_error(str(exc))
+            return
         if self.runner.busy or self.container_id:
             return
         distro = self.selected_distro
@@ -1180,6 +1231,8 @@ class MainWindow(QMainWindow):
     def execution_changed(self, status):
         if self.closed:
             return
+        if hasattr(self, "backend_manager") and self.backend_manager.active_id:
+            self.backend_manager.mark_execution(self.backend_manager.active_id, status)
         if self.ros_execution.ready():
             self.ros_start_deadline.stop()
         if not hasattr(self, "motion"):
@@ -1247,6 +1300,8 @@ class MainWindow(QMainWindow):
                     self.activity("FAIL: ROS controller diagnostics " + status)
 
     def stop_ros(self, checked=False, after=None):
+        if hasattr(self, "backend_workspace") and self.backend_workspace.stop_active(after):
+            return
         if self.runner.busy:
             return
         if not self.container_id:
@@ -1281,6 +1336,13 @@ class MainWindow(QMainWindow):
     def switch_distro(self, *_):
         if not hasattr(self, "monitor") or self.loading:
             return
+        if hasattr(self, "backend_workspace"):
+            try:
+                if self.backend_workspace.change_distribution(self.selected_distro):
+                    return
+            except ValueError as exc:
+                self.show_error(str(exc))
+                return
         try:
             report = check(self.collect(), self.selected_distro, self.registry)
         except ValueError as exc:
@@ -1491,6 +1553,10 @@ class MainWindow(QMainWindow):
         if self.closed:
             event.accept()
             return
+        if hasattr(self, "backend_workspace") and self.backend_workspace.close_pending():
+            self.dirty = False
+            event.ignore()
+            return
         if self.motion.runner.busy or (self.motion.wizard and self.motion.wizard.runner.busy):
             self.motion.cancel_work()
             if self.motion.wizard:
@@ -1512,6 +1578,8 @@ class MainWindow(QMainWindow):
             self.stop_ros(after=self.close)
             return
         self.closed = True
+        if hasattr(self, "backend_workspace"):
+            self.backend_workspace.shutdown()
         self.ros_execution.disconnect_backend()
         self.motion.shutdown()
         self.timer.stop()

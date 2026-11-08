@@ -1271,6 +1271,8 @@ class MotionWorkspace(QObject):
         self.apply.setEnabled(
             not busy and self.main.mode == "offline" and bool(self.result and self.result.success)
         )
+        if hasattr(self.main, "backend_workspace"):
+            self.main.backend_workspace.refresh_selector()
 
     def cancel_work(self):
         self.cancel_event.set()
