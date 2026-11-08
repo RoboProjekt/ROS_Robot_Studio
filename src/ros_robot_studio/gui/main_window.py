@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QMainWindow,
     QMessageBox,
+    QProgressDialog,
     QSpinBox,
     QTabWidget,
     QToolBar,
@@ -25,7 +26,7 @@ from PySide6.QtWidgets import (
 )
 
 from ros_robot_studio.compatibility.checker import check
-from ros_robot_studio.core.models import Project
+from ros_robot_studio.core.models import Project, Robot
 from ros_robot_studio.core.settings import Settings, xdg_path
 from ros_robot_studio.gui.panels import MonitoringPanel, RobotPanel, RuntimePanel, SensorPanel
 from ros_robot_studio.gui.sensor_dialog import SensorDialog
@@ -43,6 +44,8 @@ from ros_robot_studio.projects.store import (
     portable_copy,
     save_project,
 )
+from ros_robot_studio.robots.geometry import load_robot
+from ros_robot_studio.robots.model_manager import ModelUnavailableError, RobotModelManager
 from ros_robot_studio.robots.urdf import parse_urdf
 from ros_robot_studio.ros_bridge.transport import OfflineTransport
 from ros_robot_studio.ros_bridge.websocket import RosbridgeTransport
@@ -52,11 +55,16 @@ log = logging.getLogger(__name__)
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, settings: Settings | None = None, manager=None, show_wizard=True):
+    def __init__(
+        self, settings: Settings | None = None, manager=None, show_wizard=True, model_manager=None
+    ):
         super().__init__()
         self.settings = settings or Settings()
         self.manager = manager or RuntimeManager()
         self.registry = PluginRegistry()
+        self.model_manager = model_manager or RobotModelManager()
+        self.model_progress = None
+        self.initial_model_check_pending = True
         self.project = demo_project()
         self.project_path: Path | None = None
         self.model = parse_urdf(EXAMPLE_URDF)
@@ -78,7 +86,7 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(1050, 760)
         self.setUnifiedTitleAndToolBarOnMac(True)
         self.tabs = QTabWidget()
-        self.robot_panel = RobotPanel(self.registry)
+        self.robot_panel = RobotPanel(self.registry, models=self.model_manager)
         self.sensor_panel = SensorPanel()
         self.monitor = MonitoringPanel()
         self.runtime = RuntimePanel()
@@ -158,6 +166,9 @@ class MainWindow(QMainWindow):
         self.robot_panel.changed.connect(self.mark_dirty)
         self.robot_panel.import_requested.connect(self.import_urdf)
         self.robot_panel.example_requested.connect(self.load_example)
+        self.robot_panel.model_selected.connect(self.select_robot_model)
+        self.robot_panel.install_requested.connect(self.install_robot_model)
+        self.robot_panel.save_pose_requested.connect(self.save)
         self.sensor_panel.add_requested.connect(self.add_sensor)
         self.sensor_panel.edit_requested.connect(self.edit_sensor)
         self.sensor_panel.remove_requested.connect(self.remove_sensor)
@@ -286,7 +297,7 @@ class MainWindow(QMainWindow):
         old_path = self.project_path
 
         def work(_):
-            result = portable_copy(project, old_path, path)
+            result = portable_copy(project, old_path, path, models=self.model_manager)
             save_project(result, path)
             return result
 
@@ -321,21 +332,59 @@ class MainWindow(QMainWindow):
 
         def work(_):
             project = load_project(path)
-            model = parse_urdf(asset_path(project.robot.urdf, path))
-            return project, model
+            if project.robot.model_id:
+                spec = self.model_manager.spec(
+                    project.robot.model_id, project.robot.source_revision
+                )
+                if (
+                    project.robot.model_version != spec.model_version
+                    or project.robot.urdf != spec.reference
+                ):
+                    raise ValueError(
+                        "Project model version/revision/reference does not match the reviewed catalog"
+                    )
+                try:
+                    source = self.model_manager.resolve(spec.reference)
+                except ModelUnavailableError as exc:
+                    return project, None, str(exc)
+                model = load_robot(source, require_meshes=True)
+            else:
+                model = load_robot(asset_path(project.robot.urdf, path))
+            model.configuration(project.robot.joint_positions)
+            if project.robot.end_effector and project.robot.end_effector not in model.links:
+                raise ValueError("Saved end-effector frame is not present in the robot model")
+            return project, model, None
 
         def done(result):
-            self.project, self.model = result
-            self.project_path = path
-            known = list(self.settings.get("known_projects", []))
-            if str(path) not in known:
-                known.append(str(path))
-            self.settings.set("known_projects", known)
-            self.settings.set("last_project", str(path))
-            self.apply_project()
-            self.activity(f"Project opened: {path}; session runtime is {self.selected_distro}")
+            project, model, missing = result
+            if missing:
+                answer = QMessageBox.question(
+                    self,
+                    "Install missing robot model",
+                    missing
+                    + "\n\nInstall/repair the exact pinned model and then open this project?",
+                )
+                if answer == QMessageBox.StandardButton.Yes:
+                    self.install_robot_model(
+                        project.robot.model_id,
+                        project_to_open=project,
+                        project_path=path,
+                        confirmed=True,
+                    )
+                return
+            self._open_loaded_project(project, model, path)
 
         self.runner.run(work, done)
+
+    def _open_loaded_project(self, project, model, path):
+        self.project, self.model, self.project_path = project, model, path
+        known = list(self.settings.get("known_projects", []))
+        if str(path) not in known:
+            known.append(str(path))
+        self.settings.set("known_projects", known)
+        self.settings.set("last_project", str(path))
+        self.apply_project()
+        self.activity(f"Project opened: {path}; robot pose restored without hardware access")
 
     def export_project(self):
         if self.runner.busy:
@@ -357,7 +406,7 @@ class MainWindow(QMainWindow):
         source_path = self.project_path
 
         def work(_):
-            result = portable_copy(project, source_path, destination)
+            result = portable_copy(project, source_path, destination, models=self.model_manager)
             save_project(result, destination)
 
         self.runner.run(work, lambda _: self.activity(f"Project and URDF exported: {destination}"))
@@ -396,14 +445,17 @@ class MainWindow(QMainWindow):
                 )
                 atomic_text(source, text)
             else:
-                model = parse_urdf(path)
+                model = load_robot(path)
             return model, source
 
         def done(result):
             self.model, source = result
-            self.project.robot.urdf = str(source.resolve())
-            self.project.robot.source_xacro = str(path.resolve()) if xacro else None
-            self.robot_panel.set_model(self.model)
+            self.project.robot = Robot(
+                profile="custom-urdf",
+                urdf=str(source.resolve()),
+                source_xacro=str(path.resolve()) if xacro else None,
+            )
+            self.robot_panel.activate_robot(self.project.robot, self.model)
             self.mark_dirty()
             self.activity(
                 f"Imported {self.model.name}: {len(self.model.links)} links, {len(self.model.joints)} joints"
@@ -412,11 +464,137 @@ class MainWindow(QMainWindow):
         self.runner.run(work, done)
 
     def load_example(self):
-        self.project.robot.urdf = None
-        self.project.robot.source_xacro = None
+        self.project.robot = Robot()
         self.model = parse_urdf(EXAMPLE_URDF)
-        self.robot_panel.set_model(self.model)
+        self.robot_panel.activate_robot(self.project.robot, self.model)
         self.mark_dirty()
+
+    def refresh_model_catalog(self):
+        if self.runner.busy:
+            QTimer.singleShot(100, self.refresh_model_catalog)
+            return
+        self.runner.run(
+            lambda _: {
+                identifier: self.model_manager.status(identifier)
+                for identifier in self.model_manager.catalog
+            },
+            self.robot_panel.set_catalog_status,
+        )
+
+    def select_robot_model(self, identifier):
+        if self.runner.busy:
+            return
+        if identifier == "generic-arm":
+            self.load_example()
+            return
+        if identifier == "custom-urdf":
+            self.import_urdf()
+            if self.robot_panel.active_model_selection != "custom-urdf" and not self.runner.busy:
+                self.robot_panel.loading = True
+                self.robot_panel.profile.setCurrentIndex(
+                    self.robot_panel.profile.findData(self.robot_panel.active_model_selection)
+                )
+                self.robot_panel.loading = False
+            return
+        if identifier not in self.model_manager.catalog:
+            self.show_error("Unknown robot model: " + str(identifier))
+            return
+
+        def work(_):
+            status = self.model_manager.status(identifier)
+            return status, load_robot(
+                status.directory / self.model_manager.spec(identifier).urdf, require_meshes=True
+            ) if status.state == "installed" else None
+
+        def done(result):
+            status, model = result
+            self.robot_panel.set_catalog_status({identifier: status})
+            if model:
+                self._activate_catalog_model(identifier, model)
+
+        self.runner.run(work, done)
+
+    def _activate_catalog_model(self, identifier, model):
+        spec = self.model_manager.spec(identifier)
+        self.model = model
+        self.project.robot = Robot(
+            profile=spec.plugin_id or "custom-urdf",
+            model_id=identifier,
+            model_version=spec.model_version,
+            source_revision=spec.source_revision,
+            urdf=spec.reference,
+            end_effector=spec.default_end_effector,
+            joint_positions=model.default_configuration(),
+        )
+        self.robot_panel.activate_robot(self.project.robot, model)
+        self.mark_dirty()
+        self.activity(
+            f"Loaded {spec.name} · revision {spec.source_revision} · {len(model.visuals)} visuals · offline only"
+        )
+
+    def install_robot_model(
+        self, identifier, project_to_open=None, project_path=None, confirmed=False
+    ):
+        if self.runner.busy or identifier not in self.model_manager.catalog:
+            return
+        spec = self.model_manager.spec(
+            identifier, project_to_open.robot.source_revision if project_to_open else None
+        )
+        if not confirmed:
+            answer = QMessageBox.question(
+                self,
+                "Install Robot Model",
+                f"Install/verify {spec.name}?\n\n{spec.download_bytes / 1e6:.2f} MB · original URDF + {sum(entry.path.lower().endswith('.stl') for entry in spec.files)} STL files\nSource: {spec.source_repository}\nRevision: {spec.source_revision}\nLicense: {spec.license}\n\nFiles stay in the application model cache. No ROS, Docker, LeRobot or hardware installation is required.",
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+        self.model_progress = QProgressDialog("Preparing original robot model…", "", 0, 0, self)
+        self.model_progress.setWindowTitle("Robot Model Manager")
+        self.model_progress.setWindowModality(Qt.WindowModality.ApplicationModal)
+        self.model_progress.setCancelButton(None)
+        self.model_progress.setMinimumDuration(0)
+        self.model_progress.setAutoClose(False)
+        self.model_progress.setAutoReset(False)
+        self.model_progress.show()
+
+        def progress(message):
+            if self.model_progress:
+                self.model_progress.setLabelText(message)
+                percentage = message.split("%", 1)[0]
+                if percentage.isdigit():
+                    self.model_progress.setRange(0, 100)
+                    self.model_progress.setValue(int(percentage))
+
+        self.runner.progress.connect(progress)
+
+        def close_progress():
+            self.runner.progress.disconnect(progress)
+            if self.model_progress:
+                self.model_progress.close()
+                self.model_progress.deleteLater()
+                self.model_progress = None
+
+        def work(update):
+            source = self.model_manager.install(identifier, update, spec.source_revision)
+            model = load_robot(source, require_meshes=True)
+            if project_to_open:
+                model.configuration(project_to_open.robot.joint_positions)
+            return model, self.model_manager.status(identifier)
+
+        def done(result):
+            close_progress()
+            model, status = result
+            self.robot_panel.set_catalog_status({identifier: status})
+            if project_to_open:
+                self._open_loaded_project(project_to_open, model, project_path)
+            else:
+                self._activate_catalog_model(identifier, model)
+
+        def failed(message):
+            close_progress()
+            self.show_error(message)
+
+        self.runner.run(work, done, failed)
 
     def add_sensor(self):
         dialog = SensorDialog(frames=self.model.links, parent=self)
@@ -524,7 +702,7 @@ class MainWindow(QMainWindow):
                     for n, v in zip(names[:128], positions[:128])
                     if math.isfinite(float(v))
                 }
-                self.robot_panel.view.set_joints(values)
+                self.robot_panel.apply_live_joints(values)
             except (ValueError, TypeError):
                 pass
         if getattr(self, "verification_started", None) and self.mode == "ros":
@@ -640,6 +818,9 @@ class MainWindow(QMainWindow):
                 self.activity(status.message)
             self.busy_changed(self.runner.busy)
             self.update_title()
+            if self.initial_model_check_pending:
+                self.initial_model_check_pending = False
+                self.refresh_model_catalog()
 
         self.runner.run(lambda _: self.manager.status(), done)
 
@@ -871,7 +1052,7 @@ class MainWindow(QMainWindow):
         QMessageBox.information(
             self,
             "About ROS Robot Studio",
-            "ROS Robot Studio 0.1.0\nPython / PySide6 / PyQtGraph / Docker SDK\nApache-2.0 · Source and documentation in the project directory.\n\nOffline demo: simulated data. Container demo: real ROS nodes with simulated measurements. Hardware control, mesh rendering and calibration are planned. Sensor thresholds are not certified safety functions.",
+            "ROS Robot Studio 0.1.0\nPython / PySide6 / PyQtGraph / Docker SDK\nApache-2.0 · Source and documentation in the project directory.\n\nOffline demo: simulated data. Container demo: real ROS nodes with simulated measurements. STL mesh viewing and virtual joints are available. Hardware control, calibration and Isaac Sim are planned. Sensor thresholds are not certified safety functions.",
         )
 
     def closeEvent(self, event):

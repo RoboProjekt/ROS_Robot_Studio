@@ -30,6 +30,9 @@ def main():
     parser.add_argument("--demo", action="store_true", help="Skip setup and start the offline demo")
     parser.add_argument("--project", type=Path)
     parser.add_argument(
+        "--robot", help="Select a catalog robot; downloads still require confirmation"
+    )
+    parser.add_argument(
         "--screenshot", type=Path, help="Save a demo screenshot, then exit (for QA)"
     )
     parser.add_argument(
@@ -49,8 +52,28 @@ def main():
         Settings(), show_wizard=not (args.demo or args.screenshot or args.smoke_test)
     )
     window.show()
+    if args.robot:
+
+        def choose_robot():
+            if window.runner.busy:
+                QTimer.singleShot(100, choose_robot)
+                return
+            index = window.robot_panel.profile.findData(args.robot)
+            if index < 0:
+                window.show_error("Unknown robot model: " + args.robot)
+            else:
+                window.robot_panel.profile.setCurrentIndex(index)
+
+        QTimer.singleShot(100, choose_robot)
     if args.project:
-        QTimer.singleShot(100, lambda: window.open_path(args.project))
+
+        def open_selected_project():
+            if window.runner.busy or window.initial_model_check_pending:
+                QTimer.singleShot(100, open_selected_project)
+                return
+            window.open_path(args.project)
+
+        QTimer.singleShot(100, open_selected_project)
     if args.screenshot:
 
         def capture():

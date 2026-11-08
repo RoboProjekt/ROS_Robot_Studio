@@ -9,6 +9,7 @@ import pyqtgraph as pg
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QCheckBox,
     QComboBox,
     QFormLayout,
     QHBoxLayout,
@@ -22,14 +23,17 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QTextEdit,
+    QToolButton,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
+from ros_robot_studio.gui.joint_controls import JointControls
 from ros_robot_studio.gui.robot_view import RobotView
 from ros_robot_studio.gui.widgets import button, card, label, page_header
+from ros_robot_studio.robots.urdf import pose_rpy
 from ros_robot_studio.ros_bridge.transport import SampleBuffer, numeric_fields
 
 
@@ -37,69 +41,123 @@ class RobotPanel(QWidget):
     changed = Signal()
     import_requested = Signal()
     example_requested = Signal()
+    model_selected = Signal(str)
+    install_requested = Signal(str)
+    save_pose_requested = Signal()
 
-    def __init__(self, registry, parent=None):
+    def __init__(self, registry, parent=None, models=None):
         super().__init__(parent)
         self.registry = registry
+        self.models = models
         self.loading = False
+        self.active_model_selection = "generic-arm"
+        self.model_statuses = {}
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(24, 22, 24, 18)
+        layout.setContentsMargins(24, 18, 24, 14)
         layout.addWidget(
             page_header(
                 "Workspace / 01",
                 "Build your robot.",
-                "Define its structure, inspect the kinematic chain and prepare your interfaces.",
-                "KINEMATIC PREVIEW",
+                "Original robot geometry. Interactive joints. One portable configuration.",
+                "OFFLINE ROBOT WORKSPACE",
             )
         )
         splitter = QSplitter()
         self.view = RobotView()
         preview, view_layout = card(
-            "Robot workspace", "Interactive structure · drag to orbit · scroll to zoom"
+            "Robot workspace", "Left drag: orbit · right/middle drag: pan · scroll: zoom"
         )
+        view_layout.setSpacing(8)
+        tools = QHBoxLayout()
+        tools.addWidget(button("Fit / reset view", self.view.reset_camera))
+        self.meshes_toggle = QCheckBox("Meshes")
+        self.meshes_toggle.setChecked(True)
+        self.meshes_toggle.toggled.connect(self.view.set_meshes_visible)
+        tools.addWidget(self.meshes_toggle)
+        self.axes_toggle = QCheckBox("Axes")
+        self.axes_toggle.setChecked(True)
+        self.axes_toggle.toggled.connect(self.view.set_axes_visible)
+        tools.addWidget(self.axes_toggle)
+        tools.addStretch()
+        view_layout.addLayout(tools)
         view_layout.addWidget(self.view, 1)
-        self.structure_note = label("No meshes · no physical hardware connected", "subtitle", True)
+        self.renderer_status = label("Kinematic structure", "subtitle", True)
+        self.view.renderer_changed.connect(self.renderer_status.setText)
+        view_layout.addWidget(self.renderer_status)
+        view_layout.addWidget(label("VIRTUAL JOINTS  /  no hardware commands", "eyebrow"))
+        self.joint_controls = JointControls()
+        self.joint_controls.configuration_changed.connect(self.joints_edited)
+        self.joint_controls.error.connect(lambda message: self.pose.setText(message))
+        view_layout.addWidget(self.joint_controls)
+        controls = QHBoxLayout()
+        controls.addWidget(button("Zero / default pose", self.joint_controls.reset_defaults))
+        controls.addWidget(button("Save pose with project", self.save_pose_requested.emit))
+        self.follow_live = QCheckBox("Follow generic demo joints")
+        self.follow_live.setToolTip(
+            "Preview only. Catalog robots never receive uncalibrated ROS or hardware mappings."
+        )
+        self.follow_live.toggled.connect(self.emit_changed)
+        controls.addWidget(self.follow_live)
+        view_layout.addLayout(controls)
+        self.pose = label("End effector: select a link frame", "subtitle", True)
+        self.pose.setMinimumHeight(40)
+        view_layout.addWidget(self.pose)
+        self.structure_note = label("No physical hardware connected.", "subtitle", True)
         view_layout.addWidget(self.structure_note)
         splitter.addWidget(preview)
         details = QWidget()
         side = QVBoxLayout(details)
         side.setContentsMargins(0, 0, 0, 0)
-        identity, identity_layout = card("Project definition")
+        identity, identity_layout = card("Robot & project")
         form = QFormLayout()
         self.name = QLineEdit()
+        self.name.setMinimumHeight(32)
         self.description = QTextEdit()
-        self.description.setMaximumHeight(65)
+        self.description.setFixedHeight(44)
         self.profile = QComboBox()
-        for plugin in registry.by_kind("robot"):
-            self.profile.addItem(plugin.name, plugin.id)
+        self.profile.setMinimumHeight(34)
+        self.profile.addItem("Generic Robot · built in", "generic-arm")
+        if models:
+            for spec in models.catalog.values():
+                self.profile.addItem(spec.name, spec.id)
+        self.profile.addItem("Import Custom URDF…", "custom-urdf")
         self.end_effector = QComboBox()
         self.end_effector.setEditable(True)
+        self.end_effector.setMinimumHeight(34)
         for title, widget in [
+            ("Select robot", self.profile),
             ("Project name", self.name),
             ("Description", self.description),
-            ("Robot profile", self.profile),
-            ("End effector", self.end_effector),
+            ("End-effector frame", self.end_effector),
         ]:
             form.addRow(title, widget)
         identity_layout.addLayout(form)
+        self.robot_information = label("", "subtitle", True)
+        identity_layout.addWidget(self.robot_information)
+        self.install_model_button = button("Install Robot Model", self.request_install, True)
+        identity_layout.addWidget(self.install_model_button)
         row = QHBoxLayout()
-        row.addWidget(button("↥  Import URDF / Xacro", self.import_requested.emit, True))
-        row.addWidget(button("Load example", self.example_requested.emit))
+        row.addWidget(button("↥  Import URDF / Xacro", self.import_requested.emit))
+        row.addWidget(button("Generic example", self.example_requested.emit))
         identity_layout.addLayout(row)
         side.addWidget(identity)
-        structure, structure_layout = card("Kinematic chain")
+        structure, structure_layout = card(
+            "Robot structure",
+            "Joint limits are shown in SI units. Select a joint in the tree to focus its control.",
+        )
         self.tree = QTreeWidget()
-        self.tree.setHeaderLabels(["Link / Joint", "Type", "Limits"])
+        self.tree.setHeaderLabels(["Link / Joint", "Type", "Limits · SI"])
         self.tree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        self.tree.setMinimumHeight(170)
+        self.tree.setMinimumHeight(140)
+        self.tree.currentItemChanged.connect(self.focus_joint)
         structure_layout.addWidget(self.tree)
         side.addWidget(structure, 1)
         splitter.addWidget(details)
-        splitter.setSizes([730, 500])
+        splitter.setSizes([850, 500])
         layout.addWidget(splitter, 1)
         integrations, integration_layout = card(
             "Interfaces & capabilities",
-            "Execution of hardware drivers, controllers and IK is planned. Selections are saved as configuration.",
+            "Hardware, ROS drivers and Isaac Sim remain unconfigured. Offline sliders never send commands.",
         )
         row = QHBoxLayout()
         self.hardware, self.controller, self.ik = QComboBox(), QComboBox(), QComboBox()
@@ -116,30 +174,81 @@ class RobotPanel(QWidget):
             column.addWidget(widget)
             row.addLayout(column, 1)
         integration_layout.addLayout(row)
-        layout.addWidget(integrations)
-        for widget in (self.name,):
-            widget.textChanged.connect(self.emit_changed)
+        integrations.hide()
+        future = QToolButton()
+        future.setText("Future interfaces & capabilities ▸")
+        future.setCheckable(True)
+        future.toggled.connect(integrations.setVisible)
+        side.addWidget(future)
+        side.addWidget(integrations)
+        self.name.textChanged.connect(self.emit_changed)
         self.description.textChanged.connect(self.emit_changed)
-        self.end_effector.currentTextChanged.connect(self.emit_changed)
-        for widget in (self.profile, self.hardware, self.controller, self.ik):
+        self.end_effector.currentTextChanged.connect(self.frame_changed)
+        for widget in (self.hardware, self.controller, self.ik):
             widget.currentIndexChanged.connect(self.emit_changed)
-        self.profile.currentIndexChanged.connect(self.profile_note)
+        self.profile.currentIndexChanged.connect(self.profile_changed)
 
     def emit_changed(self, *_):
         if not self.loading:
             self.changed.emit()
 
-    def profile_note(self, *_):
-        plugin = self.registry.plugins.get(self.profile.currentData())
-        if plugin:
-            self.structure_note.setText(plugin.description)
+    def profile_changed(self, *_):
+        if self.loading:
+            return
+        self.refresh_model_info()
+        self.model_selected.emit(self.profile.currentData())
+
+    def request_install(self):
+        self.install_requested.emit(self.profile.currentData())
+
+    def set_catalog_status(self, statuses):
+        self.model_statuses.update(statuses)
+        for identifier, status in statuses.items():
+            index = self.profile.findData(identifier)
+            if index >= 0:
+                self.profile.setItemText(
+                    index,
+                    self.models.catalog[identifier].name + " · " + status.state.replace("_", " "),
+                )
+        self.refresh_model_info()
+
+    def refresh_model_info(self):
+        identifier = self.profile.currentData()
+        spec = self.models.catalog.get(identifier) if self.models else None
+        self.install_model_button.setVisible(spec is not None)
+        if spec:
+            status = self.model_statuses.get(identifier)
+            state = status.message if status else "Checking installation status…"
+            self.robot_information.setText(
+                f"{spec.manufacturer}\n{spec.model} · {spec.variant} · {spec.calibration} · {spec.license}\nRevision {spec.source_revision[:12]} · {spec.download_bytes / 1e6:.2f} MB\n{state}\nROS / hardware mapping: not calibrated · Isaac Sim: planned"
+            )
+            self.robot_information.setToolTip(
+                f"{spec.source_repository}/tree/{spec.source_revision}\nOriginal files are checksum locked; hardware drivers are not installed."
+            )
+            self.install_model_button.setText(
+                "Reload / verify model"
+                if status and status.state == "installed"
+                else "Repair Robot Model"
+                if status and status.state in ("damaged", "incomplete")
+                else "Install Robot Model"
+            )
+            if identifier != self.active_model_selection:
+                self.structure_note.setText(
+                    "Selected model is not loaded yet. The preview still shows: "
+                    + (self.view.model.name if self.view.model else "none")
+                )
+        else:
+            self.robot_information.setText(
+                "Custom local URDF with STL visuals."
+                if identifier == "custom-urdf"
+                else "Bundled research arm · offline demo available"
+            )
 
     def set_project(self, project, model):
         self.loading = True
         self.name.setText(project.name)
         self.description.setPlainText(project.description)
         for widget, value in [
-            (self.profile, project.robot.profile),
             (self.hardware, project.robot.hardware),
             (self.controller, project.robot.controller),
             (self.ik, project.robot.ik_solver),
@@ -149,16 +258,36 @@ class RobotPanel(QWidget):
                 widget.addItem(f"{value} · manifest missing", value)
                 index = widget.count() - 1
             widget.setCurrentIndex(index)
-        self.set_model(model)
-        self.end_effector.setCurrentText(project.robot.end_effector)
+        self.activate_robot(project.robot, model)
         self.loading = False
-        self.profile_note()
+        self.update_pose()
 
-    def set_model(self, model):
+    def activate_robot(self, robot, model):
+        previous_loading = self.loading
+        self.loading = True
+        self.active_model_selection = robot.model_id or (
+            "generic-arm" if robot.profile == "generic-arm" else "custom-urdf"
+        )
+        self.profile.setCurrentIndex(self.profile.findData(self.active_model_selection))
+        self.set_model(model, robot.joint_positions)
+        frame = robot.end_effector
+        if not frame:
+            spec = self.models.catalog.get(robot.model_id) if self.models else None
+            frame = spec.default_end_effector if spec else model.links[-1]
+        self.end_effector.setCurrentText(frame)
+        generic = self.active_model_selection == "generic-arm"
+        self.follow_live.setEnabled(generic)
+        self.follow_live.setChecked(generic and not robot.joint_positions)
+        self.refresh_model_info()
+        self.loading = previous_loading
+        self.update_pose()
+
+    def set_model(self, model, values=None):
         self.view.set_model(model)
+        self.joint_controls.set_model(model, values)
+        self.view.set_joints(self.joint_controls.values)
         self.tree.clear()
         self.end_effector.clear()
-        self.end_effector.addItem("")
         self.end_effector.addItems(model.links)
         items = {model.root: QTreeWidgetItem(self.tree, [model.root, "root link", ""])}
         queue = [model.root]
@@ -168,22 +297,84 @@ class RobotPanel(QWidget):
                     limits = (
                         f"{joint.lower:g} … {joint.upper:g}" if joint.lower is not None else "—"
                     )
-                    node = QTreeWidgetItem(items[parent], [joint.name, joint.kind, limits])
+                    node = QTreeWidgetItem(
+                        items[parent],
+                        [joint.name, joint.kind + (" · mimic" if joint.mimic else ""), limits],
+                    )
+                    node.setData(0, Qt.ItemDataRole.UserRole, joint.name)
                     node.setToolTip(
                         0,
                         f"{joint.parent} → {joint.child}\nOrigin xyz: {joint.xyz}\nRPY: {joint.rpy}\nAxis: {joint.axis}",
                     )
                     items[joint.child] = QTreeWidgetItem(node, [joint.child, "link", ""])
                     queue.append(joint.child)
-        self.tree.expandAll()
+        self.tree.expandToDepth(3)
+        note = f"{model.name} · {len(model.links)} links · {len(model.joints)} joints · virtual model only"
+        if model.warnings:
+            note += "\n" + "; ".join(model.warnings)
         if any(j.kind in ("floating", "planar") for j in model.joints):
-            self.structure_note.setText(
-                "Floating/planar joints shown at zero pose. Mesh rendering is planned."
-            )
+            note += "\nFloating/planar joints are shown at zero pose."
+        self.structure_note.setText(note)
+        self.update_pose()
+
+    def focus_joint(self, current, previous):
+        if current:
+            control = self.joint_controls.controls.get(current.data(0, Qt.ItemDataRole.UserRole))
+            if control:
+                self.joint_controls.scroll.ensureWidgetVisible(control[1])
+                control[1].setFocus()
+
+    def joints_edited(self, values):
+        self.follow_live.blockSignals(True)
+        self.follow_live.setChecked(False)
+        self.follow_live.blockSignals(False)
+        self.view.set_joints(values)
+        self.update_pose()
+        self.emit_changed()
+
+    def apply_live_joints(self, values):
+        if not self.follow_live.isChecked():
+            return
+        filtered = dict(self.joint_controls.values)
+        for joint in self.view.model.joints:
+            if joint.name in values and joint.name in filtered:
+                value = values[joint.name]
+                if joint.lower is not None:
+                    value = max(joint.lower, value)
+                if joint.upper is not None:
+                    value = min(joint.upper, value)
+                filtered[joint.name] = value
+        self.joint_controls.set_configuration(filtered)
+        self.view.set_joints(filtered)
+        self.update_pose()
+
+    def frame_changed(self, *_):
+        if hasattr(self, "pose"):
+            self.update_pose()
+        self.emit_changed()
+
+    def update_pose(self):
+        model = self.view.model
+        frame = self.end_effector.currentText()
+        if not model or frame not in model.links:
+            self.pose.setText("End effector: select a frame present in the URDF.")
+            return
+        values = self.joint_controls.values
+        xyzrpy = pose_rpy(model.transforms(values)[frame])
+        x, y, z, roll, pitch, yaw = xyzrpy
+        import math
+
+        self.pose.setText(
+            f"{frame}  /  relative to {model.root}\nX {x:+.5f}   Y {y:+.5f}   Z {z:+.5f} m    |    R {math.degrees(roll):+.2f}°   P {math.degrees(pitch):+.2f}°   Y {math.degrees(yaw):+.2f}°"
+        )
+        self.pose.setToolTip(
+            f"Internal SI pose: {xyzrpy}\nRPY convention: Rz(yaw) @ Ry(pitch) @ Rx(roll)."
+        )
+        self.view.set_end_effector(frame)
 
     def update_compatibility(self, distro):
         self.loading = True
-        for widget in (self.profile, self.hardware, self.controller, self.ik):
+        for widget in (self.hardware, self.controller, self.ik):
             for index in range(widget.count()):
                 plugin = self.registry.plugins.get(widget.itemData(index))
                 if plugin:
@@ -199,10 +390,16 @@ class RobotPanel(QWidget):
         self.loading = False
 
     def collect(self, project):
+        if self.profile.currentData() != self.active_model_selection:
+            raise ValueError(
+                "Install/load the selected robot before saving, or select the currently displayed model."
+            )
         project.name = self.name.text().strip()
         project.description = self.description.toPlainText()
-        project.robot.profile = self.profile.currentData()
         project.robot.end_effector = self.end_effector.currentText()
+        if project.robot.end_effector not in self.view.model.links:
+            raise ValueError("The selected end-effector frame is not present in the URDF")
+        project.robot.joint_positions = dict(self.joint_controls.values)
         project.robot.hardware = self.hardware.currentData()
         project.robot.controller = self.controller.currentData()
         project.robot.ik_solver = self.ik.currentData()
