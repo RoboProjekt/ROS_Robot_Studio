@@ -1,5 +1,5 @@
 {
-  "verified_at": "2026-11-08T19:01:00.668409+00:00",
+  "verified_at": "2026-11-08T23:01:55.018580+00:00",
   "distribution": "humble",
   "robot": "so101_follower",
   "runtime_image": "ros-robot-studio/humble:0.1.0",
@@ -8,7 +8,7 @@
   "ros_graph": true,
   "native_action": true,
   "task_steps": 13,
-  "jointstate_samples": 788,
+  "jointstate_samples": 794,
   "positions_velocities_consistent": true,
   "offline_monitoring": true,
   "mode_roundtrip_twice": true,

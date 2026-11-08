@@ -90,9 +90,10 @@ ausgeben. Diese wird nicht unterdrückt; sie ist keine fehlgeschlagene Render-/F
 ROS-Code, native FollowJointTrajectory-Actions, Controller und gebaute Docker-Images
 wurden bei der Qt-Stabilisierung erhalten. Echte ROS-Abnahmen laufen gesondert mit
 Humble, Jazzy und Lyrical; sie ersetzen die injizierten Pakete durch tatsächliche DDS-
-JointStates/Actions. Isaac Sim 5.1 ist lokal vorhanden, aber ohne nachgewiesene kompatible
-SO-101-Szene bleibt dessen echte Integration **nicht getestet**. Der isolierte ROS-
-Szenenemulator ist ausdrücklich kein Isaac-Beweis. Hardware bleibt gesperrt.
+JointStates/Actions. Die spätere reale Isaac-Sim-5.1-/SO-101-Abnahme ist im
+[Backendbericht](BACKEND_VERIFICATION.md) und im [Banner-Test](isaac-header-verification.json)
+nachgewiesen. Der isolierte ROS-Szenenemulator allein ist weiterhin kein Isaac-Beweis.
+Hardware bleibt gesperrt.
 
 ## Geänderte Dateien der Stabilisierung
 
@@ -132,3 +133,38 @@ den fehlenden benutzerspezifischen Eintrag und `root:docker` mit Modus **0660**.
 Der Agentversuch war zuvor an `NoNewPrivs` gescheitert; die Bereinigung ist abgeschlossen.
 Die bereits eingerichtete Dockergruppen-Mitgliedschaft bleibt bestehen und erfordert
 für neue Prozesse in der Desktop-Sitzung eine neue Anmeldung.
+
+
+## Qt-Desktop-Hilfswidget und neue GUI-Abnahme
+
+Ein zusätzlich gezähltes namenloses QWidget entstand bereits vor dem Dateidialog.
+Der native Konstruktorstack und der Quellcode von Qt 6.9.3 identifizieren es als
+`QApplicationPrivate::desktop()`: ein einziges, unsichtbares `Qt::Desktop`-Objekt bis
+zur QApplication-Zerstörung. Es wird nicht durch Studio gelöscht. Native Lebensdauer-
+und Dockingprüfungen erfassen es gesondert und prüfen seine unveränderte Identität;
+zusätzliche Studio-/Dialog-/Plot-Widgets bleiben Fehler.
+[Untersuchung](QT_WIDGET_INVESTIGATION.md), [Messdaten](qt-widget-investigation.json).
+
+Die erweiterte native Abnahme prüft außerdem sichtbare Tab-Drags, Splitter, beide
+Original-STL-Viewer, Kamera/Zoom, alle Taskaktionen mit Wiederöffnung/Projektpersistenz,
+Maus-/Tastatur-Solverauswahl und wiederholte Dateidialog-Auswahl sowie Abbruch. Ein
+Abbruch behält den letzten gültigen Pfad. Native und vollständige Ergebnisse werden
+im aktuellen [GUI-/Runtime-Abschlussbericht](GUI_RUNTIME_RELEASE.md) zusammengeführt.
+
+Die Abschlussstabilisierung korrigiert außerdem einen konkret reproduzierten verspäteten
+Worker-Callback: TaskRunner verbindet Worker-Signale jetzt mit echten `@Slot`-Empfängern
+und expliziter QueuedConnection am eigenen QObject. Beim Löschen des Empfängers entfernt
+Qt auch bereits gequeue-te Aufrufe. Der gezielte Test beendet die Arbeit ohne Zustellung,
+löscht den Parent und verarbeitet danach die Events; kein Callback darf mehr laufen.
+Ergebnis-/Fehlercallbacks werden zusätzlich auf den GUI-Thread geprüft. MainWindow wartet
+vor akzeptiertem Close auch auf laufende Setup-Operationen, damit deren Ergebnisse und
+eigene temporäre Ressourcen nicht verloren gehen. Grundlage sind die
+[Qt-Empfänger-/Threadregeln](https://doc.qt.io/qtforpython-6/tutorials/basictutorial/signals_and_slots.html).
+
+Ein zwischenzeitlicher echter Jazzy-Start lieferte noch vor rosapi-Bereitschaft eine
+zulässige `result:false`-Antwort mit Fehlertext. Der Integrationstest behandelt diese
+nicht länger als Graph-Dictionary, sondern fragt innerhalb derselben begrenzten Frist
+erneut an; erfolgreiche Topic-/Node- und Subscriber-Nachweise bleiben erforderlich.
+Der Desktop-Transport validiert zusätzlich das Objektformat erfolgreicher Antworten.
+Das Rosbridge-Protokoll bleibt unverändert; keine fehlgeschlagenen Prüfungen wurden
+übersprungen und keine Discovery-Zeitgrenzen für diesen Fehler aufgeweicht.

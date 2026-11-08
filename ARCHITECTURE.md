@@ -5,7 +5,7 @@
 | Modul | Verantwortung |
 | --- | --- |
 | `app` | CLI, QApplication, rotierende strukturierte JSON-Logs |
-| `gui` | Vier Qt-Tabs, Assistent, Dialoge, Status, Worker, Theme und Strukturviewer |
+| `gui` | Vier verschiebbare Qt-Panels, Assistent, Dialoge, Status, Worker, Theme und Strukturviewer |
 | `core` | Validierte Datenverträge, unveränderliche RobotState-Snapshots, thread-sicherer State Manager, XDG-Einstellungen |
 | `projects` | Atomisches YAML-Speichern, Laden und URDF-Assetkopien |
 | `kinematics` | URDF-Ketten, Rang-/Konditionsanalyse, austauschbarer optionaler SciPy-IK-Solver |
@@ -148,8 +148,8 @@ vervollständigt; es gibt keine zweite Kinematik im Viewer. Generische Demo-Nach
 
 `JointMappingAdapter` ist ein reiner Vertrag für spätere kalibrierte Umrechnungen.
 Die mitgelieferte unkalibrierte Implementierung verweigert jede Hardware-/ROS-Abbildung.
-Das USD-Asset bleibt unkonfiguriert. Ein generischer externer ROS-Simulationsadapter ist
-inzwischen implementiert; seine konkrete Isaac-SO-101-Szene bleibt ungeprüft.
+Der generische externe ROS-Simulationsadapter und die konkrete originale SO-101-Szene
+sind inzwischen mit Isaac 5.1 geprüft. Die Gelenk-/ROS-Abnahme erteilt keine Hardwarefreigabe.
 Es werden keine Motorbefehle erzeugt, keine LeRobot-/Isaac-Bibliotheken installiert und
 keine Hardwaretreiber importiert.
 
@@ -174,7 +174,7 @@ MotionWorkspace / PickPlaceWizard / PositionManager
            ExecutionBackend
                   ├── OfflinePreviewBackend ─── bestehender RobotView + virtueller Würfel
                   ├── ROS2ExecutionBackend ─── native rclpy-Actions im isolierten Container
-                  └── Isaac-Szenenabnahme / Hardware: offen bzw. gesperrt
+                  └── IsaacSimProcessManager (externer SDK-Prozess) / Hardware: Read Only
 ```
 
 Numerische Suchläufe und vollständige Taskvalidierungen laufen im eigenen seriellen
@@ -229,12 +229,35 @@ Image-ID. Alle drei Distributionen wurden real getestet; Apt-Builds sind keine v
 
 Details: [Robot State Manager](docs/ROBOT_STATE_MANAGER.md), [ROS-Ausführung](docs/ROS_EXECUTION.md),
 [Monitoring](docs/LIVE_MONITORING.md), [Runtime](docs/ROS_RUNTIME.md).
-Die frühere Darstellung „ROS/Isaac nur vorbereitet“ in den Kinematik-Abschnitten beschreibt
-den Stand vor dieser Erweiterung. ROS-Simulation ist implementiert; echte Hardware und
-Isaac-Szenenabnahme bleiben getrennte, nicht freigegebene bzw. offene Arbeiten.
+ROS- und Isaac-Simulation sind implementiert und mit tatsächlichen JointStates/Tasks geprüft.
+Echte Hardware bleibt Read Only; eine kontaktphysikalische Griffvalidierung bleibt offen.
 
 ## Universal Backend Manager (Fortsetzung 8. November 2026)
 
 Die bisherige Kinematik, Taskengine und State-Verwaltung werden über `backends/manager.py` und `gui/backend_workspace.py` an mehrere getrennte ROS-Sitzungen gebunden. Jede Sitzung besitzt Transport, Domainumgebung, Container, Port, Graph, Controllerstatus und Source-Lease. Der gemeinsame RobotStateManager enthält getrennte Backend-Kontexte; nur eine aktive Quelle projiziert nach Viewer/Monitoring. Der gemeinsame ROS2ExecutionBackend prüft zusätzlich aktive Backend-ID, Sitzungskennung und Modellsignatur.
 
 `data/plugins/backend-*.yaml` erweitert den vorhandenen PluginRegistry deklarativ. Reale Hardware ist in Profil, Runtime und Transport schreibgeschützt. Isaac-SDK-Code liegt ausschließlich im extern gestarteten Szenenskript, nicht im Desktopprozess. Projektprofile sind portabel, installationsabhängige Pfade liegen lokal in Settings. [Ausführliche Architektur](docs/ROS_BACKEND_MANAGER.md), [DDS-Konfiguration](docs/ROS_MULTI_DOMAIN.md).
+
+## Workspace und Runtime-Banner
+
+`gui/workspace.py` hängt die vier vorhandenen Panels als QTabWidget-Gruppen in einen
+QSplitter-Baum. `MainWindow.tabs` erhält die bisherige kanonische Panelindex-API. Der Baum
+speichert ausschließlich UI-Identitäten und lokale Geometrie, keine State-/ROS-Kopien.
+Eine Staging-Fläche hält Reparenting unter demselben Top-Level-Fenster. Layoutversion und
+vollständige eindeutige Panelbelegung werden vor dem Wiederherstellen validiert.
+
+`gui/simulation_header.py` liest und schreibt die zentrale Auswahl des bestehenden
+ROSBackendManager. Lokale MRU-Dateien und Auto Play liegen in Settings; portable Projekte
+enthalten weiterhin Profile mit logischen Referenzen. SceneManager und ProcessManager
+bleiben die einzigen Isaac-Szenen-/Prozessverantwortlichen. Der SDK-Prozess pausiert nach
+der Szenenprüfung; explizites Auto Play wird als separates Startargument übergeben.
+
+`runtime/docker_diagnostics.py` löst den tatsächlichen Context/Endpoint auf und vergleicht
+NSS-Kontogruppen mit den wirksamen Gruppen des aufrufenden Studio-Prozesses. RuntimeStatus
+trägt denselben Snapshot zu GUI, Setup und Recheck. Die Diagnose verändert keine Rechte.
+`TaskStep` erweitert vorhandene gespeicherte Ziele um optionale direkte Posen beziehungsweise
+modellgebundene Jointwerte. Der bestehende TaskCompiler verarbeitet sie über dieselben
+Positions-, IK-, Trajektorien- und Ausführungsverträge.
+
+Details: [Docking](docs/GUI_DOCKING.md), [Runtime-Banner](docs/SIMULATION_RUNTIME_SELECTION.md),
+[Taskeditor](docs/TASK_EDITOR_GUI.md), [Docker](docs/DOCKER_DIAGNOSTICS.md).

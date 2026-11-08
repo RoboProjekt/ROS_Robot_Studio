@@ -11,7 +11,7 @@
   "simultaneous_connections": true,
   "native_action_task_steps": 13,
   "inactive_backend_unchanged_during_task": true,
-  "inactive_samples_checked": 1080,
+  "inactive_samples_checked": 1110,
   "switch_and_cancel": true,
   "viewer_and_monitoring_consistent": true,
   "offline_keeps_background_connections": true,
@@ -26,7 +26,7 @@
   "other_backend_task_succeeded": true,
   "failed_backend_unchanged_while_other_executes": true,
   "no_new_goals_after_failure": true,
-  "failure_detected_seconds": 0.06826728300075047,
+  "failure_detected_seconds": 0.07437888799177017,
   "gui_error_visible": true,
   "expected_errors": [
     "ROS connection lost; execution aborted; no automatic continuation"

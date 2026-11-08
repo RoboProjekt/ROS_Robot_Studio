@@ -1,6 +1,6 @@
 # ROS Robot Studio
 
-Eine startbare Desktop-Werkbank für ROS-2-Roboterprojekte. Der MVP bietet vier Tabs,
+Eine startbare Desktop-Werkbank für ROS-2-Roboterprojekte. Die Oberfläche bietet vier verschiebbare Panels,
 URDF-Struktur- und Meshansicht, SO-101-Follower-Modellinstallation, virtuelle Gelenksteuerung,
 universelle URDF-basierte FK/IK, Teach-in, Pick-and-Place-Wizard, Offline- und ROS-Simulation,
 einen gemeinsamen Robot State Manager mit synchronisierten Gelenktabellen/Kurven,
@@ -66,6 +66,25 @@ Versionswechsel gestoppt. Das Projekt bleibt erhalten.
 Isaac 5.1 läuft als eigenständiger Prozess mit URDF→USD-Szenenprüfung und echter ROS-Rückmeldung. Installationspfade werden nur lokal gespeichert. Real Robot bleibt ausschließlich lesend; MuJoCo/Gazebo sind klar als vorbereitete Plugins gekennzeichnet.
 
 [Bedienung](docs/BACKEND_CONNECTION_MANAGER.md) · [Isaac](docs/ISAAC_SIM_INTEGRATION.md) · [Architektur](docs/ROS_BACKEND_MANAGER.md) · [aktuelle Prüfergebnisse](docs/BACKEND_VERIFICATION.md).
+
+## Workspace und Bedienung
+
+Tabtitel an eine Kante ziehen, um Robot Configuration und Live Monitoring nebeneinander
+oder übereinander zu sehen; in die Mitte ziehen, um Tabs wieder zusammenzuführen.
+**View** speichert, restauriert oder setzt das lokale Layout zurück. Das Runtime-Banner
+verknüpft ROS-Auswahl, Backendprofile und lokalen Szenenverlauf. Isaac startet standardmäßig
+pausiert; Auto Play ist ein ausdrückliches Opt-in. Real Robot bleibt Read Only.
+Der Taskdialog erlaubt direkte kartesische Ziele mit mm/Grad-Eingabe. Alle Solver-Kandidaten
+sind auswählbar, ausführbar ist derzeit SciPy bounded IK nach erfolgreicher Prüfung.
+
+[Docking](docs/GUI_DOCKING.md) · [Runtime und Dateien](docs/SIMULATION_RUNTIME_SELECTION.md) ·
+[Taskeditor / Solver](docs/TASK_EDITOR_GUI.md) · [Docker-Diagnose](docs/DOCKER_DIAGNOSTICS.md).
+
+Ist das Konto bereits in `docker`, der laufende Prozess aber noch nicht, hilft eine neue
+Anmeldung beziehungsweise bewusst neue Gruppensitzung. Socketrechte werden dafür nicht
+geöffnet. **Help → Docker diagnostics** zeigt die tatsächlichen Prozessrechte.
+
+![Geteiltes Roboter- und Monitoring-Fenster](docs/workspace-horizontal.png)
 
 ## SO-101 Follower
 
@@ -173,3 +192,6 @@ andere Abhängigkeiten behalten ihre jeweiligen Open-Source-Lizenzen.
 Die Desktop-Abhängigkeiten sind auf PySide6 **6.9.3** und PyQtGraph **0.13.7** gepinnt.
 Wiederholte Fenster-/OpenGL-/ROS-Callback-Freigabe wird mit eigenen Regressionstests geprüft:
 [Stabilitätsbericht](docs/GUI_STABILITY_REPORT.md).
+
+
+Aktuelle GUI-/Runtime-Abnahme: **231 Tests, 0 Fehler, 0 übersprungen**, 28 native Fensterzyklen sowie zusätzlicher sichtbarer Isaac-Banner-/Bewegungstest. [Abschlussbericht und Screenshots](docs/GUI_RUNTIME_RELEASE.md).

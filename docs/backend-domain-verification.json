@@ -30,19 +30,19 @@
       "restarts": 0,
       "unexpected_exits": [],
       "oom_killed": false,
-      "memory_bytes": 106864640
+      "memory_bytes": 106852352
     },
     "2": {
       "restarts": 0,
       "unexpected_exits": [],
       "oom_killed": false,
-      "memory_bytes": 106917888
+      "memory_bytes": 106844160
     },
     "0": {
       "restarts": 0,
       "unexpected_exits": [],
       "oom_killed": false,
-      "memory_bytes": 106999808
+      "memory_bytes": 106872832
     }
   }
 }

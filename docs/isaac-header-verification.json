@@ -1,0 +1,15 @@
+{
+  "manual_play_default": true,
+  "paused_without_clock_or_motion": true,
+  "manual_header_status": "Process: Running (owned) \u00b7 Scene: Loaded & validated \u00b7 Bridge: Connected \u00b7 Play: Paused / waiting \u00b7 State: Waiting \u00b7 Connected",
+  "domain_id": 1,
+  "source_scene": "$HOME/Desktop/ROS_APP/ros-robot-studio/.bootstrap/isaac-acceptance/scene.usd",
+  "existing_usd_validated": true,
+  "auto_play_explicit_checkbox": true,
+  "task_status": "succeeded",
+  "task_steps": 13,
+  "real_jointstate_samples": 496,
+  "running_header_status": "Process: Running (owned) \u00b7 Scene: Loaded & validated \u00b7 Bridge: Connected \u00b7 Play: Playing \u00b7 State: Available \u00b7 Simulation Ready",
+  "source_unmodified": true,
+  "owned_resources_removed": true
+}

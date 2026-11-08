@@ -1,0 +1,61 @@
+{
+  "cycles": 2,
+  "native_platform": "xcb",
+  "real_mouse_keyboard": true,
+  "layouts": [
+    "horizontal",
+    "vertical",
+    "horizontal",
+    "vertical"
+  ],
+  "opengl_after_drag": true,
+  "listener_subscription_duplicates": 0,
+  "widget_leaks": 0,
+  "timers_stopped": true,
+  "actual_studio_diagnostics": {
+    "pid": 209374,
+    "user": "local-user",
+    "uid": 1000,
+    "effective_groups": [
+      "adm",
+      "cdrom",
+      "sudo",
+      "dip",
+      "plugdev",
+      "lpadmin",
+      "lxd",
+      "sambashare",
+      "local-user"
+    ],
+    "account_groups": [
+      "adm",
+      "cdrom",
+      "sudo",
+      "dip",
+      "plugdev",
+      "lpadmin",
+      "lxd",
+      "sambashare",
+      "docker",
+      "local-user"
+    ],
+    "docker_cli": "/usr/bin/docker",
+    "engine": "active",
+    "context": "default",
+    "endpoint": "unix:///var/run/docker.sock",
+    "socket": "/var/run/docker.sock",
+    "socket_owner": "root",
+    "socket_group": "docker",
+    "socket_mode": "0660",
+    "socket_access": false,
+    "api_error": "Error while fetching server API version: ('Connection aborted.', PermissionError(13, 'Permission denied'))",
+    "reason": "process_groups_inactive",
+    "proc_status": [
+      "Uid:\t1000\t1000\t1000\t1000",
+      "Gid:\t1000\t1000\t1000\t1000",
+      "Groups:\t4 24 27 30 46 122 135 136 1000 ",
+      "NoNewPrivs:\t0"
+    ]
+  },
+  "elapsed_seconds": 24.64
+}

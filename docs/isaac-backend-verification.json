@@ -5,8 +5,8 @@
   "robot": "so101_follower",
   "scene": {
     "valid": true,
-    "simulator_process_id": 181153,
-    "request_id": "e80bac4b65734381bbc6223d599c1ab0",
+    "simulator_process_id": 245078,
+    "request_id": "f6ff155bb41b4d62b8f0dc28dd4c5aef",
     "neutral_link_error_m": 7.54840543393098e-08,
     "observed_link_positions": {
       "base_link": [
@@ -50,7 +50,7 @@
         0.2264697551727295
       ]
     },
-    "backend_id": "backend_87d3f05abac84ff084eb54fef00dec88",
+    "backend_id": "backend_c9e3c6941b8a4403a8bed116a820c991",
     "model_signature": "a3cf24a804b76eeca70422cf53597c59c5abbc8ca3c858a7426f1e638f5be0b5",
     "domain_id": 1,
     "stage_units": 1.0,
@@ -156,7 +156,7 @@
     "drive_stiffness": 5000.0,
     "drive_damping": 50.0
   },
-  "real_jointstate_samples": 617,
+  "real_jointstate_samples": 640,
   "task_steps": 13,
   "task_status": "succeeded",
   "shoulder_motion": true,
@@ -164,89 +164,89 @@
   "viewer_monitoring_synchronized": true,
   "physical_grasp_validated": false,
   "hardware_access": false,
-  "process_id": 181140,
+  "process_id": 245065,
   "action_goals_accepted": 11,
   "action_results_succeeded": 11,
   "stable_target_results": [
     {
       "stable_target_reached": true,
       "samples": 11,
-      "stable_seconds": 0.20182747500075493,
+      "stable_seconds": 0.20052233499882277,
       "maximum_position_error": 0.00030000000000000003,
       "commanded_terminal_velocity": 0.0
     },
     {
       "stable_target_reached": true,
       "samples": 11,
-      "stable_seconds": 0.2007312399946386,
+      "stable_seconds": 0.2005731519893743,
       "maximum_position_error": 0.0003,
       "commanded_terminal_velocity": 0.0
     },
     {
       "stable_target_reached": true,
-      "samples": 10,
-      "stable_seconds": 0.20176283099863213,
+      "samples": 11,
+      "stable_seconds": 0.20132055299472995,
       "maximum_position_error": 0.00029842965179366354,
       "commanded_terminal_velocity": 0.0
     },
     {
       "stable_target_reached": true,
       "samples": 11,
-      "stable_seconds": 0.2008107120054774,
+      "stable_seconds": 0.20107056701090187,
       "maximum_position_error": 0.0002457576981188536,
       "commanded_terminal_velocity": 0.0
     },
     {
       "stable_target_reached": true,
       "samples": 11,
-      "stable_seconds": 0.21780401200521737,
+      "stable_seconds": 0.2005773590062745,
       "maximum_position_error": 0.0002457576981186871,
       "commanded_terminal_velocity": 0.0
     },
     {
       "stable_target_reached": true,
       "samples": 11,
-      "stable_seconds": 0.2176006759982556,
+      "stable_seconds": 0.20243055300670676,
       "maximum_position_error": 0.00021973776541495127,
       "commanded_terminal_velocity": 0.0
     },
     {
       "stable_target_reached": true,
-      "samples": 11,
-      "stable_seconds": 0.20071224500134122,
+      "samples": 10,
+      "stable_seconds": 0.20115250199160073,
       "maximum_position_error": 0.0002851658274862223,
       "commanded_terminal_velocity": 0.0
     },
     {
       "stable_target_reached": true,
       "samples": 11,
-      "stable_seconds": 0.20183155199629255,
+      "stable_seconds": 0.2003138379950542,
       "maximum_position_error": 0.00019694613009618722,
       "commanded_terminal_velocity": 0.0
     },
     {
       "stable_target_reached": true,
       "samples": 11,
-      "stable_seconds": 0.20075894398905803,
+      "stable_seconds": 0.21846831499715336,
       "maximum_position_error": 0.00019694613009624273,
       "commanded_terminal_velocity": 0.0
     },
     {
       "stable_target_reached": true,
       "samples": 11,
-      "stable_seconds": 0.2180731940024998,
+      "stable_seconds": 0.20206600899109617,
       "maximum_position_error": 0.0002706275538970071,
       "commanded_terminal_velocity": 0.0
     },
     {
       "stable_target_reached": true,
       "samples": 11,
-      "stable_seconds": 0.21811796800466254,
+      "stable_seconds": 0.20037862099707127,
       "maximum_position_error": 0.0003,
       "commanded_terminal_velocity": 0.0
     }
   ],
-  "zero_velocity_commands_observed": 68,
+  "zero_velocity_commands_observed": 69,
   "reconnect_without_restarting_simulator": true,
   "old_connection_lease_rejected": true,
   "owned_simulator_stopped": true,

@@ -1,5 +1,5 @@
 {
-  "verified_at": "2026-11-08T19:01:48.220960+00:00",
+  "verified_at": "2026-11-08T23:02:43.018875+00:00",
   "distribution": "jazzy",
   "robot": "so101_follower",
   "runtime_image": "ros-robot-studio/jazzy:0.1.0",
@@ -8,7 +8,7 @@
   "ros_graph": true,
   "native_action": true,
   "task_steps": 13,
-  "jointstate_samples": 740,
+  "jointstate_samples": 733,
   "positions_velocities_consistent": true,
   "offline_monitoring": true,
   "mode_roundtrip_twice": true,

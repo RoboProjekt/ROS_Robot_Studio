@@ -73,3 +73,12 @@ Lokale Implementierungscommits: `55bf1b0` (Sitzungen), `979973f` (GUI), `2c7b759
 ## Abschließende Bereinigung
 
 Nach Abschluss aller Tests wurden keine eigenen Container, Testnetzwerke oder Isaac-Prozesse mehr festgestellt. Der Benutzer entfernte anschließend die temporäre Docker-Socket-ACL. Die erneute native Prüfung bestätigt: kein zusätzlicher Benutzereintrag, Eigentümer `root`, Gruppe `docker`, Modus `0660`. Der dauerhafte Docker-Gruppenzugriff bleibt bestehen; ältere Sitzungen benötigen gegebenenfalls eine neue Anmeldung. Es wurden keine Berechtigungen durch den Agenten geändert.
+
+
+## GUI-/Runtime-Abschluss vom 9. November 2026
+
+Die erweiterte Gesamtabnahme am unveränderten Quellstand `1a07a48` besteht mit **231 Tests, 0 Fehlschlägen, 0 Fehlern, 0 übersprungenen Tests**. Der komplette Lauf umfasst echte Docker-/ROS-/Isaac-Prüfungen; anschließend bestanden acht native Bedien-/Dockingzyklen und zwanzig weitere native SO-101-/OpenGL-Lebensdauerzyklen. SHA-256-Manifest: 160 Eingabedateien unverändert. Ruff, Format, Dependencies und Git Diff Check bestehen. Eigene Container, Netze und SDK-Prozesse sind beendet; Socketrechte und bestehende Gruppenmitgliedschaften wurden nicht geändert.
+
+Der neue Banner-Test öffnet eine bestehende USD zunächst pausiert ohne Clock-Daten; nach ausdrücklich gesetztem Auto Play gelingt der 13-Schritt-Task. Ein zusätzlicher sichtbarer X11-Lauf bestätigt Dateidialog, Monitoring-Drag, beide OpenGL-Viewer und tatsächliche Arm-/Greiferbewegungen.
+
+[Kompletter Abschlussbericht mit Screenshots](GUI_RUNTIME_RELEASE.md), [maschinenlesbarer Gesamtnachweis](gui-runtime-release-verification.json), [Inputmanifest](gui-runtime-source-manifest.json), [zusätzlicher nativer Isaac-Banner-Test](isaac-header-native-verification.json), [Qt-Widget-Untersuchung](QT_WIDGET_INVESTIGATION.md).

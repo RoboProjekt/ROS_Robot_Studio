@@ -1,0 +1,82 @@
+{
+  "error": "[('QWidget', 'QWidget', '', 'NoneType', False, (0, 0, 640, 480))]",
+  "before": [
+    {
+      "pointer": 93825030342464,
+      "qt_type": "QWidget",
+      "name": "",
+      "title": "",
+      "parent_type": "NoneType",
+      "visible": false,
+      "children": []
+    }
+  ],
+  "after_one_second": [
+    {
+      "pointer": 93825030342464,
+      "qt_type": "QWidget",
+      "name": "",
+      "title": "",
+      "parent_type": "NoneType",
+      "visible": false,
+      "children": []
+    }
+  ],
+  "after_six_seconds": [
+    {
+      "pointer": 93825030342464,
+      "qt_type": "QWidget",
+      "name": "",
+      "title": "",
+      "parent_type": "NoneType",
+      "visible": false,
+      "children": []
+    }
+  ],
+  "widget_events": {
+    "93825030342464": [
+      {
+        "event": "Polish",
+        "python_type": "QWidget",
+        "qt_type": "QWidget",
+        "name": "",
+        "title": "",
+        "parent_type": "NoneType",
+        "parent_name": "",
+        "visible": false,
+        "geometry": [
+          0,
+          0,
+          640,
+          480
+        ],
+        "stack": [
+          "  File \"$HOME/Desktop/ROS_APP/ros-robot-studio/.bootstrap/diagnose_qt_widget.py\", line 29, in <module>\n    verify(1, Path('.bootstrap/widget-trace-native'))\n",
+          "  File \"$HOME/Desktop/ROS_APP/ros-robot-studio/scripts/verify_gui_usability.py\", line 164, in verify\n    choose(dialog.action, dialog.action.findData(action))\n",
+          "  File \"$HOME/Desktop/ROS_APP/ros-robot-studio/tests/test_gui_usability.py\", line 49, in choose\n    QTest.qWait(450)\n",
+          "  File \"$HOME/Desktop/ROS_APP/ros-robot-studio/.bootstrap/diagnose_qt_widget.py\", line 24, in eventFilter\n    rows.append(dict(event=event.type().name, python_type=type(obj).__name__, qt_type=obj.metaObject().className(), name=obj.objectName(), title=obj.windowTitle(), parent_type=type(parent).__name__, parent_name=parent.objectName() if parent else '', visible=obj.isVisible(), geometry=obj.geometry().getRect(), stack=traceback.format_stack(limit=9)))\n"
+        ]
+      }
+    ]
+  },
+  "classification": "Qt application-owned lazy desktop helper; not an application widget leak",
+  "constructor_stack": [
+    "TOPLEVEL_WIDGET 0x5555579ac740",
+    "#0  0x00007ffff31f6a20 in QWidget::QWidget(QWidget*, QFlags<Qt::WindowType>) () at $HOME/Desktop/ROS_APP/ros-robot-studio/.venv/lib/python3.10/site-packages/PySide6/Qt/lib/libQt6Widgets.so.6",
+    "#1  0x00007ffff3191a6e in QApplicationPrivate::desktop() () at $HOME/Desktop/ROS_APP/ros-robot-studio/.venv/lib/python3.10/site-packages/PySide6/Qt/lib/libQt6Widgets.so.6",
+    "#2  0x00007ffff3199820 in  () at $HOME/Desktop/ROS_APP/ros-robot-studio/.venv/lib/python3.10/site-packages/PySide6/Qt/lib/libQt6Widgets.so.6",
+    "#3  0x00007ffff320728b in  () at $HOME/Desktop/ROS_APP/ros-robot-studio/.venv/lib/python3.10/site-packages/PySide6/Qt/lib/libQt6Widgets.so.6",
+    "#4  0x00007ffff320b202 in  () at $HOME/Desktop/ROS_APP/ros-robot-studio/.venv/lib/python3.10/site-packages/PySide6/Qt/lib/libQt6Widgets.so.6",
+    "#5  0x00007ffff3191beb in QApplicationPrivate::notify_helper(QObject*, QEvent*) () at $HOME/Desktop/ROS_APP/ros-robot-studio/.venv/lib/python3.10/site-packages/PySide6/Qt/lib/libQt6Widgets.so.6",
+    "#6  0x00007ffff1621350 in  () at $HOME/Desktop/ROS_APP/ros-robot-studio/.venv/lib/python3.10/site-packages/PySide6/QtWidgets.abi3.so",
+    "#7  0x00007ffff618330a in QCoreApplication::notifyInternal2(QObject*, QEvent*) () at $HOME/Desktop/ROS_APP/ros-robot-studio/.venv/lib/python3.10/site-packages/PySide6/Qt/lib/libQt6Core.so.6",
+    "#8  0x00007ffff25e96a0 in QGuiApplicationPrivate::processLeaveEvent(QWindowSystemInterfacePrivate::LeaveEvent*) () at $HOME/Desktop/ROS_APP/ros-robot-studio/.venv/lib/python3.10/site-packages/PySide6/Qt/lib/libQt6Gui.so.6",
+    "#9  0x00007ffff26599ec in QWindowSystemInterface::sendWindowSystemEvents(QFlags<QEventLoop::ProcessEventsFlag>) () at $HOME/Desktop/ROS_APP/ros-robot-studio/.venv/lib/python3.10/site-packages/PySide6/Qt/lib/libQt6Gui.so.6",
+    "#10 0x00007fff976005fe in  () at $HOME/Desktop/ROS_APP/ros-robot-studio/.venv/lib/python3.10/site-packages/PySide6/Qt/plugins/platforms/../../lib/libQt6XcbQpa.so.6",
+    "#11 0x00007ffff5b1ad8b in g_main_context_dispatch () at /lib/x86_64-linux-gnu/libglib-2.0.so.0"
+  ],
+  "upstream_source": "https://github.com/qt/qtbase/blob/v6.9.3/src/widgets/kernel/qapplication.cpp",
+  "upstream_creation_line": 2453,
+  "upstream_destruction_line": 690,
+  "fix": "No production deletion. Native regression separately tracks one stable Qt::Desktop helper and still rejects every unexpected application widget."
+}
