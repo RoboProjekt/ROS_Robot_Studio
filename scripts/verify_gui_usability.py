@@ -11,7 +11,7 @@ from pathlib import Path
 import shiboken6
 from PySide6.QtCore import QCoreApplication, QEvent, QPoint, Qt, QTimer
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QDialog, QDialogButtonBox
+from PySide6.QtWidgets import QApplication, QDialog, QDialogButtonBox, QFileDialog, QLineEdit
 
 from ros_robot_studio.backends.profiles import new_profile
 from ros_robot_studio.core.settings import Settings
