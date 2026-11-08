@@ -233,11 +233,25 @@ class RuntimeManager:
                     "STUDIO_BRIDGE_PORT": str(config.port if config.network == "host" else 9090),
                     "STUDIO_BRIDGE_ADDRESS": "127.0.0.1" if config.network == "host" else "0.0.0.0",
                     "ROS_NAMESPACE": config.namespace,
-                    "ROS_LOCALHOST_ONLY": "1" if config.discovery == "localhost" else "0",
-                    "ROS_AUTOMATIC_DISCOVERY_RANGE": "LOCALHOST"
+                    # Humble adds SHM even over a UDP-only XML profile when
+                    # ROS_LOCALHOST_ONLY=1. Separate container IPC namespaces
+                    # then discover peers but cannot receive their samples.
+                    # The dedicated XML whitelist enforces loopback instead.
+                    "ROS_LOCALHOST_ONLY": "0"
+                    if config.fastdds_udp
+                    else "1"
+                    if config.discovery == "localhost"
+                    else "0",
+                    "ROS_AUTOMATIC_DISCOVERY_RANGE": "SUBNET"
+                    if config.fastdds_udp
+                    else "LOCALHOST"
                     if config.discovery == "localhost"
                     else "SUBNET",
-                    "FASTRTPS_DEFAULT_PROFILES_FILE": "/opt/studio/fastdds_udp.xml"
+                    "FASTRTPS_DEFAULT_PROFILES_FILE": (
+                        "/opt/studio/fastdds_localhost.xml"
+                        if config.discovery == "localhost"
+                        else "/opt/studio/fastdds_udp.xml"
+                    )
                     if config.fastdds_udp
                     else "",
                 },

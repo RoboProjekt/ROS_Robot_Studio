@@ -334,6 +334,8 @@ class ROSBackendManager(QObject):
         if not connected:
             session.controller_available = False
             self.states.invalidate_backend(session.profile.id, "Backend connection lost")
+        else:
+            session.error = ""
         self._status(session)
         self.changed.emit()
 
@@ -352,7 +354,11 @@ class ROSBackendManager(QObject):
             elif topic == profile.clock_topic:
                 stamp = message.get("clock", {})
                 value = float(stamp.get("sec", 0)) + float(stamp.get("nanosec", 0)) * 1e-9
-                if session.last_clock is not None and value < session.last_clock:
+                if (
+                    session.last_clock is not None
+                    and value < session.last_clock
+                    and not session.requires_reconnect
+                ):
                     session.requires_reconnect = True
                     self.states.invalidate_backend(
                         profile.id, "Simulation clock reset; reconnect and replan"

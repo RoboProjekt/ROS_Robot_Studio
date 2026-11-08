@@ -9,6 +9,7 @@ COPY shared/ /opt/studio/
 COPY controller_nodes.py /opt/studio/controller_nodes.py
 COPY external_adapter.py /opt/studio/external_adapter.py
 COPY fastdds_udp.xml /opt/studio/fastdds_udp.xml
+COPY fastdds_localhost.xml /opt/studio/fastdds_localhost.xml
 COPY demo_nodes.py /opt/studio/demo_nodes.py
 COPY entrypoint.sh /opt/studio/entrypoint.sh
 RUN chmod 755 /opt/studio/entrypoint.sh && useradd --create-home --uid 10001 studio

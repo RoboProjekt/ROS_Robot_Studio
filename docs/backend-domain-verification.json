@@ -1,0 +1,26 @@
+{
+  "domains": [
+    1,
+    2,
+    0
+  ],
+  "network": "shared host loopback, explicit UDP whitelist; no shared IPC",
+  "same_topic_across_domains": true,
+  "isolated_jointstates": true,
+  "separate_ros_graphs": true,
+  "separate_subscriptions": true,
+  "observations": {
+    "1": 30,
+    "2": 30,
+    "0": 30
+  },
+  "hardware_read_only": true,
+  "hardware_execution_blocked": true,
+  "raw_publish_blocked": true,
+  "command_spy_counts": [
+    0,
+    0,
+    0
+  ],
+  "hardware_access": false
+}

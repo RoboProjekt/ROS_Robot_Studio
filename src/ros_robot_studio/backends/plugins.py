@@ -101,7 +101,11 @@ class BuiltinROSBackendPlugin(ROSBackendPlugin):
             for t in topics.values()
         ):
             available.add("force_torque_feedback")
-        if controller:
+        discovered_controller = topics.get(profile.action.rstrip("/") + "/_action/status") in (
+            "action_msgs/msg/GoalStatusArray",
+            "action_msgs/GoalStatusArray",
+        )
+        if controller or discovered_controller:
             available.add("trajectory_controller")
         permitted = bool(
             self.simulation_execution
