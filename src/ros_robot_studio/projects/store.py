@@ -18,8 +18,8 @@ def load_project(path: Path) -> Project:
     if path.stat().st_size > 2_000_000:
         raise ValueError("Project exceeds 2 MB limit")
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    if isinstance(data, dict) and data.get("format_version", 1) == 1:
-        data = dict(data, format_version=2)
+    if isinstance(data, dict) and data.get("format_version", 1) in (1, 2):
+        data = dict(data, format_version=3)
     return Project.model_validate(data)
 
 

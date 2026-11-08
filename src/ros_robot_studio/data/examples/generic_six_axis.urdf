@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<!-- Original six-axis serial test mechanism, Apache-2.0; not a claimed xArm model. -->
+<robot name="Studio Six Axis Test Arm">
+ <link name="base_link"/><link name="l1"/><link name="l2"/><link name="l3"/><link name="l4"/><link name="l5"/><link name="l6"/><link name="tool0"/>
+ <joint name="joint1" type="revolute"><parent link="base_link"/><child link="l1"/><origin xyz="0 0 0.15"/><axis xyz="0 0 1"/><limit lower="-3" upper="3" velocity="1" effort="10"/></joint>
+ <joint name="joint2" type="revolute"><parent link="l1"/><child link="l2"/><origin xyz="0.03 0 0.05"/><axis xyz="0 1 0"/><limit lower="-2" upper="2" velocity="1" effort="10"/></joint>
+ <joint name="joint3" type="revolute"><parent link="l2"/><child link="l3"/><origin xyz="0.20 0 0"/><axis xyz="0 1 0"/><limit lower="-2.5" upper="2.5" velocity="1" effort="10"/></joint>
+ <joint name="joint4" type="revolute"><parent link="l3"/><child link="l4"/><origin xyz="0.16 0 0"/><axis xyz="1 0 0"/><limit lower="-3" upper="3" velocity="1" effort="10"/></joint>
+ <joint name="joint5" type="revolute"><parent link="l4"/><child link="l5"/><origin xyz="0.04 0 0"/><axis xyz="0 1 0"/><limit lower="-2" upper="2" velocity="1" effort="10"/></joint>
+ <joint name="joint6" type="continuous"><parent link="l5"/><child link="l6"/><origin xyz="0.04 0 0"/><axis xyz="0 0 1"/><limit velocity="1" effort="10"/></joint>
+ <joint name="tool_fixed" type="fixed"><parent link="l6"/><child link="tool0"/><origin xyz="0.08 0 0"/></joint>
+</robot>

@@ -4,10 +4,15 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
+from functools import cached_property
 from pathlib import Path
 
 import numpy as np
 from defusedxml import ElementTree as ET
+
+
+class UnsupportedKinematicsError(ValueError):
+    """The URDF describes a mechanism that the open-chain implementation cannot handle."""
 
 
 @dataclass(frozen=True)
@@ -24,6 +29,9 @@ class Joint:
     mimic: str | None = None
     multiplier: float = 1.0
     offset: float = 0.0
+    velocity: float | None = None
+    effort: float | None = None
+    acceleration: float | None = None
 
     @property
     def movable(self) -> bool:
@@ -65,12 +73,57 @@ class RobotModel:
     warnings: list[str] = field(default_factory=list)
     source_path: Path | None = None
 
+    @cached_property
+    def joint_by_name(self):
+        return {joint.name: joint for joint in self.joints}
+
+    def driver(self, name: str) -> tuple[str, float, float]:
+        joint = self.joint_by_name[name]
+        if not joint.mimic:
+            return name, 1.0, 0.0
+        source, factor, offset = self.driver(joint.mimic)
+        return source, factor * joint.multiplier, offset * joint.multiplier + joint.offset
+
+    @cached_property
+    def effective_joint_bounds(self) -> dict[str, tuple[float, float]]:
+        bounds = {
+            j.name: (
+                j.lower if j.lower is not None else -np.inf,
+                j.upper if j.upper is not None else np.inf,
+            )
+            for j in self.joints
+            if j.movable and not j.mimic
+        }
+        for joint in self.joints:
+            if not joint.movable or not joint.mimic:
+                continue
+            source, factor, offset = self.driver(joint.name)
+            lower, upper = joint.lower, joint.upper
+            if factor == 0:
+                if (lower is not None and offset < lower) or (upper is not None and offset > upper):
+                    raise UnsupportedKinematicsError("Inconsistent mimic joint limits")
+                continue
+            lo = (
+                ((lower - offset) / factor)
+                if lower is not None
+                else (-np.inf if factor > 0 else np.inf)
+            )
+            hi = (
+                ((upper - offset) / factor)
+                if upper is not None
+                else (np.inf if factor > 0 else -np.inf)
+            )
+            lo, hi = min(lo, hi), max(lo, hi)
+            old = bounds[source]
+            bounds[source] = (max(old[0], lo), min(old[1], hi))
+        if any(lo > hi for lo, hi in bounds.values()):
+            raise UnsupportedKinematicsError("Coupled joint limits have no feasible interval")
+        return bounds
+
     def default_configuration(self) -> dict[str, float]:
-        """URDF zero pose, clamped only where zero is outside an independent joint's limits."""
+        """Feasible pose nearest zero, respecting independent and coupled joint limits."""
         return {
-            joint.name: max(joint.lower or 0, min(joint.upper if joint.upper is not None else 0, 0))
-            for joint in self.joints
-            if joint.movable and not joint.mimic
+            name: max(lo, min(hi, 0.0)) for name, (lo, hi) in self.effective_joint_bounds.items()
         }
 
     def configuration(self, values: dict[str, float] | None = None) -> dict[str, float]:
@@ -111,6 +164,10 @@ class RobotModel:
                 evaluate(joint.name)
         return result
 
+    @cached_property
+    def joint_origins(self) -> dict[str, np.ndarray]:
+        return {joint.name: origin_transform(joint.xyz, joint.rpy) for joint in self.joints}
+
     def transforms(self, values: dict[str, float] | None = None) -> dict[str, np.ndarray]:
         """Root-frame link poses: T_parent @ T_joint_origin @ T_joint_motion."""
         resolved = self.configuration(values)
@@ -128,7 +185,7 @@ class RobotModel:
                 elif joint.kind == "prismatic":
                     motion[:3, 3] = np.array(joint.axis) * value
                 transforms[joint.child] = (
-                    transforms[parent] @ origin_transform(joint.xyz, joint.rpy) @ motion
+                    transforms[parent] @ self.joint_origins[joint.name] @ motion
                 )
                 queue.append(joint.child)
         return transforms
@@ -224,7 +281,9 @@ def parse_urdf(source: Path | str) -> RobotModel:
             raise ValueError(f"{name}: missing parent or child")
         parent, child = parent_el.get("link"), child_el.get("link")
         if parent not in links or child not in links or parent == child or child in children:
-            raise ValueError(f"{name}: invalid link relation or multiple parents")
+            raise UnsupportedKinematicsError(
+                f"{name}: invalid link relation, closed chain or multiple parents; only open trees are supported"
+            )
         children.add(child)
         axis_el, limit = element.find("axis"), element.find("limit")
         xyz, rpy = origin(element)
@@ -241,6 +300,16 @@ def parse_urdf(source: Path | str) -> RobotModel:
             lower, upper = float(limit.get("lower")), float(limit.get("upper"))
             if not math.isfinite(lower) or not math.isfinite(upper) or lower > upper:
                 raise ValueError(f"{name}: invalid limits")
+        dynamic_limits = []
+        for attribute in ("velocity", "effort", "acceleration"):
+            value = (
+                float(limit.get(attribute))
+                if limit is not None and limit.get(attribute) is not None
+                else None
+            )
+            if value is not None and (not math.isfinite(value) or value < 0):
+                raise ValueError(f"{name}: invalid {attribute} limit")
+            dynamic_limits.append(value)
         mimic = element.find("mimic")
         if mimic is not None and (
             not mimic.get("joint") or kind not in ("revolute", "continuous", "prismatic")
@@ -264,18 +333,21 @@ def parse_urdf(source: Path | str) -> RobotModel:
                 mimic.get("joint") if mimic is not None else None,
                 multiplier,
                 offset,
+                *dynamic_limits,
             )
         )
     roots = set(links) - children
     if len(roots) != 1:
-        raise ValueError("URDF must contain exactly one root link")
+        raise UnsupportedKinematicsError(
+            "URDF must contain one root; closed/disconnected mechanisms are not supported"
+        )
     root_name = roots.pop()
     visited, queue, adjacency = set(), [root_name], {}
     for joint in joints:
         adjacency.setdefault(joint.parent, []).append(joint.child)
     for current in queue:
         if current in visited:
-            raise ValueError("URDF contains a cycle")
+            raise UnsupportedKinematicsError("Closed-chain URDF is not supported")
         visited.add(current)
         queue.extend(adjacency.get(current, []))
     if visited != set(links):
@@ -352,5 +424,6 @@ def parse_urdf(source: Path | str) -> RobotModel:
         sorted(references),
         source_path=source.resolve() if isinstance(source, Path) else None,
     )
-    # Validate mimic cycles at parse time, without assuming zero satisfies every coupled limit.
+    # Validate coupled feasibility without assuming zero satisfies every mimic limit.
+    model.effective_joint_bounds
     return model

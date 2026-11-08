@@ -64,6 +64,7 @@ def main():
         default_end_effector="gripper_frame_link",
         calibration="new_calib",
         drivers=[],
+        gripper_joints=["gripper"],
         verified_ros_distributions=[],
         backends={
             "offline_viewer": "supported",

@@ -1,0 +1,471 @@
+format_version: 3
+kinematics:
+  model_signature: a3cf24a804b76eeca70422cf53597c59c5abbc8ca3c858a7426f1e638f5be0b5
+  base_link: base_link
+  end_effector: gripper_frame_link
+  active_joints:
+  - shoulder_pan
+  - shoulder_lift
+  - elbow_flex
+  - wrist_flex
+  - wrist_roll
+  gripper_joints:
+  - gripper
+  confirmed: true
+  solver: auto
+  mode: position_only
+  options:
+    position_tolerance: 0.0001
+    orientation_tolerance: 0.001
+    position_weight: 1.0
+    orientation_weight: 0.15
+    starts: 4
+    seed: 42
+    max_evaluations: 250
+    time_limit: 10.0
+positions:
+- id: af9b0147-3d5b-4bf6-bafa-d97533abf0eb
+  name: Pick
+  kind: joint
+  model_signature: a3cf24a804b76eeca70422cf53597c59c5abbc8ca3c858a7426f1e638f5be0b5
+  joints:
+    gripper: 0.0
+    wrist_roll: 0.0
+    wrist_flex: -0.2
+    elbow_flex: 0.6
+    shoulder_lift: -0.4
+    shoulder_pan: 0.2
+  pose: null
+- id: a0bdb57f-bc99-4fd3-87a0-03df5916b3ca
+  name: Place
+  kind: joint
+  model_signature: a3cf24a804b76eeca70422cf53597c59c5abbc8ca3c858a7426f1e638f5be0b5
+  joints:
+    gripper: 0.0
+    wrist_roll: 0.0
+    wrist_flex: -0.2
+    elbow_flex: 0.6
+    shoulder_lift: -0.3
+    shoulder_pan: -0.4
+  pose: null
+- id: 9f058fbb-9b31-46d9-b1dd-5f6cb8845fe3
+  name: Pick and Place · Home
+  kind: joint
+  model_signature: a3cf24a804b76eeca70422cf53597c59c5abbc8ca3c858a7426f1e638f5be0b5
+  joints:
+    gripper: 0.0
+    wrist_roll: 0.0
+    wrist_flex: 0.0
+    elbow_flex: 0.0
+    shoulder_lift: 0.0
+    shoulder_pan: 0.0
+  pose: null
+- id: 91480718-4940-4174-b3ea-14a9c3c3d69d
+  name: Pick and Place · Pre-Pick
+  kind: cartesian
+  model_signature: ''
+  joints: {}
+  pose:
+    frame: base_link
+    end_effector: gripper_frame_link
+    position:
+    - 0.33758044015432115
+    - -0.06056827026354997
+    - 0.21658278356128163
+    rpy:
+    - 1.5706190086167913
+    - 1.5221142253683329
+    - 1.3706290851937668
+    mode: position_only
+    axis: Z
+- id: 27ad8bd1-a7d9-4ceb-ade3-0c664548c371
+  name: Pick and Place · Pick
+  kind: cartesian
+  model_signature: ''
+  joints: {}
+  pose:
+    frame: base_link
+    end_effector: gripper_frame_link
+    position:
+    - 0.33758044015432115
+    - -0.06056827026354997
+    - 0.20158278356128162
+    rpy:
+    - 1.5706190086167913
+    - 1.5221142253683329
+    - 1.3706290851937668
+    mode: position_only
+    axis: Z
+- id: bc5b8a58-1d36-4186-aba2-389b1f2304c2
+  name: Pick and Place · Lift
+  kind: cartesian
+  model_signature: ''
+  joints: {}
+  pose:
+    frame: base_link
+    end_effector: gripper_frame_link
+    position:
+    - 0.33758044015432115
+    - -0.06056827026354997
+    - 0.2215827835612816
+    rpy:
+    - 1.5706190086167913
+    - 1.5221142253683329
+    - 1.3706290851937668
+    mode: position_only
+    axis: Z
+- id: eb22a7a8-e8d7-4658-80fd-c44671e13609
+  name: Pick and Place · Pre-Place
+  kind: cartesian
+  model_signature: ''
+  joints: {}
+  pose:
+    frame: base_link
+    end_effector: gripper_frame_link
+    position:
+    - 0.32615114575165083
+    - 0.12146508877558476
+    - 0.18876202264617686
+    rpy:
+    - 2.6899704121758927
+    - 1.4596206779826733
+    - 3.087544164287912
+    mode: position_only
+    axis: Z
+- id: 5ce3c132-2ba7-4666-82b1-1a8c2b29d37a
+  name: Pick and Place · Place
+  kind: cartesian
+  model_signature: ''
+  joints: {}
+  pose:
+    frame: base_link
+    end_effector: gripper_frame_link
+    position:
+    - 0.32615114575165083
+    - 0.12146508877558476
+    - 0.17376202264617685
+    rpy:
+    - 2.6899704121758927
+    - 1.4596206779826733
+    - 3.087544164287912
+    mode: position_only
+    axis: Z
+- id: 60511645-11e5-4646-87f4-0658c6dbdbcb
+  name: Pick and Place · Retreat
+  kind: cartesian
+  model_signature: ''
+  joints: {}
+  pose:
+    frame: base_link
+    end_effector: gripper_frame_link
+    position:
+    - 0.32615114575165083
+    - 0.12146508877558476
+    - 0.18876202264617686
+    rpy:
+    - 2.6899704121758927
+    - 1.4596206779826733
+    - 3.087544164287912
+    mode: position_only
+    axis: Z
+tasks:
+- schema_version: 1
+  id: 1f1e7597-a980-4993-beba-6c53f6891a43
+  name: Pick and Place
+  steps:
+  - id: b4a41a47-a0b6-4992-83b9-8eda49478505
+    name: Home
+    action: home
+    position_id: 9f058fbb-9b31-46d9-b1dd-5f6cb8845fe3
+    gripper_values: {}
+    duration: 0.0
+    relative_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    relative_rpy:
+    - 0.0
+    - 0.0
+    - 0.0
+    reference_frame: ''
+    attach_object: false
+    release_object: false
+  - id: 08a1cbe9-897f-43c8-8712-8d3415b719d2
+    name: Open gripper
+    action: open_gripper
+    position_id: null
+    gripper_values:
+      gripper: 1.74533
+    duration: 0.0
+    relative_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    relative_rpy:
+    - 0.0
+    - 0.0
+    - 0.0
+    reference_frame: ''
+    attach_object: false
+    release_object: true
+  - id: b5977169-ec22-4f80-815c-4f7819bb560e
+    name: Pre-Pick
+    action: move_cartesian
+    position_id: 91480718-4940-4174-b3ea-14a9c3c3d69d
+    gripper_values: {}
+    duration: 0.0
+    relative_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    relative_rpy:
+    - 0.0
+    - 0.0
+    - 0.0
+    reference_frame: ''
+    attach_object: false
+    release_object: false
+  - id: f707c1fd-a401-4754-9dab-0e2fbda13ea5
+    name: Pick
+    action: move_cartesian
+    position_id: 27ad8bd1-a7d9-4ceb-ade3-0c664548c371
+    gripper_values: {}
+    duration: 0.0
+    relative_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    relative_rpy:
+    - 0.0
+    - 0.0
+    - 0.0
+    reference_frame: ''
+    attach_object: false
+    release_object: false
+  - id: b41093a6-b687-424e-b842-03b4b2752916
+    name: Close and attach virtual cube
+    action: close_gripper
+    position_id: null
+    gripper_values:
+      gripper: -0.174533
+    duration: 0.0
+    relative_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    relative_rpy:
+    - 0.0
+    - 0.0
+    - 0.0
+    reference_frame: ''
+    attach_object: true
+    release_object: false
+  - id: de19aafe-f125-4237-ad20-8813079ab6ec
+    name: Dwell after close
+    action: wait
+    position_id: null
+    gripper_values: {}
+    duration: 0.25
+    relative_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    relative_rpy:
+    - 0.0
+    - 0.0
+    - 0.0
+    reference_frame: ''
+    attach_object: false
+    release_object: false
+  - id: b6ffc2fe-0a13-4905-8dcf-e72b8f2236de
+    name: Lift
+    action: move_cartesian
+    position_id: bc5b8a58-1d36-4186-aba2-389b1f2304c2
+    gripper_values: {}
+    duration: 0.0
+    relative_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    relative_rpy:
+    - 0.0
+    - 0.0
+    - 0.0
+    reference_frame: ''
+    attach_object: false
+    release_object: false
+  - id: 40c57e5b-4b82-441c-9bb0-f5c875c4e74f
+    name: Pre-Place
+    action: move_cartesian
+    position_id: eb22a7a8-e8d7-4658-80fd-c44671e13609
+    gripper_values: {}
+    duration: 0.0
+    relative_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    relative_rpy:
+    - 0.0
+    - 0.0
+    - 0.0
+    reference_frame: ''
+    attach_object: false
+    release_object: false
+  - id: 124ce490-d41f-420a-a11e-9c4ead3b7929
+    name: Place
+    action: move_cartesian
+    position_id: 5ce3c132-2ba7-4666-82b1-1a8c2b29d37a
+    gripper_values: {}
+    duration: 0.0
+    relative_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    relative_rpy:
+    - 0.0
+    - 0.0
+    - 0.0
+    reference_frame: ''
+    attach_object: false
+    release_object: false
+  - id: 258782da-c4f0-42a3-a0b6-8921cd3485f3
+    name: Open and release virtual cube
+    action: open_gripper
+    position_id: null
+    gripper_values:
+      gripper: 1.74533
+    duration: 0.0
+    relative_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    relative_rpy:
+    - 0.0
+    - 0.0
+    - 0.0
+    reference_frame: ''
+    attach_object: false
+    release_object: true
+  - id: a3716818-8876-452b-b310-a6a5048b05bd
+    name: Dwell after release
+    action: wait
+    position_id: null
+    gripper_values: {}
+    duration: 0.25
+    relative_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    relative_rpy:
+    - 0.0
+    - 0.0
+    - 0.0
+    reference_frame: ''
+    attach_object: false
+    release_object: false
+  - id: 9a9843b8-6057-4ac7-a013-46cc67fb1c80
+    name: Retreat
+    action: move_cartesian
+    position_id: 60511645-11e5-4646-87f4-0658c6dbdbcb
+    gripper_values: {}
+    duration: 0.0
+    relative_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    relative_rpy:
+    - 0.0
+    - 0.0
+    - 0.0
+    reference_frame: ''
+    attach_object: false
+    release_object: false
+  - id: 41faefed-82bd-4d66-8c44-27df580023b1
+    name: Return home
+    action: home
+    position_id: 9f058fbb-9b31-46d9-b1dd-5f6cb8845fe3
+    gripper_values: {}
+    duration: 0.0
+    relative_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    relative_rpy:
+    - 0.0
+    - 0.0
+    - 0.0
+    reference_frame: ''
+    attach_object: false
+    release_object: false
+  home_position_id: 9f058fbb-9b31-46d9-b1dd-5f6cb8845fe3
+  settings:
+    speed_scale: 0.4
+    demo_revolute_velocity: 0.35
+    demo_prismatic_velocity: 0.05
+    acceleration_limits: {}
+    minimum_duration: 0.1
+  virtual_object:
+    name: Virtual cube
+    frame: base_link
+    position:
+    - 0.33758044015432115
+    - -0.06056827026354997
+    - 0.20158278356128162
+    rpy:
+    - 0.0
+    - 0.0
+    - 0.0
+    size: 0.02
+  extensions:
+    simulation: simplified visual attachment; no forces, contacts, stability or collision
+      validation
+motion:
+  speed_scale: 0.4
+  demo_revolute_velocity: 0.35
+  demo_prismatic_velocity: 0.05
+  acceleration_limits: {}
+  minimum_duration: 0.1
+execution_backend: offline
+id: 15bc8ed9-c4c7-4e29-8e3d-aec83412dd49
+name: SO101_PickAndPlace_Demo
+description: Validated offline joint-space example; virtual attachment, no contact
+  or collision physics.
+default_ros: humble
+robot:
+  profile: so101
+  model_id: so101_follower
+  model_version: 1.0.0
+  source_revision: a758567c3978dfeefe282ede0500085a48fe8f78
+  joint_positions:
+    gripper: 0.0
+    wrist_roll: 0.0
+    wrist_flex: 0.0
+    elbow_flex: 0.0
+    shoulder_lift: 0.0
+    shoulder_pan: 0.0
+  joint_mapping_status: not_calibrated
+  simulation:
+    backend: isaac_sim
+    status: planned
+    asset:
+      format: usd
+      path: null
+    joint_mapping: not_configured
+  urdf: model://so101_follower/a758567c3978dfeefe282ede0500085a48fe8f78/so101_new_calib.urdf
+  source_xacro: null
+  hardware: null
+  controller: null
+  ik_solver: null
+  end_effector: gripper_frame_link
+sensors: []
+monitoring:
+  window_seconds: 30
+  update_hz: 20
+  fields:
+  - data
+  topic: /studio/sine
+runtime:
+  port: 9090
+  memory_mb: 2048
+  cpu_count: 2.0
+  overrides: {}

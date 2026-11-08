@@ -189,6 +189,6 @@ def test_v1_project_upgrades_without_changing_source(tmp_path):
     original = "format_version: 1\nname: Legacy arm\n"
     path.write_text(original)
     project = load_project(path)
-    assert project.format_version == 2
+    assert project.format_version == 3
     assert project.robot.joint_positions == {}
     assert path.read_text() == original

@@ -1,0 +1,461 @@
+format_version: 3
+kinematics:
+  model_signature: de8258b2550cf543181c0c7ef2c670446c43fc6fc8d6d1c2e92c7f9b1c8198e9
+  base_link: base_link
+  end_effector: tool0
+  active_joints:
+  - axis_x
+  - axis_y
+  - axis_z
+  gripper_joints:
+  - finger_slide
+  confirmed: true
+  solver: auto
+  mode: position_only
+  options:
+    position_tolerance: 0.0001
+    orientation_tolerance: 0.001
+    position_weight: 1.0
+    orientation_weight: 0.15
+    starts: 4
+    seed: 42
+    max_evaluations: 250
+    time_limit: 10.0
+positions:
+- id: 328f7b32-b3ce-4211-9613-131747532881
+  name: Pick
+  kind: joint
+  model_signature: de8258b2550cf543181c0c7ef2c670446c43fc6fc8d6d1c2e92c7f9b1c8198e9
+  joints:
+    axis_x: -0.08
+    axis_y: -0.05
+    axis_z: 0.1
+    finger_slide: 0.0
+  pose: null
+- id: 5fc1535d-ea50-44cc-b085-2a9d30c2aa4b
+  name: Place
+  kind: joint
+  model_signature: de8258b2550cf543181c0c7ef2c670446c43fc6fc8d6d1c2e92c7f9b1c8198e9
+  joints:
+    axis_x: 0.08
+    axis_y: 0.06
+    axis_z: 0.1
+    finger_slide: 0.0
+  pose: null
+- id: 264258e0-04b9-4105-bc74-0d2bc261f0a4
+  name: Pick and Place · Home
+  kind: joint
+  model_signature: de8258b2550cf543181c0c7ef2c670446c43fc6fc8d6d1c2e92c7f9b1c8198e9
+  joints:
+    axis_x: 0.0
+    axis_y: 0.0
+    axis_z: 0.0
+    finger_slide: 0.0
+  pose: null
+- id: fed3fd0d-f902-4c9d-b66e-f91b656fd660
+  name: Pick and Place · Pre-Pick
+  kind: cartesian
+  model_signature: ''
+  joints: {}
+  pose:
+    frame: base_link
+    end_effector: tool0
+    position:
+    - -0.08
+    - -0.05
+    - 0.15999999999999998
+    rpy:
+    - 0.0
+    - -0.0
+    - 0.0
+    mode: position_only
+    axis: Z
+- id: 27bf70ea-bd6e-4eb4-91de-820ff65da1ce
+  name: Pick and Place · Pick
+  kind: cartesian
+  model_signature: ''
+  joints: {}
+  pose:
+    frame: base_link
+    end_effector: tool0
+    position:
+    - -0.08
+    - -0.05
+    - 0.145
+    rpy:
+    - 0.0
+    - -0.0
+    - 0.0
+    mode: position_only
+    axis: Z
+- id: 04cc14f1-143f-4219-87ee-a92e346c7256
+  name: Pick and Place · Lift
+  kind: cartesian
+  model_signature: ''
+  joints: {}
+  pose:
+    frame: base_link
+    end_effector: tool0
+    position:
+    - -0.08
+    - -0.05
+    - 0.16499999999999998
+    rpy:
+    - 0.0
+    - -0.0
+    - 0.0
+    mode: position_only
+    axis: Z
+- id: 68c63dd7-623f-4ab4-b4b1-c905d52b539b
+  name: Pick and Place · Pre-Place
+  kind: cartesian
+  model_signature: ''
+  joints: {}
+  pose:
+    frame: base_link
+    end_effector: tool0
+    position:
+    - 0.08
+    - 0.06
+    - 0.15999999999999998
+    rpy:
+    - 0.0
+    - -0.0
+    - 0.0
+    mode: position_only
+    axis: Z
+- id: bfa77ef1-098f-4cd8-9529-e0b6c1544f82
+  name: Pick and Place · Place
+  kind: cartesian
+  model_signature: ''
+  joints: {}
+  pose:
+    frame: base_link
+    end_effector: tool0
+    position:
+    - 0.08
+    - 0.06
+    - 0.145
+    rpy:
+    - 0.0
+    - -0.0
+    - 0.0
+    mode: position_only
+    axis: Z
+- id: 361ebbc5-fd60-481c-8674-85596d6a7f74
+  name: Pick and Place · Retreat
+  kind: cartesian
+  model_signature: ''
+  joints: {}
+  pose:
+    frame: base_link
+    end_effector: tool0
+    position:
+    - 0.08
+    - 0.06
+    - 0.15999999999999998
+    rpy:
+    - 0.0
+    - -0.0
+    - 0.0
+    mode: position_only
+    axis: Z
+tasks:
+- schema_version: 1
+  id: 16b77859-e387-40f0-bad4-99bd3961f74c
+  name: Pick and Place
+  steps:
+  - id: 8e611b30-8877-4325-897e-29a065adde00
+    name: Home
+    action: home
+    position_id: 264258e0-04b9-4105-bc74-0d2bc261f0a4
+    gripper_values: {}
+    duration: 0.0
+    relative_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    relative_rpy:
+    - 0.0
+    - 0.0
+    - 0.0
+    reference_frame: ''
+    attach_object: false
+    release_object: false
+  - id: d3279cd6-a9f2-4006-8ae3-f04658589feb
+    name: Open gripper
+    action: open_gripper
+    position_id: null
+    gripper_values:
+      finger_slide: 0.04
+    duration: 0.0
+    relative_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    relative_rpy:
+    - 0.0
+    - 0.0
+    - 0.0
+    reference_frame: ''
+    attach_object: false
+    release_object: true
+  - id: 6d2d6af1-756b-454f-94cf-0a226af80685
+    name: Pre-Pick
+    action: move_cartesian
+    position_id: fed3fd0d-f902-4c9d-b66e-f91b656fd660
+    gripper_values: {}
+    duration: 0.0
+    relative_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    relative_rpy:
+    - 0.0
+    - 0.0
+    - 0.0
+    reference_frame: ''
+    attach_object: false
+    release_object: false
+  - id: 1fda2dd0-b6ba-4df7-9590-a33f2bac8543
+    name: Pick
+    action: move_cartesian
+    position_id: 27bf70ea-bd6e-4eb4-91de-820ff65da1ce
+    gripper_values: {}
+    duration: 0.0
+    relative_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    relative_rpy:
+    - 0.0
+    - 0.0
+    - 0.0
+    reference_frame: ''
+    attach_object: false
+    release_object: false
+  - id: 0f660f04-cf1e-42d3-a4c3-393d84a8943e
+    name: Close and attach virtual cube
+    action: close_gripper
+    position_id: null
+    gripper_values:
+      finger_slide: 0.0
+    duration: 0.0
+    relative_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    relative_rpy:
+    - 0.0
+    - 0.0
+    - 0.0
+    reference_frame: ''
+    attach_object: true
+    release_object: false
+  - id: a866187b-44db-40a2-a466-0799ca9e7b95
+    name: Dwell after close
+    action: wait
+    position_id: null
+    gripper_values: {}
+    duration: 0.25
+    relative_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    relative_rpy:
+    - 0.0
+    - 0.0
+    - 0.0
+    reference_frame: ''
+    attach_object: false
+    release_object: false
+  - id: d748ff08-1f6c-4288-aba7-164c5934a0db
+    name: Lift
+    action: move_cartesian
+    position_id: 04cc14f1-143f-4219-87ee-a92e346c7256
+    gripper_values: {}
+    duration: 0.0
+    relative_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    relative_rpy:
+    - 0.0
+    - 0.0
+    - 0.0
+    reference_frame: ''
+    attach_object: false
+    release_object: false
+  - id: f51d94b8-b07d-4e8b-af6f-5909e1ac5879
+    name: Pre-Place
+    action: move_cartesian
+    position_id: 68c63dd7-623f-4ab4-b4b1-c905d52b539b
+    gripper_values: {}
+    duration: 0.0
+    relative_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    relative_rpy:
+    - 0.0
+    - 0.0
+    - 0.0
+    reference_frame: ''
+    attach_object: false
+    release_object: false
+  - id: cf1ade32-a9c2-40f4-981f-4fbde58e7162
+    name: Place
+    action: move_cartesian
+    position_id: bfa77ef1-098f-4cd8-9529-e0b6c1544f82
+    gripper_values: {}
+    duration: 0.0
+    relative_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    relative_rpy:
+    - 0.0
+    - 0.0
+    - 0.0
+    reference_frame: ''
+    attach_object: false
+    release_object: false
+  - id: 84b197a6-d0d8-46b5-b4c1-24151b536365
+    name: Open and release virtual cube
+    action: open_gripper
+    position_id: null
+    gripper_values:
+      finger_slide: 0.04
+    duration: 0.0
+    relative_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    relative_rpy:
+    - 0.0
+    - 0.0
+    - 0.0
+    reference_frame: ''
+    attach_object: false
+    release_object: true
+  - id: b25eb851-9b81-420f-99c8-2f0f5c638c05
+    name: Dwell after release
+    action: wait
+    position_id: null
+    gripper_values: {}
+    duration: 0.25
+    relative_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    relative_rpy:
+    - 0.0
+    - 0.0
+    - 0.0
+    reference_frame: ''
+    attach_object: false
+    release_object: false
+  - id: 7ddc2c1d-4a05-4566-9341-9f357d401b60
+    name: Retreat
+    action: move_cartesian
+    position_id: 361ebbc5-fd60-481c-8674-85596d6a7f74
+    gripper_values: {}
+    duration: 0.0
+    relative_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    relative_rpy:
+    - 0.0
+    - 0.0
+    - 0.0
+    reference_frame: ''
+    attach_object: false
+    release_object: false
+  - id: 8cd6f2f6-ffbf-4014-9404-7751b867cee7
+    name: Return home
+    action: home
+    position_id: 264258e0-04b9-4105-bc74-0d2bc261f0a4
+    gripper_values: {}
+    duration: 0.0
+    relative_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    relative_rpy:
+    - 0.0
+    - 0.0
+    - 0.0
+    reference_frame: ''
+    attach_object: false
+    release_object: false
+  home_position_id: 264258e0-04b9-4105-bc74-0d2bc261f0a4
+  settings:
+    speed_scale: 0.4
+    demo_revolute_velocity: 0.35
+    demo_prismatic_velocity: 0.05
+    acceleration_limits: {}
+    minimum_duration: 0.1
+  virtual_object:
+    name: Virtual cube
+    frame: base_link
+    position:
+    - -0.08
+    - -0.05
+    - 0.145
+    rpy:
+    - 0.0
+    - 0.0
+    - 0.0
+    size: 0.02
+  extensions:
+    simulation: simplified visual attachment; no forces, contacts, stability or collision
+      validation
+motion:
+  speed_scale: 0.4
+  demo_revolute_velocity: 0.35
+  demo_prismatic_velocity: 0.05
+  acceleration_limits: {}
+  minimum_duration: 0.1
+execution_backend: offline
+id: 18272281-ac7e-4e91-b23b-1c116d1ad193
+name: Generic_PickAndPlace_Demo
+description: Validated offline joint-space example; virtual attachment, no contact
+  or collision physics.
+default_ros: humble
+robot:
+  profile: custom-urdf
+  model_id: null
+  model_version: null
+  source_revision: null
+  joint_positions:
+    axis_x: 0.0
+    axis_y: 0.0
+    axis_z: 0.0
+    finger_slide: 0.0
+  joint_mapping_status: not_calibrated
+  simulation:
+    backend: isaac_sim
+    status: planned
+    asset:
+      format: usd
+      path: null
+    joint_mapping: not_configured
+  urdf: generic_pick_arm.urdf
+  source_xacro: null
+  hardware: null
+  controller: null
+  ik_solver: null
+  end_effector: tool0
+sensors: []
+monitoring:
+  window_seconds: 30
+  update_hz: 20
+  fields:
+  - data
+  topic: /studio/sine
+runtime:
+  port: 9090
+  memory_mb: 2048
+  cpu_count: 2.0
+  overrides: {}

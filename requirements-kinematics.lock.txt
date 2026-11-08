@@ -1,0 +1,2 @@
+# Optional offline optimization; compatible with the pinned NumPy 2.2.6.
+scipy==1.15.3

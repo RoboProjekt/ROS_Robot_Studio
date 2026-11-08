@@ -58,6 +58,7 @@ class RobotModelManifest(Model):
     license_file: str
     default_end_effector: str
     calibration: str
+    gripper_joints: list[str] = Field(default_factory=list)
     drivers: list[str] = Field(default_factory=list)
     verified_ros_distributions: list[str] = Field(default_factory=list)
     backends: dict[str, Literal["supported", "not_configured", "planned"]]

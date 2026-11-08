@@ -5,13 +5,17 @@ from __future__ import annotations
 from typing import Any, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import Field, model_validator
+
+from ros_robot_studio.core.validation import Model as Model
+from ros_robot_studio.motion.schema import (
+    KinematicSettings,
+    MotionSettings,
+    MotionTask,
+    SavedPosition,
+)
 
 Distro = Literal["humble", "jazzy", "lyrical"]
-
-
-class Model(BaseModel):
-    model_config = ConfigDict(extra="forbid", validate_assignment=True, allow_inf_nan=False)
 
 
 class Transform(Model):
@@ -106,7 +110,12 @@ class RuntimeConfig(Model):
 
 
 class Project(Model):
-    format_version: Literal[2] = 2
+    format_version: Literal[3] = 3
+    kinematics: KinematicSettings = Field(default_factory=KinematicSettings)
+    positions: list[SavedPosition] = Field(default_factory=list)
+    tasks: list[MotionTask] = Field(default_factory=list)
+    motion: MotionSettings = Field(default_factory=MotionSettings)
+    execution_backend: Literal["offline"] = "offline"
     id: str = Field(default_factory=lambda: str(uuid4()))
     name: str = Field(default="Untitled robot", min_length=1, max_length=120)
     description: str = ""
@@ -118,6 +127,10 @@ class Project(Model):
 
     @model_validator(mode="after")
     def unique_sensors(self) -> Project:
+        for library, title in [(self.positions, "position"), (self.tasks, "task")]:
+            ids = [item.id for item in library]
+            if len(ids) != len(set(ids)):
+                raise ValueError(f"{title} IDs must be unique")
         ids = [s.id for s in self.sensors]
         if len(ids) != len(set(ids)):
             raise ValueError("Sensor IDs must be unique")
