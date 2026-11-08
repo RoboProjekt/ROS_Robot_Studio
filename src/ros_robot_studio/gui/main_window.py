@@ -1043,6 +1043,16 @@ class MainWindow(QMainWindow):
         log.info("%s", text)
 
     def show_error(self, message):
+        if "Error while fetching server API version" in message:
+            self.docker_status = RuntimeStatus(
+                False,
+                message,
+                reason="api_unreachable",
+                diagnostics=dict(self.docker_status.diagnostics, api_error=message),
+            )
+            self.open_docker_diagnostics()
+            self.refresh_runtime()
+            return
         self.activity("ERROR: " + message)
         QMessageBox.warning(self, "Operation failed", message[:4000])
 

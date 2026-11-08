@@ -34,7 +34,13 @@ class PendingPackets(QObject):
 def verify(cycles, robot, report_path=None):
     app = QApplication.instance() or QApplication([])
     app.setStyle("Fusion")
-    baseline = len(QApplication.allWidgets())
+    # QApplication lazily owns one Qt::Desktop helper until application shutdown.
+    # See docs/QT_WIDGET_INVESTIGATION.md; never delete this Qt-internal object.
+    baseline = len(
+        [w for w in QApplication.allWidgets() if w.windowType() != Qt.WindowType.Desktop]
+    )
+    desktop_pointer = None
+    desktop_counts = []
     errors = []
     destroyed = 0
     opengl_cycles = 0
@@ -168,9 +174,24 @@ def verify(cycles, robot, report_path=None):
             gc.collect()
             app.processEvents()
             QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
-            assert len(QApplication.allWidgets()) <= baseline, [
+            desktops = [
+                w for w in QApplication.allWidgets() if w.windowType() == Qt.WindowType.Desktop
+            ]
+            desktop_counts.append(len(desktops))
+            assert len(desktops) <= 1
+            if desktops:
+                helper = desktops[0]
+                assert helper.metaObject().className() == "QWidget"
+                assert helper.parent() is None and not helper.isVisible() and not helper.children()
+                pointer = shiboken6.getCppPointer(helper)[0]
+                desktop_pointer = pointer if desktop_pointer is None else desktop_pointer
+                assert pointer == desktop_pointer
+            application_widgets = [
+                w for w in QApplication.allWidgets() if w.windowType() != Qt.WindowType.Desktop
+            ]
+            assert len(application_widgets) <= baseline, [
                 (type(w).__name__, w.objectName(), type(w.parent()).__name__)
-                for w in QApplication.allWidgets()
+                for w in application_widgets
             ]
             assert not errors, errors
             print(f"CYCLE {cycle + 1}/{cycles}: destroyed widgets, timers and workers", flush=True)
@@ -188,6 +209,8 @@ def verify(cycles, robot, report_path=None):
         queued_ros_packets="injected into actual transport; not a DDS test",
         pending_events_ignored=True,
         widget_leaks=0,
+        expected_qt_desktop_widget_counts=desktop_counts,
+        qt_desktop_identity_stable=True,
         workers_joined=True,
         elapsed_seconds=round(time.monotonic() - started, 2),
     )

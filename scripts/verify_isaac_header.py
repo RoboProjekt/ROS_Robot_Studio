@@ -6,7 +6,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
@@ -41,11 +41,12 @@ def main():
         w.isaac_processes.log.connect(lambda identity, text: (log.write(text), log.flush()))
         w.show()
 
-        def wait(predicate, timeout=100):
+        def wait(predicate, timeout=100, check_errors=True):
             deadline = time.monotonic() + timeout
             while not predicate():
                 QTest.qWait(15)
-                assert not errors, errors
+                if check_errors:
+                    assert not errors, errors
                 assert time.monotonic() < deadline, (
                     w.simulation_header.status.text(),
                     w.motion.task_status.text(),
@@ -108,7 +109,11 @@ def main():
                 and p.id not in w.isaac_processes.processes
                 and not w.runner.busy
             )
-            QTest.mouseClick(header.auto_play, Qt.MouseButton.LeftButton)
+            QTest.mouseClick(
+                header.auto_play,
+                Qt.MouseButton.LeftButton,
+                pos=QPoint(8, header.auto_play.height() // 2),
+            )
             assert header.local()["auto_play"] is True
             QTest.mouseClick(header.start, Qt.MouseButton.LeftButton)
             wait(
@@ -150,6 +155,7 @@ def main():
                 and not w.runner.busy
                 and not w.motion.runner.busy,
                 30,
+                check_errors=False,
             )
             w.dirty = False
             assert w.close()

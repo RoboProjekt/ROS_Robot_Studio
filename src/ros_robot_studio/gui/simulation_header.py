@@ -37,6 +37,7 @@ class SimulationHeader(QWidget):
         super().__init__(main)
         self.main, self.workspace = main, main.backend_workspace
         self.manager, self.processes = main.backend_manager, main.isaac_processes
+        self.operation_error = None
         self.pending = set()
         self.scene_ready_keys = {}
         body = QGridLayout(self)
@@ -89,6 +90,7 @@ class SimulationHeader(QWidget):
         self.manager.changed.connect(self.refresh)
         self.manager.profiles_changed.connect(self.refresh)
         self.workspace.local_changed.connect(self.refresh)
+        self.main.runner.busy_changed.connect(self.refresh)
         self.processes.changed.connect(self.refresh)
         self.processes.ready.connect(self.scene_ready)
         self.timer = QTimer(self)
@@ -98,10 +100,12 @@ class SimulationHeader(QWidget):
         self.refresh()
 
     def perform(self, callback):
+        self.operation_error = None
         try:
             callback()
         except (ValueError, OSError, KeyError) as exc:
-            self.status.setText(str(exc))
+            self.operation_error = (self.manager.selected_id, str(exc))
+            self.refresh_status()
             self.main.activity(str(exc))
 
     def profile(self):
@@ -123,6 +127,8 @@ class SimulationHeader(QWidget):
     def refresh(self, *_):
         if self.main.closed:
             return
+        busy = self.main.runner.busy
+        self.runtime.setEnabled(not busy)
         self.runtime.blockSignals(True)
         self.runtime.clear()
         self.runtime.addItem("Offline Demo", None)
@@ -158,29 +164,33 @@ class SimulationHeader(QWidget):
             self.scene.addItem(profile.name if kind == "real_robot" else "Not required", "")
         self.scene.blockSignals(False)
         for widget in (self.scene, self.browse, self.history_menu):
-            widget.setEnabled(files)
+            widget.setEnabled(files and not busy)
         self.auto_play.blockSignals(True)
         self.auto_play.setChecked(bool(self.local().get("auto_play", False)))
         self.auto_play.blockSignals(False)
         self.auto_play.setVisible(kind == "isaac_sim")
+        self.auto_play.setEnabled(not busy)
         self.start.setText("Connect Read Only" if kind == "real_robot" else "Start Simulation")
         self.start.setEnabled(not self.main.runner.busy and kind not in ("mujoco", "gazebo"))
         self.connect_button.setEnabled(bool(profile) and kind not in ("mujoco", "gazebo"))
         self.refresh_status()
+
+    def set_status(self, text):
+        if self.operation_error and self.operation_error[0] == self.manager.selected_id:
+            text += "\nError: " + self.operation_error[1]
+        self.status.setText(text)
 
     def refresh_status(self):
         if self.main.closed:
             return
         p = self.profile()
         if not p:
-            self.status.setText("Offline Demo · local robot state · Docker optional")
+            self.set_status("Offline Demo · local robot state · Docker optional")
             return
         session = self.manager.sessions.get(p.id)
         active = self.manager.active_id == p.id
         if p.backend_type in ("mujoco", "gazebo"):
-            self.status.setText(
-                f"{p.name} · adapter not implemented · files can be assigned locally"
-            )
+            self.set_status(f"{p.name} · adapter not implemented · files can be assigned locally")
             return
         connection = session.status if session else "Disconnected"
         if p.backend_type == "isaac_sim":
@@ -202,13 +212,13 @@ class SimulationHeader(QWidget):
             ready = bool(
                 active and session and session.capabilities.execution_permitted and playing
             )
-            self.status.setText(
+            self.set_status(
                 f"Process: {'Stopping (owned)' if p.id in self.processes.stopping else 'Running (owned)' if owned else 'Not owned / external unverified'} · Scene: {'Loaded & validated' if scene else 'Unverified'} · "
                 f"Bridge: {'Connected' if bridge else 'Waiting'} · Play: {'Playing' if playing else 'Paused / waiting'} · "
                 f"State: {'Available' if state else 'Waiting'} · {'Simulation Ready' if ready else connection}"
             )
         else:
-            self.status.setText(
+            self.set_status(
                 f"{p.name} · domain {p.domain_id} · {connection} · "
                 + (
                     "Execution: Read Only"

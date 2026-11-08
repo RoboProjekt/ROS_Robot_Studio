@@ -9,7 +9,8 @@ import time
 from pathlib import Path
 
 import shiboken6
-from PySide6.QtCore import QCoreApplication, QEvent, QPoint, Qt, QTimer
+from PySide6.QtCore import QCoreApplication, QEvent, QPoint, QPointF, Qt, QTimer
+from PySide6.QtGui import QWheelEvent
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QDialog, QDialogButtonBox, QFileDialog, QLineEdit
 
@@ -18,6 +19,9 @@ from ros_robot_studio.core.settings import Settings
 from ros_robot_studio.gui.main_window import MainWindow
 from ros_robot_studio.gui.motion_dialogs import StepDialog
 from ros_robot_studio.motion.demos import pick_place_demo
+from ros_robot_studio.motion.program import TaskCompiler
+from ros_robot_studio.motion.schema import MotionTask
+from ros_robot_studio.projects.store import load_project, save_project
 from ros_robot_studio.runtime.manager import RuntimeManager
 
 # The same input helpers are used by the deterministic offscreen regression.
@@ -25,11 +29,61 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tests"))
 from test_gui_usability import choose, drag_tab, type_number  # noqa: E402
 
 
+def choose_scene_file(header, scene, cancel=False):
+    """Drive a real visible Qt file chooser, including actual Cancel-button input."""
+    original_picker = QFileDialog.getOpenFileName
+    interactions = []
+
+    def picker(parent, title, initial, filters):
+        chooser = QFileDialog(parent, title)
+        chooser.setOption(QFileDialog.Option.DontUseNativeDialog)
+        chooser.setFileMode(QFileDialog.FileMode.ExistingFile)
+        chooser.setNameFilter(filters)
+
+        def enter_file():
+            if cancel:
+                buttons = chooser.findChild(QDialogButtonBox)
+                QTest.mouseClick(
+                    buttons.button(QDialogButtonBox.StandardButton.Cancel),
+                    Qt.MouseButton.LeftButton,
+                )
+                interactions.append("cancel")
+            else:
+                entry = chooser.findChild(QLineEdit, "fileNameEdit")
+                assert entry is not None
+                QTest.mouseClick(entry, Qt.MouseButton.LeftButton)
+                QTest.keyClick(entry, Qt.Key.Key_A, Qt.KeyboardModifier.ControlModifier)
+                QTest.keyClicks(entry, str(scene))
+                QTest.keyClick(entry, Qt.Key.Key_Return)
+                interactions.append("select")
+
+        QTimer.singleShot(250, chooser, enter_file)
+        QTimer.singleShot(5000, chooser, chooser.reject)
+        accepted = chooser.exec() == QDialog.DialogCode.Accepted
+        files = chooser.selectedFiles() if accepted else []
+        chooser.deleteLater()
+        assert accepted != cancel and interactions, "Qt file chooser input failed"
+        return (files[0] if files else ""), filters
+
+    QFileDialog.getOpenFileName = picker
+    try:
+        QTest.mouseClick(header.browse, Qt.MouseButton.LeftButton)
+    finally:
+        QFileDialog.getOpenFileName = original_picker
+
+
 def verify(cycles, output):
     app = QApplication.instance() or QApplication([])
     app.setStyle("Fusion")
     assert app.platformName() == "xcb", "Native acceptance requires a visible X11 session"
-    baseline = len(QApplication.allWidgets())
+    # Qt 6.9 lazily creates its one Qt::Desktop helper on native cursor leave.
+    # QApplication owns it until destruction (qapplication.cpp:690,2453).
+    # This is separately counted and identity-checked, never deleted here.
+    baseline = len(
+        [x for x in QApplication.allWidgets() if x.windowType() != Qt.WindowType.Desktop]
+    )
+    desktop_pointer = None
+    desktop_counts = []
     errors, diagnostics, layouts = [], None, []
     start = time.monotonic()
 
@@ -100,6 +154,24 @@ def verify(cycles, output):
 
             for view in (w.robot_panel.view, w.monitor.robot_state.view):
                 assert view.gl_view is not None
+                gl = view.gl_view
+                before_angle, before_distance = gl.opts["azimuth"], gl.opts["distance"]
+                center = gl.rect().center()
+                QTest.mousePress(gl, Qt.MouseButton.LeftButton, pos=center)
+                QTest.mouseMove(gl, center + QPoint(20, 10), delay=20)
+                QTest.mouseRelease(gl, Qt.MouseButton.LeftButton, pos=center + QPoint(20, 10))
+                wheel = QWheelEvent(
+                    QPointF(center),
+                    QPointF(gl.mapToGlobal(center)),
+                    QPoint(),
+                    QPoint(0, 120),
+                    Qt.MouseButton.NoButton,
+                    Qt.KeyboardModifier.NoModifier,
+                    Qt.ScrollPhase.NoScrollPhase,
+                    False,
+                )
+                QApplication.sendEvent(gl, wheel)
+                assert gl.opts["azimuth"] != before_angle and gl.opts["distance"] != before_distance
                 assert not view.gl_view.grabFramebuffer().isNull()
                 view.gl_view.makeCurrent()
                 assert glIsProgram(view.mesh_shader.program()), "Shader context invalid after drag"
@@ -156,20 +228,29 @@ def verify(cycles, output):
                     and d.step().target_pose.position[0] == 0.08025
                 )
                 d.deleteLater()
+                native_steps = []
                 for _, action in StepDialog.ACTIONS:
                     dialog = StepDialog(
                         w.motion.chain, w.motion.positions, w.motion.current(), parent=w
                     )
                     dialog.show()
                     choose(dialog.action, dialog.action.findData(action))
+                    QTest.mouseClick(dialog.name, Qt.MouseButton.LeftButton)
+                    QTest.keyClicks(dialog.name, "Native " + action)
                     type_number(dialog.duration, "1.25")
                     if action == "move_relative":
-                        type_number(dialog.relative[0], "1.5")
+                        for spin, text in zip(dialog.relative, ("1.5", "0", "0", "0", "0", "0")):
+                            type_number(spin, text)
                     elif action == "move_joint":
                         type_number(next(iter(dialog.joints.controls.values()))[1], "5")
                     elif action in ("open_gripper", "close_gripper"):
                         spin, _ = next(iter(dialog.gripper_values.values()))
                         type_number(spin, str(spin.minimum()))
+                        toggle = dialog.attach if action == "close_gripper" else dialog.release
+                        QTest.mouseClick(
+                            toggle, Qt.MouseButton.LeftButton, pos=QPoint(8, toggle.height() // 2)
+                        )
+                        assert toggle.isChecked()
                     QTest.mouseClick(
                         dialog.findChild(QDialogButtonBox).button(
                             QDialogButtonBox.StandardButton.Save
@@ -177,9 +258,32 @@ def verify(cycles, output):
                         Qt.MouseButton.LeftButton,
                     )
                     assert dialog.result() == QDialog.DialogCode.Accepted
-                    assert dialog.step().action == action and dialog.step().duration == 1.25
+                    step = dialog.step()
+                    assert step.action == action and step.duration == 1.25
                     dialog.deleteLater()
-                dialog = None
+                    reopened = StepDialog(
+                        w.motion.chain, w.motion.positions, w.motion.current(), step, w
+                    )
+                    reopened.show()
+                    QTest.qWait(30)
+                    assert reopened.step() == step
+                    reopened.reject()
+                    reopened.deleteLater()
+                    task = MotionTask(name="Native input " + action, steps=[step])
+                    assert (
+                        TaskCompiler(w.motion.chain, w.motion.positions)
+                        .compile(task, w.motion.current())
+                        .valid
+                    )
+                    native_steps.append(step)
+                project = w.collect()
+                project.tasks.append(
+                    MotionTask(name="Native GUI input regression", steps=native_steps)
+                )
+                saved = Path(temp) / "native-input.studio.yaml"
+                save_project(project, saved)
+                assert load_project(saved).tasks[-1].steps == native_steps
+                dialog = reopened = None
                 # Real RuntimeManager in this actual visible Studio process; no fake permission result.
                 diagnostics = dict(w.docker_status.diagnostics)
                 diagnostics["reason"] = w.docker_status.reason
@@ -201,37 +305,8 @@ def verify(cycles, output):
                     if kind == "isaac_sim":
                         scene = Path(".bootstrap/isaac-acceptance/scene.usd").resolve()
                         assert scene.is_file()
-                        original_picker = QFileDialog.getOpenFileName
-
-                        def picker(parent, title, initial, filters):
-                            chooser = QFileDialog(parent, title)
-                            chooser.setOption(QFileDialog.Option.DontUseNativeDialog)
-                            chooser.setFileMode(QFileDialog.FileMode.ExistingFile)
-                            chooser.setNameFilter(filters)
-
-                            def enter_file():
-                                entry = chooser.findChild(QLineEdit, "fileNameEdit")
-                                assert entry is not None
-                                QTest.mouseClick(entry, Qt.MouseButton.LeftButton)
-                                QTest.keyClick(
-                                    entry, Qt.Key.Key_A, Qt.KeyboardModifier.ControlModifier
-                                )
-                                QTest.keyClicks(entry, str(scene))
-                                QTest.keyClick(entry, Qt.Key.Key_Return)
-
-                            QTimer.singleShot(250, chooser, enter_file)
-                            QTimer.singleShot(5000, chooser, chooser.reject)
-                            accepted = chooser.exec() == QDialog.DialogCode.Accepted
-                            files = chooser.selectedFiles() if accepted else []
-                            chooser.deleteLater()
-                            assert accepted and files, "Native Qt file chooser input failed"
-                            return files[0], filters
-
-                        QFileDialog.getOpenFileName = picker
-                        try:
-                            QTest.mouseClick(w.simulation_header.browse, Qt.MouseButton.LeftButton)
-                        finally:
-                            QFileDialog.getOpenFileName = original_picker
+                        choose_scene_file(w.simulation_header, scene)
+                        choose_scene_file(w.simulation_header, scene, cancel=True)
                         assert w.simulation_header.scene.currentData() == str(scene)
                         capture(w, "simulation-runtime-header.png")
                         QTest.mouseClick(w.simulation_header.scene, Qt.MouseButton.LeftButton)
@@ -242,6 +317,27 @@ def verify(cycles, output):
                         assert "Read Only" in w.simulation_header.status.text()
                 choose(w.simulation_header.runtime, 0)
                 assert w.backend_manager.selected_id is None
+            file_profile = next(
+                (p for p in w.backend_manager.profiles.values() if p.backend_type == "isaac_sim"),
+                None,
+            )
+            file_profile = file_profile or w.backend_manager.add(new_profile("isaac_sim"))
+            choose(
+                w.simulation_header.runtime, w.simulation_header.runtime.findData(file_profile.id)
+            )
+            scene = Path(".bootstrap/isaac-acceptance/scene.usd").resolve()
+            # MRU survives a new MainWindow with a different backend profile ID.
+            if cycle:
+                recent_index = w.simulation_header.scene.findData(str(scene))
+                assert recent_index >= 0
+                choose(w.simulation_header.scene, recent_index)
+            for _ in range(2):
+                choose_scene_file(w.simulation_header, scene)
+                previous = w.simulation_header.scene.currentData()
+                choose_scene_file(w.simulation_header, scene, cancel=True)
+                assert w.simulation_header.scene.currentData() == previous == str(scene)
+                choose(w.simulation_header.scene, w.simulation_header.scene.findData(str(scene)))
+            choose(w.simulation_header.runtime, 0)
             w.tabs.setCurrentIndex(0)
             drag_tab(w.tabs, w.monitor, w.tabs.group_for(w.robot_panel), "right")
             assert tuple(w.tabs.panels) == panels and w.state_manager is states
@@ -267,9 +363,34 @@ def verify(cycles, output):
             gc.collect()
             app.processEvents()
             QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
-            assert len(QApplication.allWidgets()) <= baseline, [
-                (type(x).__name__, x.objectName(), type(x.parent()).__name__)
-                for x in QApplication.allWidgets()
+            desktops = [
+                x for x in QApplication.allWidgets() if x.windowType() == Qt.WindowType.Desktop
+            ]
+            desktop_counts.append(len(desktops))
+            assert len(desktops) <= 1, "Qt desktop helper multiplied"
+            if desktops:
+                helper = desktops[0]
+                assert helper.metaObject().className() == "QWidget"
+                assert helper.parent() is None and not helper.isVisible() and not helper.children()
+                pointer = shiboken6.getCppPointer(helper)[0]
+                if desktop_pointer is None:
+                    desktop_pointer = pointer
+                assert pointer == desktop_pointer, (
+                    "Qt desktop identity changed across window cycles"
+                )
+            unexpected = [
+                x for x in QApplication.allWidgets() if x.windowType() != Qt.WindowType.Desktop
+            ]
+            assert len(unexpected) <= baseline, [
+                (
+                    type(x).__name__,
+                    x.metaObject().className(),
+                    x.objectName(),
+                    type(x.parent()).__name__,
+                    x.isVisible(),
+                    x.geometry().getRect(),
+                )
+                for x in unexpected
             ]
             print(
                 f"NATIVE USABILITY {cycle + 1}/{cycles}: drag, resize, merge, GL, input, persist, destroy passed",
@@ -281,10 +402,17 @@ def verify(cycles, output):
         real_mouse_keyboard=True,
         task_actions_mouse_keyboard=[action for _, action in StepDialog.ACTIONS],
         scene_file_dialog_mouse_keyboard=True,
+        file_dialog_accept_cancel_cycles=cycles * 2 + 1,
+        cancel_preserves_previous_file=True,
+        recent_files_restored_after_window_restart=True,
+        camera_orbit_zoom_after_drag=True,
+        native_task_reopen_validate_project_roundtrip=True,
         layouts=layouts,
         opengl_after_drag=True,
         listener_subscription_duplicates=0,
         widget_leaks=0,
+        expected_qt_desktop_widget_counts=desktop_counts,
+        qt_desktop_identity_stable=True,
         timers_stopped=True,
         actual_studio_diagnostics=diagnostics,
         elapsed_seconds=round(time.monotonic() - start, 2),

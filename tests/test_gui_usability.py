@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QDialog, QDialogButtonBox, QSplitter
+from PySide6.QtWidgets import QApplication, QDialog, QDialogButtonBox, QSplitter
 
 from ros_robot_studio.backends.profiles import new_profile
 from ros_robot_studio.core.settings import Settings
@@ -50,20 +50,29 @@ def choose(combo, index):
     view = combo.view()
     view.scrollTo(combo.model().index(index, 0))
     QTest.qWait(10)
-    rect = view.visualRect(combo.model().index(index, 0))
+    # Narrow comboboxes can expose only part of a row wider than their viewport.
+    rect = view.visualRect(combo.model().index(index, 0)).intersected(view.viewport().rect())
+    assert not rect.isEmpty(), "Popup row is not visible"
     QTest.mouseMove(view.viewport(), rect.center(), delay=15)
     QTest.mouseClick(view.viewport(), Qt.MouseButton.LeftButton, pos=rect.center())
     QTest.qWait(15)
-    assert combo.currentIndex() == index, (
-        index,
-        combo.currentIndex(),
-        combo.itemText(index),
-        combo.model().flags(combo.model().index(index, 0)),
-        combo.isVisible(),
-        combo.isEnabled(),
-        view.isVisible(),
-        rect,
-        view.indexAt(rect.center()).row(),
+    assert combo.currentIndex() == index, repr(
+        (
+            index,
+            combo.currentIndex(),
+            combo.itemText(index),
+            combo.model().flags(combo.model().index(index, 0)),
+            combo.isVisible(),
+            combo.isEnabled(),
+            view.isVisible(),
+            rect,
+            view.indexAt(rect.center()).row(),
+            view.viewport().rect(),
+            combo.width(),
+            combo.height(),
+            combo.view().size(),
+            QApplication.doubleClickInterval(),
+        )
     )
 
 
@@ -150,6 +159,8 @@ def test_task_action_mouse_keyboard_save_reopen_and_project(studio, qtbot, tmp_p
     qtbot.addWidget(dialog)
     dialog.show()
     choose(dialog.action, dialog.action.findData(action))
+    QTest.mouseClick(dialog.name, Qt.MouseButton.LeftButton)
+    QTest.keyClicks(dialog.name, "Typed " + action)
     type_number(dialog.duration, "1.25")
     assert dialog.relative_panel.isVisible() == (action == "move_relative")
     assert dialog.cartesian.isVisible() == (action == "move_cartesian")
@@ -410,3 +421,128 @@ def test_setup_access_help_does_not_recommend_adding_an_existing_group(studio):
     assert "already belongs" in text and "Do not add the group again" in text
     assert "usermod" not in text
     wizard.reject()
+
+
+def test_header_error_remains_visible_and_context_controls_follow_worker(studio, qtbot):
+    w, header = studio, studio.simulation_header
+    p = w.backend_manager.add(new_profile("isaac_sim"))
+    w.backend_manager.select_profile(p.id)
+
+    def fail():
+        raise ValueError("Select the scene first")
+
+    header.perform(fail)
+    header.refresh_status()
+    assert "Select the scene first" in header.status.text()
+    from threading import Event
+
+    release = Event()
+    try:
+        w.runner.run(lambda _: release.wait(5))
+        assert not header.runtime.isEnabled() and not header.browse.isEnabled()
+    finally:
+        release.set()
+    qtbot.waitUntil(lambda: not w.runner.busy)
+    assert header.runtime.isEnabled() and header.browse.isEnabled()
+
+
+def test_docker_api_failure_after_cached_success_uses_central_dialog(studio, qtbot):
+    w = studio
+    w.docker_status = RuntimeStatus(True, "Previously reachable")
+    w.show_error(
+        "Error while fetching server API version: PermissionError(13, 'Permission denied')"
+    )
+    assert w.docker_dialog and w.docker_dialog.isVisible()
+    assert not w.docker_status.available
+    qtbot.waitUntil(lambda: not w.runner.busy)
+    w.docker_dialog.close()
+
+
+@pytest.mark.parametrize(
+    "kind,extension",
+    [
+        ("isaac_sim", ".usd"),
+        ("isaac_sim", ".usda"),
+        ("isaac_sim", ".usdc"),
+        ("mujoco", ".xml"),
+        ("mujoco", ".mjcf"),
+        ("gazebo", ".sdf"),
+        ("gazebo", ".world"),
+    ],
+)
+def test_scene_file_filter_formats_and_cancel_preserve_selection(
+    studio, tmp_path, monkeypatch, kind, extension
+):
+    # This checks the file-selector contract, not SDK parsing/articulation validity.
+    from PySide6.QtWidgets import QFileDialog
+
+    w, header = studio, studio.simulation_header
+    p = w.backend_manager.add(new_profile(kind))
+    w.backend_manager.select_profile(p.id)
+    selected = tmp_path / ("selected" + extension)
+    selected.write_text("selector fixture; SDK validation is a separate real integration test")
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args: (str(selected), ""))
+    QTest.mouseClick(header.browse, Qt.MouseButton.LeftButton)
+    assert header.scene.currentData() == str(selected)
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args: ("", ""))
+    QTest.mouseClick(header.browse, Qt.MouseButton.LeftButton)
+    assert header.scene.currentData() == str(selected)
+    invalid = tmp_path / "wrong.txt"
+    invalid.write_text("wrong extension")
+    with pytest.raises(ValueError, match="supported type"):
+        header.assign_scene(str(invalid))
+    assert header.local()["scene_path"] == str(selected)
+    assert str(selected) not in w.collect().model_dump_json()
+
+
+def test_all_relative_components_and_frame_roundtrip_with_real_input(studio, qtbot):
+    import math
+
+    m = studio.motion
+    dialog = StepDialog(m.chain, m.positions, m.current(), TaskStep(action="move_relative"), studio)
+    qtbot.addWidget(dialog)
+    dialog.show()
+    values = (1.25, -2.5, 3.75, 4, -5, 6)
+    for spin, value in zip(dialog.relative, values):
+        assert spin.isEnabled() and not spin.isReadOnly()
+        type_number(spin, str(value))
+    choose(dialog.frame, dialog.frame.findText(m.chain.end_effector))
+    step = dialog.step()
+    assert step.relative_xyz == pytest.approx(tuple(v / 1000 for v in values[:3]))
+    assert step.relative_rpy == pytest.approx(tuple(math.radians(v) for v in values[3:]))
+    assert step.reference_frame == m.chain.end_effector
+    reopened = StepDialog(m.chain, m.positions, m.current(), step, studio)
+    qtbot.addWidget(reopened)
+    reopened.show()
+    assert reopened.step() == step
+    # The editor preserves rotation input; the existing limited-rank solver must
+    # still refuse unsupported full-pose execution rather than pretend success.
+    if not m.chain.analyze().full_pose_available:
+        compiled = TaskCompiler(m.chain, m.positions).compile(
+            MotionTask(name="Relative orientation check", steps=[step]), m.current()
+        )
+        assert not compiled.valid and "six" in compiled.errors[0]
+
+
+def test_cartesian_orientation_mode_and_units_survive_editing(studio, qtbot):
+    import math
+
+    m = studio.motion
+    dialog = StepDialog(
+        m.chain, m.positions, m.current(), TaskStep(action="move_cartesian"), studio
+    )
+    qtbot.addWidget(dialog)
+    dialog.show()
+    choose(dialog.cartesian.mode, dialog.cartesian.mode.findData("axis"))
+    choose(dialog.cartesian.axis, 0)
+    for spin, value in zip(dialog.cartesian.values, (80.25, 1.5, 150, 10, -20, 30)):
+        assert spin.isEnabled() and not spin.isReadOnly()
+        type_number(spin, str(value))
+    step = dialog.step()
+    assert step.target_pose.position == pytest.approx((0.08025, 0.0015, 0.15))
+    assert step.target_pose.rpy == pytest.approx(tuple(math.radians(v) for v in (10, -20, 30)))
+    assert step.target_pose.mode == "axis" and step.target_pose.axis == "X"
+    reopened = StepDialog(m.chain, m.positions, m.current(), step, studio)
+    qtbot.addWidget(reopened)
+    reopened.show()
+    assert reopened.step() == step
