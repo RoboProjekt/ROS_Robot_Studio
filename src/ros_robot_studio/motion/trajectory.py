@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from ros_robot_studio.motion.interpolation import cubic, cubic_derivatives
 from ros_robot_studio.motion.schema import MotionSettings
 
 
@@ -18,10 +19,20 @@ class JointTrajectory:
 
     def sample(self, seconds: float):
         u = float(np.clip(seconds / self.duration, 0, 1)) if self.duration else 1.0
-        blend = 3 * u * u - 2 * u * u * u
+        blend = cubic(u)
         return {
             name: value + (self.end[name] - value) * blend for name, value in self.start.items()
         }
+
+    def velocity(self, seconds):
+        u = float(np.clip(seconds / self.duration, 0, 1)) if self.duration else 1.0
+        speed, _ = cubic_derivatives(u, self.duration)
+        return {n: (self.end[n] - v) * speed for n, v in self.start.items()}
+
+    def acceleration(self, seconds):
+        u = float(np.clip(seconds / self.duration, 0, 1)) if self.duration else 1.0
+        _, accel = cubic_derivatives(u, self.duration)
+        return {n: (self.end[n] - v) * accel for n, v in self.start.items()}
 
     def peak_velocity(self, name):
         return (

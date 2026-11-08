@@ -23,6 +23,8 @@ class PreviewState:
     step: int
     object_transform: object = None
     attached: bool = False
+    velocities: dict | None = None
+    accelerations: dict | None = None
 
 
 class OfflinePreviewBackend:
@@ -95,8 +97,29 @@ class OfflinePreviewBackend:
         transform, attached = (
             self.plan.object_pose(self.elapsed, self.joints) if self.plan else (None, False)
         )
+        velocities = accelerations = None
+        if self.plan:
+            step = self.plan.steps[self.step]
+            local = self.elapsed - step.start_time
+            velocities = (
+                step.trajectory.velocity(local)
+                if self.status == "playing"
+                else {n: 0.0 for n in self.joints}
+            )
+            accelerations = (
+                step.trajectory.acceleration(local)
+                if self.status == "playing"
+                else {n: 0.0 for n in self.joints}
+            )
         return PreviewState(
-            self.status, dict(self.joints), self.elapsed, self.step, transform, attached
+            self.status,
+            dict(self.joints),
+            self.elapsed,
+            self.step,
+            transform,
+            attached,
+            velocities,
+            accelerations,
         )
 
 
