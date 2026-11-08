@@ -78,16 +78,17 @@ def run_scene(args, app, request, output, source_hashes):
     world.get_physics_context().set_gravity(0.0)
     stage = omni.usd.get_context().get_stage()
     UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
-    world.scene.add_default_ground_plane(z_position=-0.75)
-    # Procedural mounting table; no network asset dependency.
-    table = UsdGeom.Cube.Define(stage, "/World/MountingTable")
-    table.CreateSizeAttr(1.0)
-    UsdGeom.Xformable(table).AddTranslateOp().Set(Gf.Vec3d(0, 0, -0.025))
-    UsdGeom.Xformable(table).AddScaleOp().Set(Gf.Vec3f(0.8, 0.7, 0.04))
-    table.CreateDisplayColorAttr([(0.16, 0.20, 0.26)])
-    UsdPhysics.CollisionAPI.Apply(table.GetPrim())
-    light = UsdLux.DomeLight.Define(stage, "/World/Light")
-    light.CreateIntensityAttr(800)
+    if not request.get("existing_scene"):
+        world.scene.add_default_ground_plane(z_position=-0.75)
+        # Procedural mounting table; no network asset dependency.
+        table = UsdGeom.Cube.Define(stage, "/World/MountingTable")
+        table.CreateSizeAttr(1.0)
+        UsdGeom.Xformable(table).AddTranslateOp().Set(Gf.Vec3d(0, 0, -0.025))
+        UsdGeom.Xformable(table).AddScaleOp().Set(Gf.Vec3f(0.8, 0.7, 0.04))
+        table.CreateDisplayColorAttr([(0.16, 0.20, 0.26)])
+        UsdPhysics.CollisionAPI.Apply(table.GetPrim())
+        light = UsdLux.DomeLight.Define(stage, "/World/Light")
+        light.CreateIntensityAttr(800)
     if request.get("existing_scene"):
         # Open the user-selected USD as the stage; do not overwrite its source.
         stage = omni.usd.get_context().get_stage()
