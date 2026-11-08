@@ -32,5 +32,13 @@
   ],
   "remaining_test_containers": 0,
   "remaining_test_networks": 0,
-  "actual_isaac_sim": "NOT TESTED: no compatible SO-101 scene configured"
+  "actual_isaac_sim": "NOT TESTED: no compatible SO-101 scene configured",
+  "docker_socket_acl_cleanup": {
+    "removed_by": "user",
+    "verified": true,
+    "extra_user_entry": false,
+    "owner": "root",
+    "group": "docker",
+    "mode": "0660"
+  }
 }

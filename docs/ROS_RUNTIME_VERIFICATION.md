@@ -58,11 +58,11 @@ Der Agent konnte PolicyKit/sudo wegen `NoNewPrivs` nicht verwenden. Eine vom Ben
 vorübergehend eingerichtete **benutzerspezifische ACL** ermöglichte die Tests in der alten
 Sitzung; der Socket wurde niemals weltweit beschreibbar gemacht.
 
-Für die dauerhafte Gruppenfreigabe ist eine neue Anmeldung nötig. Danach kann die zusätzliche
-ACL im normalen Terminal entfernt werden: `sudo setfacl -x u:local-user /var/run/docker.sock`.
-Der abschließende `sudo -n setfacl`-Versuch scheiterte weiterhin an `NoNewPrivs`.
-Die Entfernung wurde nach den Tests beim Benutzer angefordert; bis zu dessen Ausführung
-ist die benutzerspezifische ACL noch vorhanden. Andere Socketberechtigungen bleiben erhalten.
+Nach Abschluss der Tests entfernte der Benutzer die temporäre ACL im normalen Terminal
+mit `sudo setfacl -x u:local-user /var/run/docker.sock`. Die anschließende Host-Prüfung bestätigte:
+kein zusätzlicher `user:local-user`-Eintrag, Eigentümer `root:docker`, Modus **0660**.
+Der Agentversuch war zuvor an `NoNewPrivs` gescheitert. Die Bereinigung ist abgeschlossen.
+Für die dauerhafte Dockergruppen-Freigabe in der Desktop-Sitzung ist eine neue Anmeldung nötig.
 
 | Runtime | Basisdigest (amd64) | Erweiterungsimage |
 | --- | --- | --- |

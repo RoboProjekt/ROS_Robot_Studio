@@ -124,8 +124,9 @@ bestanden erneut. Ruff, Formatprüfung, `git diff --check`, lokaler Bootstrap un
 Source-Commit der Stabilisierung: `a59c031` — Stabilize Qt object lifetimes and OpenGL context reuse.
 Die Docker-Images bleiben installiert; 0 Testcontainer und 0 Testnetze sind übrig.
 
-Die temporäre Socket-ACL muss im normalen Desktop-Terminal mit
-`sudo setfacl -x u:local-user /var/run/docker.sock` entfernt werden. Der Agentversuch
-scheiterte an `NoNewPrivs`; die Benutzeraktion ist angefordert und noch nicht bestätigt.
+Die temporäre Socket-ACL wurde nach den Tests vom Benutzer mit
+`sudo setfacl -x u:local-user /var/run/docker.sock` entfernt. Die Host-Prüfung bestätigte
+den fehlenden benutzerspezifischen Eintrag und `root:docker` mit Modus **0660**.
+Der Agentversuch war zuvor an `NoNewPrivs` gescheitert; die Bereinigung ist abgeschlossen.
 Die bereits eingerichtete Dockergruppen-Mitgliedschaft bleibt bestehen und erfordert
 für neue Prozesse in der Desktop-Sitzung eine neue Anmeldung.
