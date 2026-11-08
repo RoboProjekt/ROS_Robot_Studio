@@ -261,6 +261,10 @@ class MotionWorkspace(QObject):
         row.addWidget(self.single_step_button)
         body.addLayout(row)
         row = QHBoxLayout()
+        self.backend_choice = QComboBox()
+        self.backend_choice.addItems(["Offline Preview", "ROS Simulation"])
+        self.backend_choice.currentIndexChanged.connect(self.choose_backend)
+        body.addWidget(self.backend_choice)
         self.play_button = button("▶ Preview", lambda: self.compile_task(True), True)
         self.pause_button = button("Ⅱ Pause / resume", self.pause)
         self.stop_button = button("■ Stop", self.stop)
@@ -396,6 +400,7 @@ class MotionWorkspace(QObject):
         self.robot.end_effector.setCurrentText(self.config.end_effector)
         self.robot.end_effector.blockSignals(False)
         self.robot.update_pose()
+        self.main.state_manager.set_frames(self.config.base_link, self.config.end_effector)
         self.was_installed = KinematicsSolverManager().catalog()[0].installed
         self.loading = True
         for combo, value in [
@@ -480,7 +485,7 @@ class MotionWorkspace(QObject):
         self.busy_changed(self.runner.busy)
 
     def current(self):
-        return dict(self.robot.joint_controls.values)
+        return self.main.independent_positions()
 
     def populate_active(self, names):
         self.active.blockSignals(True)
@@ -630,8 +635,8 @@ class MotionWorkspace(QObject):
                 self.ik_output.appendPlainText(
                     f"Task rank {result.best.rank} · condition {result.best.condition:.5g}\nCurrent-pose distance {result.best.distance:.5f} · {len(result.candidates)} evaluated candidates"
                 )
-            self.preview.setEnabled(result.success)
-            self.apply.setEnabled(result.success)
+            self.preview.setEnabled(result.success and self.main.mode == "offline")
+            self.apply.setEnabled(result.success and self.main.mode == "offline")
 
         self.runner.run(
             lambda _: KinematicsSolverManager().solve(
@@ -648,6 +653,11 @@ class MotionWorkspace(QObject):
         )
 
     def preview_ik(self):
+        if self.main.mode != "offline":
+            self.error(
+                "ROS viewer follows feedback only. Save the target and execute a simulation task."
+            )
+            return
         if self.result and self.result.success:
             self.robot.follow_live.blockSignals(True)
             self.robot.follow_live.setChecked(False)
@@ -655,19 +665,19 @@ class MotionWorkspace(QObject):
             self.robot.view.set_joints(self.result.joint_positions)
             self.previewing_ik = True
             self.ik_output.appendPlainText(
-                "Viewer preview only. Apply explicitly to change the taught/current configuration."
+                "TARGET PREVIEW ONLY · active state and monitoring unchanged. Apply explicitly to change the active robot state."
             )
 
     def apply_configuration(self, values):
-        self.robot.follow_live.blockSignals(True)
-        self.robot.follow_live.setChecked(False)
-        self.robot.follow_live.blockSignals(False)
-        self.robot.joint_controls.set_configuration(values)
-        self.robot.view.set_joints(self.robot.joint_controls.values)
-        self.robot.update_pose()
+        self.main.publish_offline(values)
         self.previewing_ik = False
 
     def apply_ik(self):
+        if self.main.mode != "offline":
+            self.error(
+                "Apply is offline-only. Save the target and execute a validated ROS task instead."
+            )
+            return
         if self.result and self.result.success:
             values = self.result.joint_positions
             self.apply_configuration(values)
@@ -782,6 +792,9 @@ class MotionWorkspace(QObject):
     def recall_position(self, apply):
         value = self.selected_position()
         if not value or not self.chain or self.runner.busy:
+            return
+        if self.main.mode != "offline":
+            self.error("Recall is offline-only. Use a validated ROS task for this target.")
             return
         self.cancel_event = threading.Event()
         chain = self.chain
@@ -972,6 +985,12 @@ class MotionWorkspace(QObject):
                 self.robot.view.set_virtual_object(
                     plan.object_initial, plan.source.virtual_object.size
                 )
+            if play and self.main.mode == "ros":
+                try:
+                    self.main.ros_execution.execute(plan)
+                except (ValueError, ConnectionError) as exc:
+                    self.error(str(exc))
+                return
             if play:
                 self.backend.connect(chain.model, current, chain.gripper_joints)
                 self.backend.execute(plan)
@@ -986,24 +1005,58 @@ class MotionWorkspace(QObject):
             lambda progress: compiler.compile(source, current, cancel_event, progress), done
         )
 
+    def choose_backend(self, index):
+        if index == 1 and self.main.mode != "ros":
+            self.main.start_ros()
+        elif index == 0 and self.main.mode == "ros":
+            self.main.request_offline()
+        # Selection reflects the actual completed mode switch.
+        self.backend_choice.blockSignals(True)
+        self.backend_choice.setCurrentIndex(1 if self.main.mode == "ros" else 0)
+        self.backend_choice.blockSignals(False)
+
     def compile_selected(self):
         row = self.steps.currentRow()
         if row >= 0:
             self.compile_task(False, row)
 
     def pause(self):
+        if self.main.mode != "offline":
+            self.error("ROS action pause is unavailable; Stop cancels the simulation")
+            return
         if self.backend.status == "playing":
             self.backend.pause()
+            state = self.backend.read_state()
+            self.main.publish_offline(
+                state.joints,
+                velocities=state.velocities,
+                accelerations=state.accelerations,
+                source="offline trajectory",
+                status="paused",
+            )
         elif self.backend.status == "paused":
             self.last_tick = time.monotonic()
             self.backend.resume()
 
     def stop(self):
+        if hasattr(self.main, "ros_execution") and self.main.mode == "ros":
+            self.main.ros_execution.abort()
         self.cancel_work()
         self.backend.abort()
-        self.robot.joint_controls.setEnabled(True)
+        self.robot.joint_controls.setEnabled(self.main.mode == "offline")
+        state = self.main.state_manager.snapshot()
+        if state and self.main.mode == "offline" and self.backend.model is self.main.model:
+            self.main.publish_offline(
+                self.current(),
+                velocities={n: 0.0 for n in self.current()} if self.backend.plan else None,
+                source="offline trajectory" if self.backend.plan else "manual",
+                status="stopped",
+            )
 
     def reset(self):
+        if self.main.mode != "offline":
+            self.error("ROS feedback cannot be reset locally; cancel and replan from current state")
+            return
         self.backend.reset()
         if self.backend.model is self.main.model and self.backend.plan:
             self.apply_configuration(self.backend.read_joint_positions())
@@ -1029,9 +1082,18 @@ class MotionWorkspace(QObject):
                 )
             except (ValueError, KeyError):
                 pass
-        if self.backend.status == "playing":
+        if self.backend.status == "playing" and self.main.mode == "offline":
             state = self.backend.advance(delta)
-            self.apply_configuration(state.joints)
+            self.main.publish_offline(
+                state.joints,
+                velocities=state.velocities,
+                accelerations=state.accelerations,
+                source="offline trajectory",
+                status=state.status,
+                progress=state.elapsed / self.backend.plan.duration
+                if self.backend.plan.duration
+                else 1.0,
+            )
             self.robot.view.set_virtual_object(
                 state.object_transform,
                 self.backend.plan.source.virtual_object.size
@@ -1053,6 +1115,11 @@ class MotionWorkspace(QObject):
 
     def open_wizard(self):
         if not self.chain or not self.kinematics_ready:
+            return
+        if self.main.mode != "offline":
+            self.error(
+                "Teach / generate tasks in Offline Preview, then execute through ROS Simulation."
+            )
             return
         if not self.chain.gripper_joints:
             self.error("Assign a gripper joint in Chain setup and confirm first")
@@ -1196,8 +1263,12 @@ class MotionWorkspace(QObject):
             self.wizard_button,
         ):
             widget.setEnabled(not busy and ready)
-        self.preview.setEnabled(not busy and bool(self.result and self.result.success))
-        self.apply.setEnabled(not busy and bool(self.result and self.result.success))
+        self.preview.setEnabled(
+            not busy and self.main.mode == "offline" and bool(self.result and self.result.success)
+        )
+        self.apply.setEnabled(
+            not busy and self.main.mode == "offline" and bool(self.result and self.result.success)
+        )
 
     def cancel_work(self):
         self.cancel_event.set()

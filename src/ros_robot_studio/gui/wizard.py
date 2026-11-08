@@ -1,5 +1,6 @@
 """First-run setup: all downloads are explicit; offline use is always available."""
 
+import getpass
 import importlib.util
 import shutil
 import socket
@@ -99,6 +100,9 @@ class SetupWizard(QWizard):
         layout.addLayout(row)
         self.docker_output = QPlainTextEdit("Docker installation has not been requested.")
         self.docker_output.setReadOnly(True)
+        layout.addWidget(
+            button("Docker access diagnosis / regular setup steps", self.docker_access_help)
+        )
         layout.addWidget(self.docker_output)
         self.addPage(docker)
 
@@ -143,7 +147,7 @@ class SetupWizard(QWizard):
         )
         layout.addWidget(
             label(
-                "The runtime healthcheck verifies its adapter port. For an end-to-end check, select a runtime, choose Start ROS demo, refresh the graph and select /studio/sine. A received message proves the publisher → ROS → WebSocket → GUI path.",
+                "This temporary simulation test checks ROS graph, real JointState feedback and a native action roundtrip. Main-window diagnostics additionally exercise the selected robot, shared state, monitoring and viewer. Skipped checks remain explicit.",
                 "",
                 True,
             )
@@ -164,7 +168,7 @@ class SetupWizard(QWizard):
         self.verify_distro = QComboBox()
         for identifier, spec in catalog().items():
             self.verify_distro.addItem(spec.name, identifier)
-        self.verify_button = button("Verify selected ROS runtime", self.verify_runtime)
+        self.verify_button = button("Run ROS Runtime Diagnostics", self.verify_runtime)
         row.addWidget(self.verify_distro)
         row.addWidget(self.verify_button)
         layout.addLayout(row)
@@ -237,6 +241,21 @@ class SetupWizard(QWizard):
             self.docker_output.setPlainText(self.installer.read_text())
         except OSError as exc:
             self.failed(str(exc))
+
+    def docker_access_help(self):
+        user = getpass.getuser()
+        self.docker_output.setPlainText(
+            f"Docker daemon must be reachable as {user}.\n\n"
+            "1. Engine missing: review the optional signed Ubuntu installer.\n"
+            "2. Daemon stopped: inspect `systemctl status docker` and its logs.\n"
+            "3. Permission denied: the docker group grants root-level host access.\n"
+            f"   After explicit approval, run in a normal terminal: sudo usermod -aG docker {user}\n"
+            "   Log out and back in, then restart Studio. Rootless Docker is an alternative.\n"
+            "4. A running application keeps old groups. NoNewPrivs can prevent PolicyKit/sudo inside an agent.\n"
+            "5. Never make docker.sock world writable. No permissions are changed by this dialog.\n"
+            "6. Engine accessible but image missing: install the selected Studio runtime.\n"
+            "7. Container exits: inspect its logs. Container running but ROS disconnected: check loopback port/health."
+        )
 
     def authorize_docker(self):
         if self.process:
@@ -415,13 +434,39 @@ class SetupWizard(QWizard):
             with socket.socket() as probe:
                 probe.bind(("127.0.0.1", 0))
                 port = probe.getsockname()[1]
+            from ros_robot_studio.projects.store import EXAMPLE_URDF
+            from ros_robot_studio.robots.urdf import parse_urdf
+            from ros_robot_studio.runtime.robot_config import simulation_config
+
+            payload = simulation_config()
+            model = parse_urdf(EXAMPLE_URDF)
             identifier = self.manager.start(
-                distro, "setup-" + uuid.uuid4().hex, RuntimeConfig(port=port), integration=True
+                distro,
+                "setup-" + uuid.uuid4().hex,
+                RuntimeConfig(port=port),
+                integration=True,
+                robot_config=payload,
             )
-            return identifier, port
+            return identifier, port, model, payload
 
         def connected(result):
-            self.verify_container, port = result
+            self.verify_container, port, model, payload = result
+            from ros_robot_studio.core.models import ExecutionConfig, Robot
+            from ros_robot_studio.core.robot_state import RobotStateManager
+            from ros_robot_studio.motion.ros_backend import ROS2ExecutionBackend
+
+            self.verify_states = RobotStateManager()
+            self.verify_states.bind(model, Robot(), model.default_configuration())
+            self.verify_lease = self.verify_states.activate_source(
+                "ros_simulation", "/joint_states"
+            )
+            self.verify_execution = ROS2ExecutionBackend(self.verify_states, self)
+            self.verify_execution.error.connect(
+                lambda text: self.finish_verification("FAIL: " + text)
+            )
+            self.verify_execution.changed.connect(self.verification_execution)
+            self.verify_goal_started = False
+
             transport = RosbridgeTransport(f"ws://127.0.0.1:{port}", self)
             self.verify_transport = transport
             transport.subscribe("/studio/sine", "std_msgs/msg/Float64")
@@ -430,12 +475,27 @@ class SetupWizard(QWizard):
             transport.graph.connect(self.verification_graph)
             transport.status.connect(self.components.appendPlainText)
             transport.error.connect(self.components.appendPlainText)
+            self.verify_execution.connect_backend(
+                transport, model, ExecutionConfig(), payload, self.verify_lease
+            )
             transport.connect_transport()
             self.verify_deadline.start(45000)
 
         self.runner.run(work, connected, lambda error: self.finish_verification("FAILED: " + error))
 
+    def verification_execution(self, status):
+        if self.verifying and status == "succeeded":
+            self.finish_verification(
+                "PASS: Docker start, ROS environment/nodes/graph, rosbridge, JointState, native FollowJointTrajectory acceptance/result and observed end state.\nNOT TESTED here: selected-robot viewer/monitoring and Demo/ROS roundtrip; use main-window diagnostics / acceptance script."
+            )
+
     def verification_message(self, topic, message):
+        if topic == "/joint_states" and hasattr(self, "verify_states"):
+            try:
+                self.verify_states.joint_state(self.verify_lease, message)
+            except (ValueError, TypeError) as exc:
+                self.finish_verification("FAIL: " + str(exc))
+                return
         self.verify_messages.add(topic)
         self.check_verification_result()
 
@@ -446,16 +506,49 @@ class SetupWizard(QWizard):
 
     def check_verification_result(self):
         if (
-            self.verifying
-            and {"/studio/sine", "/joint_states"} <= self.verify_messages
-            and any("studio_demo_subscriber" in node for node in self.verify_nodes)
+            not self.verifying
+            or getattr(self, "verify_goal_started", False)
+            or not hasattr(self, "verify_execution")
+            or not self.verify_execution.ready()
+            or not self.verify_nodes
         ):
-            self.finish_verification(
-                f"PASS: {self.verify_distro.currentData()} publishers, subscriber node, adapter, graph discovery and both real ROS topics reached the GUI."
-            )
+            return
+        from ros_robot_studio.kinematics.engine import UniversalKinematicsEngine
+        from ros_robot_studio.motion.positions import PositionManager
+        from ros_robot_studio.motion.program import TaskCompiler
+        from ros_robot_studio.motion.schema import MotionTask, TaskStep
+
+        model = self.verify_states.model
+        engine = UniversalKinematicsEngine(model)
+        chain = engine.create_chain(model.root, model.links[-1])
+        current = self.verify_execution.read_joint_positions()
+        target = dict(current)
+        name = chain.active_joints[0]
+        lo, hi = engine.bounds()[name]
+        target[name] = min(hi, max(lo, current[name] + 0.02))
+        library = PositionManager()
+        out = library.capture_joint("Diagnostic target", chain, target)
+        home = library.capture_joint("Return", chain, current)
+        library.add(out)
+        library.add(home)
+        task = MotionTask(
+            name="Setup simulation check",
+            steps=[
+                TaskStep(action="move_joint", position_id=out.id),
+                TaskStep(action="move_joint", position_id=home.id),
+            ],
+        )
+        plan = TaskCompiler(chain, library).compile(task, current)
+        self.verify_goal_started = True
+        try:
+            self.verify_execution.execute(plan)
+        except ValueError as exc:
+            self.finish_verification("FAIL: " + str(exc))
 
     def finish_verification(self, result):
         self.verify_deadline.stop()
+        if hasattr(self, "verify_execution"):
+            self.verify_execution.disconnect_backend()
         if self.verify_transport:
             self.verify_transport.disconnect_transport()
             self.verify_transport.deleteLater()
@@ -482,7 +575,7 @@ class SetupWizard(QWizard):
                 "\n\n".join(self.report_lines)
                 + "\n\nKnown installed Studio images: "
                 + (", ".join(self.local_installed) or "None reported; refresh status in step 4")
-                + "\n\nDeferred runtimes remain available through Project & Runtime. Hardware mode, calibration and controller execution are planned."
+                + "\n\nDeferred runtimes remain available through Project & Runtime. Hardware mode and calibration remain disabled; managed ROS simulation uses native actions."
             )
 
     def completed(self):

@@ -54,6 +54,7 @@ def test_real_ros_demo(distro):
             )
         seen, services = set(), {}
         deadline = time.monotonic() + 25
+        last_graph_refresh = 0.0
         while time.monotonic() < deadline:
             message = json.loads(connection.recv())
             if message.get("op") == "publish":
@@ -62,8 +63,23 @@ def test_real_ros_demo(distro):
                     assert isinstance(message["msg"]["data"], (int, float))
             if message.get("op") == "service_response":
                 services[message["id"]] = message.get("values", {})
-            if len(seen) >= 2 and {"topics", "nodes"} <= services.keys():
+            nodes = services.get("nodes", {}).get("nodes", [])
+            discovered = any("studio_demo_subscriber" in n for n in nodes)
+            if len(seen) >= 2 and {"topics", "nodes"} <= services.keys() and discovered:
                 break
+            # DDS graph discovery is asynchronous; receiving a topic is not proof that rosapi's first graph snapshot is complete.
+            if not discovered and time.monotonic() - last_graph_refresh > 0.5:
+                connection.send(
+                    json.dumps(
+                        {
+                            "op": "call_service",
+                            "id": "nodes",
+                            "service": "/rosapi/nodes",
+                            "args": {},
+                        }
+                    )
+                )
+                last_graph_refresh = time.monotonic()
         assert {"/studio/sine", "/joint_states"} <= seen
         assert "/studio/sine" in services["topics"]["topics"]
         assert any("studio_demo_subscriber" in n for n in services["nodes"]["nodes"])

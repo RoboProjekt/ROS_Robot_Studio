@@ -11,6 +11,7 @@ def label(text: str, role: str = "", wrap=False) -> QLabel:
 
 def button(text: str, callback=None, primary=False) -> QPushButton:
     item = QPushButton(text)
+    item.setMinimumHeight(30)
     if primary:
         item.setObjectName("primary")
     if callback:

@@ -31,9 +31,14 @@ def test_gui_without_docker_and_live_demo(qtbot, tmp_path):
     assert instance.distro.currentData() == "humble"
     qtbot.waitUntil(lambda: len(instance.monitor.buffer.samples) > 3)
     assert "simulated" in instance.ros_status
-    assert instance.monitor.fields["data"] <= 1
+    assert instance.monitor.robot_state.state.valid
+    assert instance.monitor.source.currentIndex() == 0
+    assert "position.base_rotation" in instance.monitor.robot_state.state.fields()
     assert not instance.dirty
-    assert instance.monitor.curves
+    assert instance.monitor.robot_state.curves
+    instance.monitor.source.setCurrentIndex(1)
+    instance.monitor.choose_topic("/studio/sine")
+    qtbot.waitUntil(lambda: "data" in instance.monitor.fields)
     instance.monitor.toggle_pause()
     frozen = list(instance.monitor.buffer.samples)
     qtbot.wait(150)
@@ -137,7 +142,7 @@ def test_running_container_version_switch_is_serial(qtbot, tmp_path, monkeypatch
     )
     operations = []
 
-    def start(distro, project_id, config):
+    def start(distro, project_id, config, robot_config=None):
         operations.append(("start", distro))
         return "own-" + distro
 

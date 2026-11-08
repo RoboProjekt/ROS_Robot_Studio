@@ -18,8 +18,10 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QPlainTextEdit,
+    QScrollArea,
     QSpinBox,
     QSplitter,
+    QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
     QTabWidget,
@@ -40,6 +42,7 @@ from ros_robot_studio.ros_bridge.transport import SampleBuffer, numeric_fields
 
 class RobotPanel(QWidget):
     robot_changed = Signal(object, object)
+    joints_requested = Signal(dict)
     changed = Signal()
     import_requested = Signal()
     example_requested = Signal()
@@ -102,7 +105,7 @@ class RobotPanel(QWidget):
             "Preview only. Catalog robots never receive uncalibrated ROS or hardware mappings."
         )
         self.follow_live.toggled.connect(self.emit_changed)
-        controls.addWidget(self.follow_live)
+        self.follow_live.hide()
         view_layout.addLayout(controls)
         self.pose = label("End effector: select a link frame", "subtitle", True)
         self.pose.setMinimumHeight(40)
@@ -284,7 +287,7 @@ class RobotPanel(QWidget):
         self.end_effector.setCurrentText(frame)
         generic = self.active_model_selection == "generic-arm"
         self.follow_live.setEnabled(generic)
-        self.follow_live.setChecked(generic and not robot.joint_positions)
+        self.follow_live.setChecked(False)
         self.refresh_model_info()
         self.loading = previous_loading
         self.update_pose()
@@ -336,8 +339,7 @@ class RobotPanel(QWidget):
         self.follow_live.blockSignals(True)
         self.follow_live.setChecked(False)
         self.follow_live.blockSignals(False)
-        self.view.set_joints(values)
-        self.update_pose()
+        self.joints_requested.emit(values)
         self.emit_changed()
 
     def apply_live_joints(self, values):
@@ -627,6 +629,55 @@ class MonitoringPanel(QWidget):
         diagnostics_body.addLayout(row)
         layout.addWidget(diagnostics)
 
+        # Retain generic ROS inspection as an explicit secondary source.
+        from ros_robot_studio.gui.robot_monitor import RobotStatePanel
+
+        legacy = QWidget()
+        legacy_body = QVBoxLayout(legacy)
+        first = True
+        while layout.count():
+            item = layout.takeAt(0)
+            if item.widget():
+                if first:
+                    item.widget().setParent(legacy)
+                    item.widget().hide()
+                else:
+                    legacy_body.addWidget(item.widget())
+            elif item.layout():
+                legacy_body.addLayout(item.layout())
+            first = False
+        layout.addWidget(
+            page_header(
+                "Workspace / 03",
+                "Robot state, synchronized.",
+                "One model. One active source. Shared viewer and telemetry.",
+                "UNIFIED TELEMETRY",
+            )
+        )
+        self.source = QComboBox()
+        self.source.addItems(["Robot State Monitoring", "Synthetic Signal Demo / ROS messages"])
+        layout.addWidget(self.source)
+        self.views = QStackedWidget()
+        self.robot_state = RobotStatePanel()
+        controls = QHBoxLayout()
+        self.robot_pause = button("Pause Plot", lambda: self.pause_robot_plot())
+        controls.addWidget(self.robot_pause)
+        controls.addWidget(button("Clear Plot", self.robot_state.reset))
+        self.robot_window = QSpinBox()
+        self.robot_window.setRange(5, 300)
+        self.robot_window.setValue(30)
+        self.robot_window.setSuffix(" s")
+        controls.addWidget(self.robot_window)
+        self.robot_state.layout().insertLayout(1, controls)
+        self.views.addWidget(self.robot_state)
+        self.views.addWidget(legacy)
+        layout.addWidget(self.views, 1)
+        self.source.currentIndexChanged.connect(self.views.setCurrentIndex)
+
+    def pause_robot_plot(self):
+        self.robot_state.paused = not self.robot_state.paused
+        self.robot_pause.setText("Resume Plot" if self.robot_state.paused else "Pause Plot")
+
     def set_graph(self, graph):
         if "topic_info" in graph:
             if graph["topic_info"] == self.topic:
@@ -708,6 +759,7 @@ class MonitoringPanel(QWidget):
         self.message_text.setPlainText("Waiting for a message…")
 
     def toggle_pause(self):
+        self.robot_state.paused = not self.robot_state.paused
         self.frozen_at = None if self.frozen_at is not None else time.monotonic()
         self.pause.setText("▶  Resume" if self.frozen_at is not None else "Ⅱ  Pause")
 
@@ -784,7 +836,13 @@ class MonitoringPanel(QWidget):
 class RuntimePanel(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        layout = QVBoxLayout(self)
+        outer = QVBoxLayout(self)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        outer.addWidget(scroll)
+        content = QWidget()
+        scroll.setWidget(content)
+        layout = QVBoxLayout(content)
         layout.setContentsMargins(24, 22, 24, 18)
         layout.addWidget(
             page_header(
@@ -797,6 +855,7 @@ class RuntimePanel(QWidget):
         row = QHBoxLayout()
         project, body = card("Current project")
         self.project_info = label("", "", True)
+        self.project_info.setMinimumHeight(90)
         body.addWidget(self.project_info)
         self.compatibility = button("Check compatibility")
         self.set_default = button("Save selected ROS as project default")
@@ -806,13 +865,33 @@ class RuntimePanel(QWidget):
         body.addWidget(self.export)
         row.addWidget(project, 1)
         runtime, body = card("Runtime operations")
+        self.configure = button("DDS / Simulation Settings…")
+        self.external = button("Connect to External ROS Simulation…")
+        self.disconnect = button("Disconnect ROS → Offline")
+        body.setSpacing(4)
+        configuration = QHBoxLayout()
+        configuration.addWidget(self.configure)
+        configuration.addWidget(self.external)
+        configuration.addWidget(self.disconnect)
+        body.addLayout(configuration)
+        runtime.setMinimumHeight(265)
         self.docker_status = label("Checking Docker…", "", True)
         self.container_status = label("No container started", "subtitle", True)
         body.addWidget(self.docker_status)
         body.addWidget(self.container_status)
+        self.ros_status = label("ROS: Disconnected", "subtitle", True)
+        self.execution_status = label(
+            "Robot State: Local Simulation · Controller: disconnected", "subtitle", True
+        )
+        self.dds_status = label(
+            "ROS_DOMAIN_ID: 42 · rmw_fastrtps_cpp · bridge networking", "subtitle", True
+        )
+        body.addWidget(self.ros_status)
+        body.addWidget(self.execution_status)
+        body.addWidget(self.dds_status)
         controls = QHBoxLayout()
         self.start, self.stop, self.restart = (
-            button("▶  Start ROS demo", primary=True),
+            button("Open Live ROS Demo", primary=True),
             button("■  Stop"),
             button("↻  Restart"),
         )
@@ -823,7 +902,7 @@ class RuntimePanel(QWidget):
         self.refresh, self.logs, self.verify = (
             button("Refresh status"),
             button("Fetch logs"),
-            button("Verify ROS demo"),
+            button("Run ROS Runtime Diagnostics"),
         )
         for control in (self.refresh, self.logs, self.verify):
             more.addWidget(control)
@@ -840,7 +919,9 @@ class RuntimePanel(QWidget):
         )
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.table.setMaximumHeight(170)
+        self.table.setMinimumHeight(110)
+        self.table.verticalHeader().setDefaultSectionSize(25)
+        self.table.setMaximumHeight(140)
         body.addWidget(self.table)
         controls = QHBoxLayout()
         self.install = button("＋  Install selected runtime", primary=True)

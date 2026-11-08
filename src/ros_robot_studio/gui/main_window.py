@@ -27,14 +27,17 @@ from PySide6.QtWidgets import (
 
 from ros_robot_studio.compatibility.checker import check
 from ros_robot_studio.core.models import Project, Robot
+from ros_robot_studio.core.robot_state import RobotStateManager
 from ros_robot_studio.core.settings import Settings, xdg_path
 from ros_robot_studio.gui.motion_workspace import MotionWorkspace
 from ros_robot_studio.gui.panels import MonitoringPanel, RobotPanel, RuntimePanel, SensorPanel
+from ros_robot_studio.gui.robot_monitor import StateSignals
 from ros_robot_studio.gui.sensor_dialog import SensorDialog
 from ros_robot_studio.gui.theme import DARK, LIGHT
 from ros_robot_studio.gui.widgets import label
 from ros_robot_studio.gui.wizard import SetupWizard
 from ros_robot_studio.gui.workers import TaskRunner
+from ros_robot_studio.motion.ros_backend import ROS2ExecutionBackend
 from ros_robot_studio.plugins.registry import PluginRegistry
 from ros_robot_studio.projects.store import (
     EXAMPLE_URDF,
@@ -51,6 +54,7 @@ from ros_robot_studio.robots.urdf import parse_urdf
 from ros_robot_studio.ros_bridge.transport import OfflineTransport
 from ros_robot_studio.ros_bridge.websocket import RosbridgeTransport
 from ros_robot_studio.runtime.manager import RuntimeManager, RuntimeStatus
+from ros_robot_studio.runtime.robot_config import simulation_config
 
 log = logging.getLogger(__name__)
 
@@ -69,7 +73,13 @@ class MainWindow(QMainWindow):
         self.project = demo_project()
         self.project_path: Path | None = None
         self.model = parse_urdf(EXAMPLE_URDF)
+        self.state_manager = RobotStateManager()
+        self.state_signals = StateSignals(self)
+        self.state_manager.subscribe(self.state_signals.changed.emit)
+        self.state_signals.changed.connect(self.robot_state_updated)
+        self.state_sequence = 0
         self.dirty = False
+        self.closed = False
         self.loading = False
         self.container_id = None
         self.transport = None
@@ -106,6 +116,12 @@ class MainWindow(QMainWindow):
         self.mode_status = label("OFFLINE / SIMULATED", "badge")
         self.statusBar().addPermanentWidget(self.mode_status)
         self.apply_theme()
+        self.ros_execution = ROS2ExecutionBackend(self.state_manager, self)
+        self.ros_start_deadline = QTimer(self)
+        self.ros_start_deadline.setSingleShot(True)
+        self.ros_start_deadline.timeout.connect(self.ros_start_failed)
+        self.ros_execution.error.connect(self.transport_error)
+        self.ros_execution.changed.connect(self.execution_changed)
         self.motion = MotionWorkspace(self)
         self.apply_project()
         self.start_offline()
@@ -168,6 +184,8 @@ class MainWindow(QMainWindow):
 
     def connect_panels(self):
         self.robot_panel.changed.connect(self.mark_dirty)
+        self.robot_panel.robot_changed.connect(self.bind_robot_state)
+        self.robot_panel.joints_requested.connect(self.manual_joint_update)
         self.robot_panel.import_requested.connect(self.import_urdf)
         self.robot_panel.example_requested.connect(self.load_example)
         self.robot_panel.model_selected.connect(self.select_robot_model)
@@ -183,6 +201,9 @@ class MainWindow(QMainWindow):
             lambda: self.transport.refresh_graph() if self.transport else None
         )
         for widget, callback in [
+            (self.runtime.configure, self.open_ros_settings),
+            (self.runtime.external, self.connect_external_simulation),
+            (self.runtime.disconnect, self.request_offline),
             (self.runtime.start, self.start_ros),
             (self.runtime.stop, self.stop_ros),
             (self.runtime.restart, self.restart_ros),
@@ -218,14 +239,27 @@ class MainWindow(QMainWindow):
             f"{self.project.name}   /   {self.selected_distro.title()}   /   Docker: {'ready' if self.docker_status.available else 'unavailable'}   /   {self.ros_status}"
         )
         self.runtime.project_info.setText(
-            f"{self.project.name}\n\n{self.project_path or 'Not saved yet'}\n\nProject default: {self.project.default_ros.title()}\nSession: {self.selected_distro.title()}\n{len(self.project.sensors)} sensors · format v{self.project.format_version}"
+            f"{self.project.name}\n{self.project_path or 'Not saved yet'}\nProject default: {self.project.default_ros.title()}\nSession: {self.selected_distro.title()}\n{len(self.project.sensors)} sensors · format v{self.project.format_version}"
         )
 
     def collect(self):
         result = self.project.model_copy(deep=True)
         self.robot_panel.collect(result)
+        result.execution_backend = "ros2_simulation" if self.mode == "ros" else "offline"
         self.motion.collect(result)
-        result.monitoring.window_seconds = self.monitor.window.value()
+        result.monitoring.source = (
+            "robot_state" if self.monitor.source.currentIndex() == 0 else "signals"
+        )
+        result.monitoring.robot_fields = [
+            self.monitor.robot_state.fields.item(i).text()
+            for i in range(self.monitor.robot_state.fields.count())
+            if self.monitor.robot_state.fields.item(i).checkState() == Qt.CheckState.Checked
+        ]
+        result.monitoring.window_seconds = (
+            self.monitor.robot_window.value()
+            if result.monitoring.source == "robot_state"
+            else self.monitor.window.value()
+        )
         result.monitoring.topic = self.monitor.topic or result.monitoring.topic
         result.monitoring.fields = self.monitor.selected_fields() or self.monitor.restore_fields
         return Project.model_validate(result.model_dump())
@@ -240,6 +274,10 @@ class MainWindow(QMainWindow):
         self.robot_panel.set_project(self.project, self.model)
         self.sensor_panel.set_sensors(self.project.sensors)
         self.monitor.restore_monitoring(self.project.monitoring)
+        self.monitor.source.setCurrentIndex(
+            0 if self.project.monitoring.source == "robot_state" else 1
+        )
+        self.monitor.robot_state.restore_fields = list(self.project.monitoring.robot_fields)
         if hasattr(self, "timer"):
             self.timer.setInterval(round(1000 / self.project.monitoring.update_hz))
         self.robot_panel.update_compatibility(self.selected_distro)
@@ -481,6 +519,7 @@ class MainWindow(QMainWindow):
                     / (hashlib.sha256(text.encode()).hexdigest() + ".urdf")
                 )
                 atomic_text(source, text)
+                model.source_path = source
             else:
                 model = load_robot(path)
             return model, source
@@ -683,9 +722,101 @@ class MainWindow(QMainWindow):
                 f"{topic} is not present in the current transport graph. Start its publisher or refresh the graph.",
             )
 
+    def independent_positions(self):
+        state = self.state_manager.snapshot()
+        if state and state.valid and self.state_manager.model is self.model:
+            return {n: state.positions[n] for n in self.model.default_configuration()}
+        return dict(self.robot_panel.joint_controls.values)
+
+    def bind_robot_state(self, robot, model):
+        if self.mode == "ros":
+            self.ros_execution.abort()
+            self.detach_transport()
+            self.mode = "offline"
+            identifier = self.container_id
+            if identifier:
+
+                def stopped(_):
+                    self.container_id = None
+                    self.start_offline()
+
+                self.runner.run(lambda _: self.manager.stop(identifier), stopped, self.show_error)
+            if hasattr(self, "ros_execution"):
+                self.ros_execution.disconnect_backend()
+        self.state_sequence = 0
+        self.state_manager.bind(
+            model,
+            robot,
+            self.robot_panel.joint_controls.values,
+            self.project.kinematics.base_link,
+            self.robot_panel.end_effector.currentText(),
+        )
+        self.monitor.source.setCurrentIndex(0)
+
+    def robot_state_updated(self, state):
+        if self.closed:
+            return
+        if (
+            self.state_manager.model is not self.model
+            or state.instance != self.state_manager.instance
+            or state.sequence <= self.state_sequence
+        ):
+            return
+        self.state_sequence = state.sequence
+        if state.valid:
+            values = {n: state.positions[n] for n in self.model.default_configuration()}
+            self.robot_panel.joint_controls.set_configuration(values)
+            self.robot_panel.view.set_joints(values)
+            self.robot_panel.update_pose()
+        if (
+            self.mode == "ros"
+            and hasattr(self, "ros_execution")
+            and self.ros_execution.plan
+            and state.valid
+        ):
+            plan = self.ros_execution.plan
+            if plan.chain.model is self.model and plan.source.virtual_object:
+                transform, _ = plan.object_pose(
+                    self.ros_execution.elapsed,
+                    {n: state.positions[n] for n in self.model.default_configuration()},
+                )
+                self.robot_panel.view.set_virtual_object(transform, plan.source.virtual_object.size)
+        self.monitor.robot_state.receive(state, self.model)
+
+    def manual_joint_update(self, values):
+        if self.mode != "offline":
+            self.robot_panel.joint_controls.set_configuration(self.independent_positions())
+            self.activity("Manual controls cannot change an active ROS state")
+            return
+        self.publish_offline(values, source="manual", status="idle")
+
+    def publish_offline(
+        self,
+        values,
+        *,
+        velocities=None,
+        accelerations=None,
+        source="offline IK",
+        status="idle",
+        progress=0,
+    ):
+        if self.closed or self.mode != "offline":
+            return False
+        return self.state_manager.update(
+            self.state_manager.lease(),
+            values,
+            velocities=velocities,
+            accelerations=accelerations,
+            source=source,
+            status=status,
+            progress=progress,
+        )
+
     def detach_transport(self):
         if self.transport:
             old, self.transport = self.transport, None
+            if hasattr(self, "ros_execution") and self.ros_execution.transport is old:
+                self.ros_execution.disconnect_backend()
             old.status.disconnect()
             old.graph.disconnect()
             old.message.disconnect()
@@ -702,20 +833,41 @@ class MainWindow(QMainWindow):
         self.transport = transport
         transport.status.connect(self.connection_status)
         transport.graph.connect(self.monitor.set_graph)
-        transport.message.connect(self.receive_message)
+        transport.message.connect(
+            lambda topic, message, t=transport: self.receive_message(topic, message)
+            if self.transport is t
+            else None
+        )
         transport.error.connect(self.transport_error)
-        transport.subscribe("/joint_states", "sensor_msgs/msg/JointState")
+        transport.subscribe(self.project.execution.state_topic, "sensor_msgs/msg/JointState")
+        if self.project.execution.profile == "external_simulation":
+            transport.subscribe(self.project.execution.clock_topic, "rosgraph_msgs/msg/Clock")
+            transport.subscribe(self.project.execution.tf_topic, "tf2_msgs/msg/TFMessage")
         transport.connect_transport()
         self.monitor.choose_topic(self.project.monitoring.topic)
         self.loading = was_loading
 
     def start_offline(self):
+        if hasattr(self, "ros_start_deadline"):
+            self.ros_start_deadline.stop()
+        if hasattr(self, "ros_execution"):
+            self.ros_execution.disconnect_backend()
+        if hasattr(self, "motion"):
+            self.motion.stop()
         self.mode = "offline"
+        if self.state_manager.snapshot():
+            self.state_manager.activate_source("offline", "local simulation")
+        self.robot_panel.joint_controls.setEnabled(True)
+        self.robot_panel.profile.setEnabled(True)
+        if hasattr(self, "motion"):
+            self.motion.backend_choice.blockSignals(True)
+            self.motion.backend_choice.setCurrentIndex(0)
+            self.motion.backend_choice.blockSignals(False)
         self.monitor.mode.setText(
             "OFFLINE DEMO · All values below are simulated. No hardware is connected."
         )
         self.mode_status.setText("OFFLINE / SIMULATED")
-        self.attach_transport(OfflineTransport(self))
+        self.attach_transport(OfflineTransport(self, state_provider=self.state_manager.snapshot))
         self.monitor.container.setText("Container: none")
         self.update_title()
 
@@ -742,48 +894,62 @@ class MainWindow(QMainWindow):
 
     def receive_message(self, topic, message):
         self.monitor.receive(topic, message)
-        if topic == "/joint_states":
-            names, positions = message.get("name", []), message.get("position", [])
+        if (
+            self.mode == "ros"
+            and self.project.execution.use_sim_time
+            and topic == self.project.execution.clock_topic
+        ):
+            clock = message.get("clock", {})
+            stamp = clock.get("sec", 0) + clock.get("nanosec", 0) * 1e-9
+            if getattr(self, "last_ros_clock", None) is not None and stamp < self.last_ros_clock:
+                self.ros_execution.fail("Simulation clock reset; reconnect and replan")
+            self.last_ros_clock = stamp
+        if self.mode == "ros" and topic == self.project.execution.state_topic:
             try:
-                import math
-
-                values = {
-                    str(n): float(v)
-                    for n, v in zip(names[:128], positions[:128])
-                    if math.isfinite(float(v))
-                }
-                self.robot_panel.apply_live_joints(values)
-            except (ValueError, TypeError):
-                pass
+                self.state_manager.joint_state(
+                    self.ros_lease, message, self.project.execution.joint_mapping or None
+                )
+            except (ValueError, TypeError, KeyError) as exc:
+                self.state_manager.invalidate(str(exc))
+                self.transport_error(str(exc))
         if getattr(self, "verification_started", None) and self.mode == "ros":
             self.verification_messages.add(topic)
-            if {"/studio/sine", "/joint_states"} <= self.verification_messages:
-                self.verification_started = None
-                self.activity(
-                    f"PASS: {self.selected_distro} end-to-end GUI received /studio/sine and /joint_states from the ROS container."
-                )
-                QMessageBox.information(
-                    self,
-                    "ROS demo verified",
-                    "Both real ROS demo topics reached the GUI. Node discovery: "
-                    + str(self.monitor.nodes.count())
-                    + " nodes. Subscriber activity can be inspected in the container logs.",
-                )
 
     def update_live(self):
+        if self.closed:
+            return
         self.monitor.render()
+        state = self.state_manager.snapshot()
+        if state:
+            self.monitor.robot_state.render(
+                self.monitor.robot_window.value(), self.state_manager.stale()
+            )
+            if self.mode == "offline" and state.execution_status not in ("playing", "executing"):
+                self.state_manager.update(
+                    self.state_manager.lease(),
+                    self.independent_positions(),
+                    velocities=state.velocities,
+                    accelerations=state.accelerations,
+                    source=state.source,
+                    status=state.execution_status,
+                )
+        if getattr(self, "verification_stage", None) == "waiting" and self.ros_execution.ready():
+            self.run_controller_diagnostic()
         if (
             getattr(self, "verification_started", None)
-            and time.monotonic() - self.verification_started > 20
+            and time.monotonic() - self.verification_started > 45
         ):
             self.verification_started = None
+            self.verification_stage = "failed"
+            self.ros_execution.abort()
             self.transport_error(
-                "End-to-end verification timed out: both demo topics were not received within 20 seconds."
+                "End-to-end verification timed out: native action / feedback did not complete within 45 seconds."
             )
 
     def connection_status(self, status):
         self.ros_status = status
         self.monitor.connection.setText(status)
+        self.runtime.ros_status.setText("Mode: " + self.mode + " · " + status)
         self.update_title()
 
     def transport_error(self, error):
@@ -806,9 +972,7 @@ class MainWindow(QMainWindow):
         self.monitor.setEnabled(not busy)
         self.robot_panel.setEnabled(not busy)
         self.sensor_panel.setEnabled(not busy)
-        self.start_action.setEnabled(
-            not busy and not self.container_id and self.docker_status.available
-        )
+        self.start_action.setEnabled(not busy and not self.container_id)
         self.stop_action.setEnabled(not busy and bool(self.container_id))
         self.offline_action.setEnabled(not busy)
         for control in (
@@ -825,9 +989,7 @@ class MainWindow(QMainWindow):
             self.runtime.verify,
         ):
             control.setEnabled(not busy)
-        self.runtime.start.setEnabled(
-            not busy and not self.container_id and self.docker_status.available
-        )
+        self.runtime.start.setEnabled(not busy and not self.container_id)
         self.runtime.stop.setEnabled(not busy and bool(self.container_id))
         self.runtime.restart.setEnabled(not busy and bool(self.container_id))
         self.runtime.logs.setEnabled(not busy and bool(self.container_id))
@@ -856,7 +1018,13 @@ class MainWindow(QMainWindow):
                     spec.ubuntu,
                     spec.base_image,
                     f"Until {spec.eol}" if spec.supported else "EOL",
-                    "Installed · Studio image"
+                    (
+                        "Verified · native ROS action + feedback"
+                        if self.settings.get("verified_runtimes", {}).get(identifier)
+                        == status.image_ids.get(identifier)
+                        and identifier in status.image_ids
+                        else "Installed · integration not verified"
+                    )
                     if identifier in status.installed
                     else "Available · not installed"
                     if spec.supported
@@ -884,14 +1052,50 @@ class MainWindow(QMainWindow):
             lambda _: QTimer.singleShot(0, self.refresh_runtime),
         )
 
+    def open_ros_settings(self):
+        if self.mode == "ros" or self.container_id:
+            self.show_error("Disconnect the runtime before changing DDS, topics or joint mapping")
+            return False
+        from ros_robot_studio.gui.ros_settings import ROSSettingsDialog
+
+        dialog = ROSSettingsDialog(self.project, self.model, self)
+        if dialog.exec():
+            self.project.runtime, self.project.execution = dialog.values()
+            self.mark_dirty()
+            return True
+        return False
+
+    def connect_external_simulation(self):
+        if self.open_ros_settings():
+            if self.project.execution.profile != "external_simulation":
+                self.show_error("Select and confirm the external simulation profile first")
+                return
+            self.start_ros()
+
     def start_ros(self, checked=False):
         if self.runner.busy or self.container_id:
             return
         distro = self.selected_distro
-        if distro not in self.docker_status.installed:
+        if not self.docker_status.available:
             self.show_error(
-                f"{distro.title()} Studio runtime is not installed. Open Project & Runtime and install it first."
+                self.docker_status.message
+                + "\nOpen Help → Setup assistant for guided Docker diagnosis."
             )
+            self.open_wizard()
+            return
+        if distro not in self.docker_status.installed:
+            if (
+                QMessageBox.question(
+                    self,
+                    "Install ROS runtime",
+                    f"Install the {distro.title()} Studio simulation runtime and then start it? This downloads the official base and required ROS packages.",
+                )
+                == QMessageBox.StandardButton.Yes
+            ):
+                self.runner.run(
+                    lambda progress: self.manager.install(distro, progress),
+                    lambda _: self.refresh_then_start(),
+                )
             return
         try:
             project = self.collect()
@@ -900,9 +1104,24 @@ class MainWindow(QMainWindow):
             return
         self.activity(check(project, distro, self.registry).text())
 
+        payload = simulation_config(
+            self.model, self.independent_positions(), project.execution, project.runtime
+        )
+        self.motion.stop()
+
         def done(identifier):
             self.container_id = identifier
             self.mode = "ros"
+            self.last_ros_clock = None
+            self.ros_lease = self.state_manager.activate_source(
+                "ros_simulation"
+                if project.execution.profile == "managed_simulation"
+                else "external_simulation",
+                project.execution.state_topic,
+            )
+            self.robot_panel.joint_controls.setEnabled(False)
+            self.robot_panel.profile.setEnabled(False)
+            self.monitor.source.setCurrentIndex(0)
             self.monitor.mode.setText(
                 f"ROS CONTAINER DEMO · Real ROS {distro.title()} messages from simulated publishers. No hardware is connected."
             )
@@ -910,13 +1129,110 @@ class MainWindow(QMainWindow):
             self.attach_transport(
                 RosbridgeTransport(f"ws://127.0.0.1:{project.runtime.port}", self)
             )
+            self.ros_execution.connect_backend(
+                self.transport, self.model, project.execution, payload, self.ros_lease
+            )
+            self.ros_start_deadline.start(20000)
+            self.motion.backend_choice.blockSignals(True)
+            self.motion.backend_choice.setCurrentIndex(1)
+            self.motion.backend_choice.blockSignals(False)
             self.runtime.container_status.setText(
                 f"{distro.title()} · {identifier[:12]} · starting"
             )
             self.monitor.container.setText(f"Container: {identifier[:12]}\nHealthcheck starting")
             self.activity(f"Started owned container {identifier[:12]}")
 
-        self.runner.run(lambda _: self.manager.start(distro, project.id, project.runtime), done)
+        self.runner.run(
+            lambda _: self.manager.start(distro, project.id, project.runtime, robot_config=payload),
+            done,
+        )
+
+    def refresh_then_start(self):
+        self.runner.run(
+            lambda _: self.manager.status(), lambda status: self._start_with_status(status)
+        )
+
+    def _start_with_status(self, status):
+        self.docker_status = status
+        self.start_ros()
+
+    def ros_start_failed(self):
+        if self.mode != "ros" or self.ros_execution.ready():
+            return
+        if self.runner.busy:
+            QTimer.singleShot(100, self.ros_start_failed)
+            return
+        self.transport_error(
+            "ROS startup failed: no fresh robot state / simulation controller. Returning to Offline Demo."
+        )
+        self.request_offline()
+
+    def execution_changed(self, status):
+        if self.ros_execution.ready():
+            self.ros_start_deadline.stop()
+        if not hasattr(self, "motion"):
+            return
+        self.motion.task_status.setText("ROS Simulation · " + status)
+        self.runtime.execution_status.setText(
+            f"Robot State: {'available' if not self.state_manager.stale() else 'missing/stale'} · Controller: {'available' if self.ros_execution.controller else 'unavailable'} · Execution: {status}"
+        )
+        r = self.project.runtime
+        self.runtime.dds_status.setText(
+            f"ROS_DOMAIN_ID: {r.domain_id} · {r.middleware} · {r.network} · namespace {r.namespace or '/'}"
+        )
+        self.robot_panel.joint_controls.setEnabled(
+            self.mode == "offline" and self.motion.backend.status != "playing"
+        )
+        if self.ros_execution.plan:
+            total = self.ros_execution.plan.duration
+            self.motion.progress.setValue(
+                round(self.ros_execution.elapsed / total * 100) if total else 0
+            )
+            self.motion.steps.selectRow(
+                min(self.ros_execution.index, self.motion.steps.rowCount() - 1)
+            )
+            from PySide6.QtWidgets import QTableWidgetItem
+
+            for row in range(min(self.motion.steps.rowCount(), len(self.ros_execution.plan.steps))):
+                text = (
+                    "Completed"
+                    if row < self.ros_execution.index
+                    else status
+                    if row == self.ros_execution.index
+                    else "Pending"
+                )
+                self.motion.steps.setItem(row, 3, QTableWidgetItem(text))
+        state = self.state_manager.snapshot()
+        if state and self.mode == "ros":
+            self.state_manager.execution(
+                status,
+                self.ros_execution.elapsed / self.ros_execution.plan.duration
+                if self.ros_execution.plan and self.ros_execution.plan.duration
+                else 0.0,
+            )
+            if getattr(self, "verification_stage", None) == "executing":
+                if status == "succeeded":
+                    self.verification_stage = "succeeded"
+                    self.verification_started = None
+                    self.settings.set(
+                        "verified_runtimes",
+                        dict(
+                            self.settings.get("verified_runtimes", {}),
+                            **{
+                                self.selected_distro: self.docker_status.image_ids.get(
+                                    self.selected_distro, ""
+                                )
+                            },
+                        ),
+                    )
+                    self.activity(
+                        "PASS: Docker, ROS graph, native action, observed end state, state manager, monitoring and viewer updated. Mode roundtrip remains a separate test."
+                    )
+                    self.refresh_runtime()
+                elif status in ("failed", "timeout", "cancelled"):
+                    self.verification_stage = "failed"
+                    self.verification_started = None
+                    self.activity("FAIL: ROS controller diagnostics " + status)
 
     def stop_ros(self, checked=False, after=None):
         if self.runner.busy:
@@ -926,6 +1242,8 @@ class MainWindow(QMainWindow):
                 after()
             return
         identifier = self.container_id
+        self.ros_execution.abort()
+        self.state_manager.activate_source("offline", "local simulation")
         self.detach_transport()
         self.verification_started = None
         self.connection_status("Stopping ROS container…")
@@ -938,9 +1256,7 @@ class MainWindow(QMainWindow):
             if after:
                 QTimer.singleShot(0, after)
             else:
-                self.mode = "stopped"
-                self.mode_status.setText("STOPPED")
-                self.connection_status("Disconnected")
+                self.start_offline()
 
         def failed(message):
             self.show_error("Container stop failed; container retained for retry: " + message)
@@ -1001,13 +1317,67 @@ class MainWindow(QMainWindow):
     def verify_demo(self):
         if not self.container_id or not self.transport:
             return
+        if self.project.execution.profile != "managed_simulation":
+            self.activity(
+                "SKIPPED: automatic diagnostic movement requires the managed simulation profile"
+            )
+            return
         self.verification_started = time.monotonic()
+        self.verification_stage = "waiting"
         self.verification_messages = set()
-        self.transport.subscribe("/studio/sine", "std_msgs/msg/Float64")
-        self.transport.subscribe("/joint_states", "sensor_msgs/msg/JointState")
         self.transport.refresh_graph()
-        self.monitor.choose_topic("/studio/sine")
-        self.activity("End-to-end verification running (20 second timeout)…")
+        self.monitor.source.setCurrentIndex(0)
+        self.activity(
+            "ROS diagnostics running: connection / graph / JointState / native action / observed movement (45 s)."
+        )
+
+    def run_controller_diagnostic(self):
+        from ros_robot_studio.motion.positions import PositionManager
+        from ros_robot_studio.motion.program import TaskCompiler
+        from ros_robot_studio.motion.schema import MotionTask, TaskStep
+
+        if (
+            not self.motion.chain
+            or self.monitor.nodes.count() == 0
+            or self.ros_execution.remote_busy
+        ):
+            return
+        current = self.independent_positions()
+        target = dict(current)
+        for name in self.motion.chain.active_joints:
+            lo, hi = self.motion.engine.bounds()[name]
+            delta = 0.01 if self.motion.engine.joints[name].kind != "prismatic" else 0.002
+            value = min(hi, max(lo, current[name] + delta))
+            if abs(value - current[name]) < delta / 2:
+                value = min(hi, max(lo, current[name] - delta))
+            if value != current[name]:
+                target[name] = value
+                break
+        if target == current:
+            self.activity("SKIPPED: no movable diagnostic joint")
+            self.verification_stage = "skipped"
+            self.verification_started = None
+            return
+        library = PositionManager()
+        out = library.capture_joint("Diagnostic move", self.motion.chain, target)
+        home = library.capture_joint("Diagnostic return", self.motion.chain, current)
+        library.add(out)
+        library.add(home)
+        task = MotionTask(
+            name="ROS simulation diagnostics",
+            steps=[
+                TaskStep(action="move_joint", position_id=out.id),
+                TaskStep(action="move_joint", position_id=home.id),
+            ],
+        )
+        plan = TaskCompiler(self.motion.chain, library).compile(task, current)
+        try:
+            self.verification_stage = "executing"
+            self.ros_execution.execute(plan)
+        except ValueError as exc:
+            self.verification_stage = "failed"
+            self.verification_started = None
+            self.transport_error(str(exc))
 
     def remove_runtime(self):
         if self.runner.busy:
@@ -1126,10 +1496,13 @@ class MainWindow(QMainWindow):
             self.dirty = False
             self.stop_ros(after=self.close)
             return
+        self.closed = True
+        self.ros_execution.disconnect_backend()
         self.motion.shutdown()
         self.timer.stop()
         self.health_timer.stop()
         self.detach_transport()
         if self.monitor.plot.plotItem is not None:
             self.monitor.plot.close()
+        self.monitor.robot_state.plot.close()
         event.accept()

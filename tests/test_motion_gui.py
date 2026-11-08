@@ -182,3 +182,61 @@ def test_desktop_starts_without_optional_scipy(qtbot, tmp_path, monkeypatch):
     assert not w.motion.install_button.isHidden()
     w.dirty = False
     w.close()
+
+
+def test_shared_monitoring_follows_manual_ik_and_playback(window, qtbot):
+    w = window
+    motion = w.motion
+    assert w.monitor.source.currentIndex() == 0
+    spin = w.robot_panel.joint_controls.controls["axis_x"][1]
+    spin.setValue(0.07)
+    assert w.state_manager.snapshot().positions["axis_x"] == 0.07
+    assert w.monitor.robot_state.state.positions["axis_x"] == 0.07
+    assert w.monitor.robot_state.table.item(0, 2).text() == "N/A"
+    motion.pose_editor.values[0].setValue(80)
+    motion.pose_editor.values[2].setValue(150)
+    motion.calculate_ik()
+    qtbot.waitUntil(lambda: not motion.runner.busy)
+    before = w.state_manager.snapshot()
+    motion.preview_ik()
+    assert w.state_manager.snapshot() is before
+    motion.apply_ik()
+    assert w.state_manager.snapshot().positions["axis_x"] == pytest.approx(0.08, abs=0.0001)
+    motion.compile_task(True)
+    qtbot.waitUntil(lambda: not motion.runner.busy)
+    qtbot.wait(180)
+    state = w.state_manager.snapshot()
+    assert state.source == "offline trajectory" and state.velocities is not None
+    assert w.monitor.robot_state.state.positions == state.positions
+    assert w.robot_panel.view.values["axis_x"] == state.positions["axis_x"]
+    assert len(w.monitor.robot_state.buffer.samples) > 2
+    motion.pause()
+    assert w.state_manager.snapshot().execution_status == "paused"
+    positions = dict(w.state_manager.snapshot().positions)
+    qtbot.wait(120)
+    assert w.state_manager.snapshot().positions == positions
+    motion.pause()
+    motion.stop()
+    assert w.state_manager.snapshot().execution_status == "stopped"
+
+
+def test_ros_settings_mapping_and_network_opt_in(window, qtbot):
+    from ros_robot_studio.gui.ros_settings import ROSSettingsDialog
+
+    dialog = ROSSettingsDialog(window.project, window.model)
+    qtbot.addWidget(dialog)
+    runtime, execution = dialog.values()
+    assert (
+        execution.joint_mapping["axis_x"] == "axis_x" and not execution.hardware_execution_enabled
+    )
+    dialog.network.setCurrentText("host")
+    with pytest.raises(ValueError):
+        dialog.values()
+    dialog.profile.setCurrentText("external_simulation")
+    dialog.confirm.setChecked(True)
+    dialog.host_confirm.setChecked(True)
+    runtime, execution = dialog.values()
+    assert runtime.network == "host" and execution.external_simulation_confirmed
+    dialog.mapping.item(1, 1).setText(dialog.mapping.item(0, 1).text())
+    with pytest.raises(ValueError):
+        dialog.values()

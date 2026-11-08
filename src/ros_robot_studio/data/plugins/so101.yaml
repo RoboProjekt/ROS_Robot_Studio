@@ -1,18 +1,24 @@
 {
   "id": "so101",
-  "name": "SO-101 Follower \u00b7 offline model",
+  "name": "SO-101 Follower \u00b7 URDF model",
   "kind": "robot",
-  "description": "Original pinned new_calib follower URDF and STL model. Offline FK, joint controls and mesh viewer implemented. ROS drivers, hardware and Isaac Sim are not configured.",
+  "description": "Original pinned new_calib follower URDF/STLs. Universal FK/IK, offline playback and managed ROS simulation are verified. Physical hardware drivers, calibration and Isaac scene mapping remain unconfigured.",
   "capabilities": [
     "offline-viewer",
     "urdf-meshes",
     "forward-kinematics",
-    "virtual-joint-control"
+    "virtual-joint-control",
+    "universal-kinematics",
+    "ros-simulation"
   ],
   "hardware": [
     "SO-101"
   ],
-  "distributions": [],
-  "version": "0.2.0",
+  "distributions": [
+    "humble",
+    "jazzy",
+    "lyrical"
+  ],
+  "version": "0.3.0",
   "status": "implemented"
 }

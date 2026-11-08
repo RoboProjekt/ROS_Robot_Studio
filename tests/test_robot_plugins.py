@@ -42,13 +42,14 @@ def test_plugins_and_compatibility():
     assert not registry.errors
     assert registry.plugins["so101"].status == "implemented"
     assert "offline-viewer" in registry.plugins["so101"].capabilities
-    assert registry.plugins["so101"].distributions == []
+    assert registry.plugins["so101"].distributions == ["humble", "jazzy", "lyrical"]
+    assert "ros-simulation" in registry.plugins["so101"].capabilities
     project = demo_project()
     assert check(project, "jazzy", registry).compatible
     project.robot.profile = "so101"
     report = check(project, "jazzy", registry)
-    assert not report.compatible
-    assert "unverified" in report.text()
+    assert report.compatible
+    assert "hardware execution is not certified" in report.text()
     assert project.default_ros == "humble"
 
 
