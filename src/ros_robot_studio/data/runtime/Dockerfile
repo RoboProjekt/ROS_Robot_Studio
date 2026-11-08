@@ -12,6 +12,7 @@ COPY fastdds_udp.xml /opt/studio/fastdds_udp.xml
 COPY fastdds_localhost.xml /opt/studio/fastdds_localhost.xml
 COPY demo_nodes.py /opt/studio/demo_nodes.py
 COPY entrypoint.sh /opt/studio/entrypoint.sh
+COPY studio_bridge.launch.py /opt/studio/studio_bridge.launch.py
 RUN chmod 755 /opt/studio/entrypoint.sh && useradd --create-home --uid 10001 studio
 USER studio
 ENV HOME=/home/studio

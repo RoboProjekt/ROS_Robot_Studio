@@ -230,6 +230,7 @@ class RuntimeManager:
                     "ROS_DOMAIN_ID": str(config.domain_id),
                     "RMW_IMPLEMENTATION": config.middleware,
                     "RCUTILS_LOGGING_BUFFERED_STREAM": "1",
+                    "PYTHONFAULTHANDLER": "1",
                     "STUDIO_BRIDGE_PORT": str(config.port if config.network == "host" else 9090),
                     "STUDIO_BRIDGE_ADDRESS": "127.0.0.1" if config.network == "host" else "0.0.0.0",
                     "ROS_NAMESPACE": config.namespace,

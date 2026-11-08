@@ -1,5 +1,6 @@
 #!/bin/bash
-set -e
+set -Ee
+trap 'studio_failure_code=$?; echo "STUDIO_RUNTIME_PROCESS_FAILED exit=$studio_failure_code line=$LINENO" >&2' ERR
 source "/opt/ros/${ROS_DISTRO}/setup.bash"
 for attempt in $(seq 1 300); do
   if [[ -f /tmp/studio_robot.json ]]; then break; fi
@@ -17,7 +18,7 @@ if [[ "$profile" == managed_simulation ]]; then
   python3 /opt/studio/demo_nodes.py &
   pids+=($!)
 fi
-ros2 launch rosbridge_server rosbridge_websocket_launch.xml port:=${STUDIO_BRIDGE_PORT:-9090} address:=${STUDIO_BRIDGE_ADDRESS:-0.0.0.0} &
+ros2 launch /opt/studio/studio_bridge.launch.py &
 pids+=($!)
 cleanup() {
   kill -TERM "${pids[@]}" 2>/dev/null || true
