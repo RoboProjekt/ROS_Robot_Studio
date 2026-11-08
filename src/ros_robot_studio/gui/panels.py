@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QSplitter,
     QTableWidget,
     QTableWidgetItem,
+    QTabWidget,
     QTextEdit,
     QToolButton,
     QTreeWidget,
@@ -38,6 +39,7 @@ from ros_robot_studio.ros_bridge.transport import SampleBuffer, numeric_fields
 
 
 class RobotPanel(QWidget):
+    robot_changed = Signal(object, object)
     changed = Signal()
     import_requested = Signal()
     example_requested = Signal()
@@ -84,6 +86,9 @@ class RobotPanel(QWidget):
         self.renderer_status = label("Kinematic structure", "subtitle", True)
         self.view.renderer_changed.connect(self.renderer_status.setText)
         view_layout.addWidget(self.renderer_status)
+        view_layout.addWidget(
+            label("Collision checking not available – preview only", "warning", True)
+        )
         view_layout.addWidget(label("VIRTUAL JOINTS  /  no hardware commands", "eyebrow"))
         self.joint_controls = JointControls()
         self.joint_controls.configuration_changed.connect(self.joints_edited)
@@ -152,7 +157,9 @@ class RobotPanel(QWidget):
         self.tree.currentItemChanged.connect(self.focus_joint)
         structure_layout.addWidget(self.tree)
         side.addWidget(structure, 1)
-        splitter.addWidget(details)
+        self.detail_tabs = QTabWidget()
+        self.detail_tabs.addTab(details, "Robot model")
+        splitter.addWidget(self.detail_tabs)
         splitter.setSizes([850, 500])
         layout.addWidget(splitter, 1)
         integrations, integration_layout = card(
@@ -281,6 +288,7 @@ class RobotPanel(QWidget):
         self.refresh_model_info()
         self.loading = previous_loading
         self.update_pose()
+        self.robot_changed.emit(robot, model)
 
     def set_model(self, model, values=None):
         self.view.set_model(model)

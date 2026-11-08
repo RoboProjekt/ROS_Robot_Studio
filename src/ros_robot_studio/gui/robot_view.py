@@ -31,6 +31,9 @@ class RobotView(QWidget):
         self.setMinimumSize(320, 230)
         self.gl_view = None
         self.mesh_items = []
+        self.object_item = None
+        self.object_transform = None
+        self.object_size = 0.02
         self.show_meshes = True
         self.show_axes = True
         self.end_effector = ""
@@ -50,6 +53,7 @@ class RobotView(QWidget):
         )
 
     def set_model(self, model):
+        self.set_virtual_object(None)
         self.model = model
         self.values = model.default_configuration()
         self._configure_scene()
@@ -156,6 +160,16 @@ class RobotView(QWidget):
             painter.drawEllipse(point, 8, 8)
             painter.setPen(QColor("#bacbdd"))
             painter.drawText(point + QPointF(14, 0), name)
+        if self.object_transform is not None:
+            corners = np.array(
+                list(product((-self.object_size / 2, self.object_size / 2), repeat=3))
+            )
+            points = corners @ self.object_transform[:3, :3].T + self.object_transform[:3, 3]
+            painter.setPen(QPen(QColor("#ffc15b"), 3))
+            for a in range(8):
+                for b in range(a + 1, 8):
+                    if (a ^ b) in (1, 2, 4):
+                        painter.drawLine(project(points[a]), project(points[b]))
         painter.setPen(QColor("#788fa9"))
         painter.drawText(18, self.height() - 20, self.renderer + "   /   metres")
         painter.setPen(QColor("#53d9bc"))
@@ -240,6 +254,51 @@ class RobotView(QWidget):
         if self.end_effector in transforms:
             self.ee_axes.setTransform(QMatrix4x4(*transforms[self.end_effector].flatten().tolist()))
         self.gl_view.update()
+
+    def set_virtual_object(self, transform, size=0.02):
+        """Display a nonphysical cube in URDF root coordinates, independently of FK."""
+        if self.gl_view and self.object_item and transform is not None and size == self.object_size:
+            self.object_transform = np.array(transform, dtype=float)
+            self.object_item.setTransform(QMatrix4x4(*self.object_transform.flatten().tolist()))
+            self.gl_view.update()
+            return
+        self.object_transform = None if transform is None else np.array(transform, dtype=float)
+        self.object_size = size
+        if self.gl_view:
+            if self.object_item:
+                self.gl_view.removeItem(self.object_item)
+                self.object_item = None
+            if transform is not None:
+                import pyqtgraph.opengl as gl
+
+                vertices = np.array(list(product((-size / 2, size / 2), repeat=3)))
+                faces = np.array(
+                    [
+                        [0, 1, 3],
+                        [0, 3, 2],
+                        [4, 6, 7],
+                        [4, 7, 5],
+                        [0, 4, 5],
+                        [0, 5, 1],
+                        [2, 3, 7],
+                        [2, 7, 6],
+                        [0, 2, 6],
+                        [0, 6, 4],
+                        [1, 5, 7],
+                        [1, 7, 3],
+                    ]
+                )
+                self.object_item = gl.GLMeshItem(
+                    vertexes=vertices,
+                    faces=faces,
+                    color=(1.0, 0.65, 0.15, 1.0),
+                    smooth=False,
+                    shader=studio_shader(),
+                    glOptions="opaque",
+                )
+                self.object_item.setTransform(QMatrix4x4(*self.object_transform.flatten().tolist()))
+                self.gl_view.addItem(self.object_item)
+        self.update()
 
     def set_end_effector(self, frame):
         self.end_effector = frame

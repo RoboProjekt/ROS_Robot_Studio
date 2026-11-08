@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 from ros_robot_studio.compatibility.checker import check
 from ros_robot_studio.core.models import Project, Robot
 from ros_robot_studio.core.settings import Settings, xdg_path
+from ros_robot_studio.gui.motion_workspace import MotionWorkspace
 from ros_robot_studio.gui.panels import MonitoringPanel, RobotPanel, RuntimePanel, SensorPanel
 from ros_robot_studio.gui.sensor_dialog import SensorDialog
 from ros_robot_studio.gui.theme import DARK, LIGHT
@@ -105,6 +106,7 @@ class MainWindow(QMainWindow):
         self.mode_status = label("OFFLINE / SIMULATED", "badge")
         self.statusBar().addPermanentWidget(self.mode_status)
         self.apply_theme()
+        self.motion = MotionWorkspace(self)
         self.apply_project()
         self.start_offline()
         self.timer = QTimer(self)
@@ -160,6 +162,8 @@ class MainWindow(QMainWindow):
         help_menu = self.menuBar().addMenu("Help")
         help_menu.addAction("Setup assistant", self.open_wizard)
         help_menu.addAction("Open demo project", self.open_demo)
+        help_menu.addAction("Open Pick-and-Place demo", self.open_pick_place_demo)
+        file_menu.addAction("Open Pick-and-Place demo", self.open_pick_place_demo)
         help_menu.addAction("About", self.about)
 
     def connect_panels(self):
@@ -220,6 +224,7 @@ class MainWindow(QMainWindow):
     def collect(self):
         result = self.project.model_copy(deep=True)
         self.robot_panel.collect(result)
+        self.motion.collect(result)
         result.monitoring.window_seconds = self.monitor.window.value()
         result.monitoring.topic = self.monitor.topic or result.monitoring.topic
         result.monitoring.fields = self.monitor.selected_fields() or self.monitor.restore_fields
@@ -231,6 +236,7 @@ class MainWindow(QMainWindow):
             self.distro.blockSignals(True)
             self.distro.setCurrentIndex(self.distro.findData(self.project.default_ros))
             self.distro.blockSignals(False)
+        self.motion.prepare_project_reload()
         self.robot_panel.set_project(self.project, self.model)
         self.sensor_panel.set_sensors(self.project.sensors)
         self.monitor.restore_monitoring(self.project.monitoring)
@@ -242,7 +248,7 @@ class MainWindow(QMainWindow):
         self.update_title()
 
     def confirm_discard(self):
-        if self.runner.busy:
+        if self.runner.busy or self.motion.runner.busy:
             self.statusBar().showMessage("Wait for the current operation to finish.", 4000)
             return False
         if self.dirty:
@@ -274,6 +280,37 @@ class MainWindow(QMainWindow):
         self.model = parse_urdf(EXAMPLE_URDF)
         self.apply_project()
         self.request_offline()
+
+    def open_pick_place_demo(self, checked=False, prefer_so101=True):
+        if not self.confirm_discard():
+            return
+        from ros_robot_studio.kinematics.solvers import KinematicsSolverManager
+        from ros_robot_studio.motion.demos import pick_place_demo
+
+        if not KinematicsSolverManager().catalog()[0].installed:
+            self.motion.install_support()
+            return
+        if prefer_so101 and self.model_manager.status("so101_follower").state != "installed":
+            answer = QMessageBox.question(
+                self,
+                "Pick-and-Place demo",
+                "Install the original SO-101 model first? Choose No to open the working generic offline demo.",
+            )
+            if answer == QMessageBox.StandardButton.Yes:
+                self.install_robot_model("so101_follower", after_demo=True)
+                return
+
+        def done(result):
+            self.project, self.model, _ = result
+            self.project_path = None
+            self.apply_project()
+            self.request_offline()
+            self.robot_panel.detail_tabs.setCurrentWidget(self.motion.program_panel)
+            self.motion.program_tabs.setCurrentIndex(1)
+
+        self.runner.run(
+            lambda progress: pick_place_demo(self.model_manager, prefer_so101, progress), done
+        )
 
     def save(self, checked=False, save_as=False):
         if self.runner.busy:
@@ -533,7 +570,7 @@ class MainWindow(QMainWindow):
         )
 
     def install_robot_model(
-        self, identifier, project_to_open=None, project_path=None, confirmed=False
+        self, identifier, project_to_open=None, project_path=None, confirmed=False, after_demo=False
     ):
         if self.runner.busy or identifier not in self.model_manager.catalog:
             return
@@ -585,7 +622,20 @@ class MainWindow(QMainWindow):
             close_progress()
             model, status = result
             self.robot_panel.set_catalog_status({identifier: status})
-            if project_to_open:
+            if after_demo:
+                from ros_robot_studio.motion.demos import pick_place_demo
+
+                def opened(result):
+                    self.project, self.model, _ = result
+                    self.project_path = None
+                    self.apply_project()
+                    self.robot_panel.detail_tabs.setCurrentWidget(self.motion.program_panel)
+                    self.motion.program_tabs.setCurrentIndex(1)
+
+                self.runner.run(
+                    lambda progress: pick_place_demo(self.model_manager, True, progress), opened
+                )
+            elif project_to_open:
                 self._open_loaded_project(project_to_open, model, project_path)
             else:
                 self._activate_catalog_model(identifier, model)
@@ -1056,6 +1106,13 @@ class MainWindow(QMainWindow):
         )
 
     def closeEvent(self, event):
+        if self.motion.runner.busy or (self.motion.wizard and self.motion.wizard.runner.busy):
+            self.motion.cancel_work()
+            if self.motion.wizard:
+                self.motion.wizard.cancel_event.set()
+            QTimer.singleShot(100, self.close)
+            event.ignore()
+            return
         if self.runner.busy:
             self.statusBar().showMessage("Wait for the background operation before closing.", 5000)
             event.ignore()
@@ -1069,6 +1126,7 @@ class MainWindow(QMainWindow):
             self.dirty = False
             self.stop_ros(after=self.close)
             return
+        self.motion.shutdown()
         self.timer.stop()
         self.health_timer.stop()
         self.detach_transport()

@@ -1,7 +1,10 @@
 """First-run setup: all downloads are explicit; offline use is always available."""
 
+import importlib.util
 import shutil
 import socket
+import subprocess
+import sys
 import uuid
 from pathlib import Path
 
@@ -145,6 +148,17 @@ class SetupWizard(QWizard):
                 True,
             )
         )
+        self.kinematics_status = label(
+            "SciPy bounded IK: "
+            + ("installed" if importlib.util.find_spec("scipy") else "optional component missing"),
+            "subtitle",
+            True,
+        )
+        layout.addWidget(self.kinematics_status)
+        self.kinematics_install = button(
+            "Install Universal Kinematics Support · SciPy 1.15.3", self.install_kinematics
+        )
+        layout.addWidget(self.kinematics_install)
         layout.addWidget(button("Refresh installed component status", self.component_status))
         row = QHBoxLayout()
         self.verify_distro = QComboBox()
@@ -333,6 +347,7 @@ class SetupWizard(QWizard):
         self.install_button.setEnabled(not busy and self.available)
         self.verify_button.setEnabled(not busy and self.available)
         self.offline_button.setEnabled(not busy)
+        self.kinematics_install.setEnabled(not busy)
         self.progress.setRange(0, 0 if busy else 1)
 
     def component_status(self):
@@ -346,6 +361,45 @@ class SetupWizard(QWizard):
             )
 
         self.runner.run(lambda _: self.manager.status(), done)
+
+    def install_kinematics(self):
+        if self.runner.busy:
+            return
+
+        def work(progress):
+            if sys.prefix == sys.base_prefix:
+                raise ValueError(
+                    "Restart with ./start.sh to use the local virtual environment before installing support"
+                )
+            progress("Installing pinned SciPy 1.15.3 into the current virtual environment…")
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pip",
+                    "install",
+                    "--disable-pip-version-check",
+                    "--no-deps",
+                    "--only-binary=:all:",
+                    "scipy==1.15.3",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+            if result.returncode:
+                raise ValueError(result.stderr[-4000:])
+            importlib.invalidate_caches()
+            return result.stdout[-4000:]
+
+        def done(output):
+            self.kinematics_status.setText(
+                "SciPy 1.15.3 installed. Confirm the robot chain to run FK / IK checks."
+            )
+            self.components.appendPlainText(output)
+            self.report_lines.append("Optional universal kinematics support installed")
+
+        self.runner.run(work, done)
 
     def verify_runtime(self):
         if self.runner.busy or self.verifying:

@@ -30,6 +30,11 @@ def main():
     parser.add_argument("--demo", action="store_true", help="Skip setup and start the offline demo")
     parser.add_argument("--project", type=Path)
     parser.add_argument(
+        "--pick-place-demo",
+        action="store_true",
+        help="Open the validated SO-101 or generic offline pick/place example",
+    )
+    parser.add_argument(
         "--robot", help="Select a catalog robot; downloads still require confirmation"
     )
     parser.add_argument(
@@ -49,9 +54,24 @@ def main():
     app.setOrganizationName("ROS Robot Studio")
     app.setStyle("Fusion")
     window = MainWindow(
-        Settings(), show_wizard=not (args.demo or args.screenshot or args.smoke_test)
+        Settings(),
+        show_wizard=not (args.demo or args.pick_place_demo or args.screenshot or args.smoke_test),
     )
     window.show()
+    if args.pick_place_demo:
+
+        def open_motion_demo():
+            if (
+                window.initial_model_check_pending
+                or window.runner.busy
+                or window.motion.runner.busy
+            ):
+                QTimer.singleShot(100, open_motion_demo)
+                return
+            window.dirty = False
+            window.open_pick_place_demo()
+
+        QTimer.singleShot(100, open_motion_demo)
     if args.robot:
 
         def choose_robot():

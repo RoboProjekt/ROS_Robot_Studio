@@ -81,9 +81,10 @@ class JointControls(QWidget):
             limit = QLabel(f"{lower * factor:.1f} … {upper * factor:.1f} {unit}")
             limit.setObjectName("subtitle")
             if joint.kind == "continuous":
-                limit.setText("continuous · ±180° preview")
+                spin.setRange(-1e9, 1e9)
+                limit.setText("continuous · slider ±180°")
                 spin.setToolTip(
-                    "The URDF has no physical limit. The offline control uses a ±180° display interval."
+                    "The URDF has no physical limit. Numeric values retain unwrapped turns; the slider spans ±180°."
                 )
             grid.addWidget(slider, row, 1)
             grid.addWidget(spin, row, 2)
@@ -126,7 +127,9 @@ class JointControls(QWidget):
             if slider_value is not None
             else display_value / factor
         )
-        updated = dict(self.values, **{name: max(lower, min(upper, value))})
+        if self.model and next(j for j in self.model.joints if j.name == name).kind != "continuous":
+            value = max(lower, min(upper, value))
+        updated = dict(self.values, **{name: value})
         try:
             self.set_configuration(updated)
         except ValueError as exc:
