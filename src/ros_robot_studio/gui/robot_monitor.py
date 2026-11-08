@@ -37,7 +37,9 @@ class RobotStatePanel(QWidget):
             ["JOINT / SI", "POSITION", "VELOCITY", "EFFORT", "STATUS"]
         )
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        for column, width in enumerate((170, 135, 135, 110, 125)):
+            self.table.setColumnWidth(column, width)
         self.table.verticalHeader().setDefaultSectionSize(25)
         self.table.setMinimumHeight(190)
         self.table.setMaximumHeight(245)
@@ -177,7 +179,9 @@ class RobotStatePanel(QWidget):
                 "OK" if state.valid and name in state.positions else "MISSING / INVALID",
             ]
             for col, text in enumerate(values):
-                self.table.setItem(row, col, QTableWidgetItem(text))
+                item = QTableWidgetItem(text)
+                item.setToolTip(text)
+                self.table.setItem(row, col, item)
         t = state.source_timestamp if state.source_timestamp is not None else state.timestamp
         if not self.paused and state.valid:
             basis = state.source_timestamp is not None
