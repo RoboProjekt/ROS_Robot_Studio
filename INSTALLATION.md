@@ -113,3 +113,35 @@ Geometrie vorgetäuscht. Kamera und alle Offline-Regler benötigen keine ROS-Ver
 eine grafische Paketzuordnung ist noch nicht vorhanden.
 
 Details, Originalquelle, Prüfsummen und Kalibrierkonvention: [SO101.md](docs/SO101.md).
+
+## ROS-Simulation und Dockerzugriff
+
+Die drei Studio-Runtimes können im Setup-Assistenten oder unter Project & Runtime
+installiert werden. Standard ist Humble; Jazzy und Lyrical bleiben eigenständige Images.
+Auf diesem Rechner wurden alle drei Images gebaut und echte Task-/Feedbacktests ausgeführt.
+
+Für regulären Dockerzugriff muss die Desktop-Sitzung die bewusst freigegebene Dockergruppe
+besitzen. Nach `sudo usermod -aG docker local-user` vollständig ab-/anmelden und Studio neu starten.
+Die Gruppe gewährt weitreichende Hostrechte. Rootless Docker ist eine Alternative.
+Studio ändert Gruppen oder Socketrechte nicht automatisch. Niemals den Socket weltweit öffnen.
+
+Ein bereits laufender Agent kann mit `NoNewPrivs` weder PolicyKit/sudo ausführen noch seine
+alten Gruppen neu laden. Während dieser Entwicklung hat der Benutzer deshalb vorübergehend
+`sudo setfacl -m u:local-user:rw /var/run/docker.sock` ausgeführt. Nach neuer Anmeldung kann diese
+zusätzliche ACL mit `sudo setfacl -x u:local-user /var/run/docker.sock` entfernt werden. Das sind
+bewusste Benutzeraktionen, keine automatische Installation oder Berechtigungsumgehung.
+
+Nach dem Start **Open Live ROS Demo** wählen. Die vorhandenen Buttons **Offline demo**,
+**Stop** und **Restart** verwalten Quellen und eigene Container wirklich. Datenquelle,
+Controller und Executing/Ready bleiben getrennt sichtbar. Manuelle Regler ändern keinen
+aktiven ROS-Zustand. Vor neuer Bewegung sind aktuelle JointStates und Controller nötig.
+
+Erläuterungen: [ROS Runtime](docs/ROS_RUNTIME.md), [Ausführung](docs/ROS_EXECUTION.md),
+[Abnahme und Fehlergrenzen](docs/ROS_RUNTIME_VERIFICATION.md). Isaac Sim 5.1 wurde im
+Dateisystem gefunden; eine konfigurierte SO-101-Szene ist nicht nachgewiesen. Sein Setup
+bleibt separat: [Isaac ROS Setup](docs/ISAAC_SIM_ROS_SETUP.md).
+
+Die Qt-Pakete PySide6, Addons, Essentials und Shiboken müssen gemeinsam Version **6.9.3**
+verwenden; `./start.sh --prepare-only` übernimmt den geprüften Lockstand. Historische
+6.8.3-Installationen werden ausschließlich in `.venv` aktualisiert. Details zur
+[GUI-Stabilisierung](docs/GUI_STABILITY_REPORT.md).

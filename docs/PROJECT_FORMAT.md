@@ -134,3 +134,22 @@ Benutzerpfade. Robotersignaturen und Framebindungen werden beim Import erhalten;
 Jointpositionen werden beim Aufruf abgewiesen, kartesische Ziele erneut gelöst. Berechnete
 IK-Kandidaten und Laufzeittrajektorien werden nicht als bereits gültige Ausführungsfreigaben
 persistiert. Nach Öffnen/Robotertausch wird vor Playback erneut kompiliert.
+
+## Optionale ROS-/Monitoring-Erweiterungen von v3
+
+`execution_backend` kann `offline` oder `ros2_simulation` speichern. `execution` enthält
+Simulationprofil, State-/Command-/Clock-/TF-Topics, Action, eindeutiges URDF→ROS-Mapping,
+Stale-/Start-/Goal-Toleranzen, externen Adapter und `use_sim_time`. Reale Hardware ist
+mit `hardware_execution_enabled: false` fest gesperrt. Ein gespeicherter Backendwunsch
+startet beim Öffnen keine ROS-Bewegung automatisch.
+
+`runtime` enthält zusätzlich `domain_id`, Middleware, Bridge-/explizites Hostnetzwerk,
+Namespace, Discovery, Fast-DDS-UDP und Bestätigung externer Netzwerkkommunikation.
+Hostnetzwerk erfordert ein ausdrücklich bestätigtes externes Simulationsprofil.
+`monitoring.source` ist `robot_state` (Standard) oder `signals`; `robot_fields` speichert
+die gewählten benannten Robotergrößen. Bestehende Topic-/Feldparameter bleiben erhalten.
+
+Alle Felder besitzen Defaults. v1/v2/v3-Projekte bleiben lesbar und Quellen werden beim
+Laden nicht verändert. Die Formatversion bleibt 3; ältere Programmstände mit strengem
+v3-Schema können die neuen Zusatzfelder nicht lesen. Aktive Leases, Controller-Verbindungen,
+Samples und Runtime-Goals sind ausschließlich Laufzeitdaten und werden nicht persistiert.

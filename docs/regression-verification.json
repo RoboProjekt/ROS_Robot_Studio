@@ -1,0 +1,36 @@
+{
+  "verified_at": "2026-11-08T11:55:33.042667+00:00",
+  "source_commit": "a59c03153068d8c498f27395ecb499a320aec77b",
+  "command": "env -u PYTHONPATH QT_QPA_PLATFORM=offscreen .venv/bin/pytest -q --run-docker --run-model-download -ra",
+  "passed": 137,
+  "failed": 0,
+  "skipped": 0,
+  "elapsed_seconds": 367.32,
+  "packages": {
+    "PySide6": "6.9.3",
+    "PySide6_Addons": "6.9.3",
+    "PySide6_Essentials": "6.9.3",
+    "shiboken6": "6.9.3",
+    "pyqtgraph": "0.13.7",
+    "numpy": "2.2.6",
+    "PyOpenGL": "3.1.9",
+    "scipy": "1.15.3"
+  },
+  "native_so101_cycles": 20,
+  "offscreen_so101_cycles": 20,
+  "offscreen_generic_cycles": 12,
+  "ros_distributions": [
+    "humble",
+    "jazzy",
+    "lyrical"
+  ],
+  "runtime_cycle": [
+    "humble",
+    "jazzy",
+    "lyrical",
+    "humble"
+  ],
+  "remaining_test_containers": 0,
+  "remaining_test_networks": 0,
+  "actual_isaac_sim": "NOT TESTED: no compatible SO-101 scene configured"
+}

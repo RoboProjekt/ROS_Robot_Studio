@@ -1,0 +1,20 @@
+{
+  "verified_at": "2026-11-08T11:53:26.598344+00:00",
+  "distribution": "lyrical",
+  "robot": "so101_follower",
+  "runtime_image": "ros-robot-studio/lyrical:0.1.0",
+  "image_id": "sha256:2250265f366b2fa92ddd039306ae181caa1e31581fa8464dc425b62d273b93eb",
+  "docker_access": true,
+  "ros_graph": true,
+  "native_action": true,
+  "task_steps": 13,
+  "jointstate_samples": 772,
+  "positions_velocities_consistent": true,
+  "offline_monitoring": true,
+  "mode_roundtrip_twice": true,
+  "cancel": true,
+  "runtime_diagnostics": true,
+  "old_source_rejected": true,
+  "hardware_access": false,
+  "isaac_sim": "NOT TESTED: no running compatible scene"
+}

@@ -2,12 +2,13 @@
 
 Eine startbare Desktop-Werkbank für ROS-2-Roboterprojekte. Der MVP bietet vier Tabs,
 URDF-Struktur- und Meshansicht, SO-101-Follower-Modellinstallation, virtuelle Gelenksteuerung,
-universelle URDF-basierte FK/IK, Teach-in, Pick-and-Place-Wizard, Offline-Trajektorien,
+universelle URDF-basierte FK/IK, Teach-in, Pick-and-Place-Wizard, Offline- und ROS-Simulation,
+einen gemeinsamen Robot State Manager mit synchronisierten Gelenktabellen/Kurven,
 Sensor- und TF-Konfiguration, portable YAML-Projekte und Live-Plots.
 Er funktioniert ohne Docker, ROS-Installation oder Roboterhardware.
 
 ![Pick-and-Place mit originalem SO-101 und virtuellem Objekt](docs/pick-place-editor.png)
-![Live Monitoring](docs/studio-monitoring.png)
+![Synchronisiertes ROS-Monitoring](docs/ros-live-monitoring-humble.png)
 
 ## Start unter Ubuntu 22.04
 
@@ -96,9 +97,35 @@ im Projektformat v3 gespeichert; v1/v2 bleiben ladbar. Alle Bewegungen sind kubi
 Gelenkraumtrajektorien; der Würfel folgt einer vereinfachten visuellen Greiferkopplung.
 
 **Collision checking not available – preview only.** Es gibt keine Hardwareausführung,
-Kollisionsprüfung, Kontaktphysik oder geradlinige kartesische Bahn. ROS-/Isaac-Ausführung
-sind vorbereitete Schnittstellen. [Bedienung und Grenzen](docs/KINEMATICS.md),
+Kollisionsprüfung, Kontaktphysik oder geradlinige kartesische Bahn. Isaac-Anbindung ist vorbereitet; ROS-Simulation ist inzwischen implementiert und geprüft. [Bedienung und Grenzen](docs/KINEMATICS.md),
 [aktueller Abschlussbericht](docs/KINEMATICS_REPORT.md).
+
+## Echte ROS-Simulation und gemeinsamer Roboterzustand
+
+**Project & Runtime → Open Live ROS Demo** startet die ausgewählte Humble-, Jazzy- oder
+Lyrical-Runtime. Fehlende Images werden nach Auswahl installiert. Der bestehende
+**Offline demo**-Button führt kontrolliert zurück; im Taskeditor dieselbe Backendwahl
+zwischen **Offline Preview** und **ROS Simulation** verwenden.
+
+Der gemeinsame State Manager synchronisiert Regler, FK, beide Viewer und **Robot State
+Monitoring**. Offline-Kurven zeigen die aktuelle Cubic-Position und analytische Geschwindigkeit;
+manuelle Posen zeigen Geschwindigkeit N/A. ROS-Ausführung nutzt einen echten nativen
+FollowJointTrajectory-Server im eigenen Docker-Container. Die Darstellung wird ausschließlich
+aus den empfangenen JointStates aktualisiert. Die alte Sinusdemo ist eine explizite zweite Ansicht.
+
+Alle drei Distributionen wurden mit originalem SO-101, 13 Taskschritten, Actionfeedback,
+Greifer, Monitoring, Abbruch und wiederholten Moduswechseln getestet. Die Runtimes sind lokal
+installiert. **Run ROS Runtime Diagnostics** prüft die aktive Simulation; Verified gilt nur für
+wirklich getestete Images. [Aktueller Bericht](docs/ROS_RUNTIME_VERIFICATION.md).
+
+Dockergruppenrechte erfordern nach Änderung eine neue Anmeldung. In dieser Entwicklung
+hat der Benutzer außerdem eine temporäre Benutzer-ACL freigegeben; Schritte zur regulären
+Einrichtung und Entfernung stehen in [ROS_RUNTIME.md](docs/ROS_RUNTIME.md).
+
+DDS/Topics/Joint-Mapping und explizites externes Simulationsprofil sind konfigurierbar.
+Der JointState-Kommandopfad wurde gegen einen ROS-Szenenemulator geprüft. Ein echter
+Isaac-Sim-SO-101-Szenentest bleibt offen; Lyrical/Isaac wird nicht als kompatibel behauptet.
+Kollisionsprüfung und reale Hardwareausführung bleiben deaktiviert.
 
 ## Stand und Grenzen
 
@@ -108,14 +135,19 @@ wiederhergestellt. **73 Tests bestanden (SO-101-Erweiterung vor Kinematik)**, dr
 Docker-Zugriffsrechte übersprungen. [Aktueller SO-101-Bericht](docs/SO101_REPORT.md).
 Der [Prüfbericht der Grundanwendung](docs/VERIFICATION.md) bleibt als historischer Stand erhalten.
 
-Humble, Jazzy und Lyrical besitzen implementierte Runtime-Buildpfade und rosbridge-
-Demoanbindung; tatsächliche ROS-Containerläufe bleiben hier ungeprüft. Das SO-101-Modell
+Der historische SO-101-Bericht entstand vor der ROS-Ausführung. Inzwischen sind Humble,
+Jazzy und Lyrical einschließlich echter nativer Actions und JointState-Rückkanal geprüft. Das SO-101-Modell
 benötigt diese Runtimes nicht. Hardware-/LeRobot-Ansteuerung, kalibrierte Joint-Mappings,
-Controller-/Hardwareausführung, Isaac Sim, TF-Publishing und Kamerakalibrierung sind noch offen.
+reale Hardwareausführung, Isaac-Szenenverbindung, TF-Publishing und Kamerakalibrierung sind noch offen.
 Sensorgrenzen sind **keine zertifizierten Sicherheitsfunktionen**.
 
 ## Dokumentation
 
+- [Aktuelle ROS-Runtime-Abnahme](docs/ROS_RUNTIME_VERIFICATION.md)
+- [Robot State Manager](docs/ROBOT_STATE_MANAGER.md)
+- [Synchronisiertes Monitoring](docs/LIVE_MONITORING.md)
+- [ROS-Ausführung](docs/ROS_EXECUTION.md)
+- [Isaac-Sim-ROS-Einrichtung](docs/ISAAC_SIM_ROS_SETUP.md)
 - [Installation und Fehlerbehebung](INSTALLATION.md)
 - [Architektur und Schnittstellen](ARCHITECTURE.md)
 - [Entwicklung, Tests und Docker-Builds](DEVELOPMENT.md)
@@ -129,3 +161,7 @@ Sensorgrenzen sind **keine zertifizierten Sicherheitsfunktionen**.
 
 Studio-Quellcode und der generische Beispielroboter stehen unter Apache-2.0. Qt und
 andere Abhängigkeiten behalten ihre jeweiligen Open-Source-Lizenzen.
+
+Die Desktop-Abhängigkeiten sind auf PySide6 **6.9.3** und PyQtGraph **0.13.7** gepinnt.
+Wiederholte Fenster-/OpenGL-/ROS-Callback-Freigabe wird mit eigenen Regressionstests geprüft:
+[Stabilitätsbericht](docs/GUI_STABILITY_REPORT.md).

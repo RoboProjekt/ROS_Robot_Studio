@@ -1,0 +1,16 @@
+{
+  "robot": "so101",
+  "cycles": 20,
+  "destroyed_windows": 20,
+  "opengl_cycles": 20,
+  "qt_platform": "xcb",
+  "pyside6": "6.9.3",
+  "shiboken6": "6.9.3",
+  "pyqtgraph": "0.13.7",
+  "numpy": "2.2.6",
+  "queued_ros_packets": "injected into actual transport; not a DDS test",
+  "pending_events_ignored": true,
+  "widget_leaks": 0,
+  "workers_joined": true,
+  "elapsed_seconds": 152.17
+}

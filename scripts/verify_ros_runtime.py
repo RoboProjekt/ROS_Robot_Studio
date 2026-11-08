@@ -59,6 +59,10 @@ def main():
             if args.screenshots:
                 QTest.qWait(180)
                 assert w.grab().save("docs/" + name + ".png")
+                if name.startswith("ros-live-monitoring"):
+                    assert w.monitor.robot_state.plot.grab().save(
+                        "docs/joint-position-velocity-graphs.png"
+                    )
 
         try:
             idle()

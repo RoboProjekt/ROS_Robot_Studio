@@ -1,0 +1,20 @@
+{
+  "verified_at": "2026-11-08T11:52:41.520233+00:00",
+  "distribution": "jazzy",
+  "robot": "so101_follower",
+  "runtime_image": "ros-robot-studio/jazzy:0.1.0",
+  "image_id": "sha256:73ff3e8b3ff1adc30631ad2327982eba74c198b59ce92b5a034d44f73440983a",
+  "docker_access": true,
+  "ros_graph": true,
+  "native_action": true,
+  "task_steps": 13,
+  "jointstate_samples": 764,
+  "positions_velocities_consistent": true,
+  "offline_monitoring": true,
+  "mode_roundtrip_twice": true,
+  "cancel": true,
+  "runtime_diagnostics": true,
+  "old_source_rejected": true,
+  "hardware_access": false,
+  "isaac_sim": "NOT TESTED: no running compatible scene"
+}

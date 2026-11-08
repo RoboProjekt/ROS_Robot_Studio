@@ -1,0 +1,51 @@
+{
+  "humble": {
+    "image": "ros-robot-studio/humble:0.1.0",
+    "image_id": "sha256:d14bbc582a83a8a0c94db79d1b2441f34846f599791a24141dfc6ac9048044a0",
+    "base": "ros:humble-ros-base-jammy",
+    "source_hash": "b230f63be058ca8f0a4bf4fbe63bf438881f33dbbe5da517cbe28289c6f868a7",
+    "size_bytes": 1171432012,
+    "verified_source": true,
+    "packages": {
+      "ros-humble-control-msgs": "4.9.0-1jammy.20260907.212955",
+      "ros-humble-rclpy": "3.3.22-1jammy.20260907.213431",
+      "ros-humble-rmw-fastrtps-cpp": "6.2.10-1jammy.20260907.210327",
+      "ros-humble-rosbridge-server": "2.0.8-1jammy.20260915.231214",
+      "ros-humble-sensor-msgs": "4.9.2-1jammy.20260907.212033",
+      "ros-humble-trajectory-msgs": "4.9.2-1jammy.20260907.212425"
+    }
+  },
+  "jazzy": {
+    "image": "ros-robot-studio/jazzy:0.1.0",
+    "image_id": "sha256:73ff3e8b3ff1adc30631ad2327982eba74c198b59ce92b5a034d44f73440983a",
+    "base": "ros:jazzy-ros-base-noble",
+    "source_hash": "b230f63be058ca8f0a4bf4fbe63bf438881f33dbbe5da517cbe28289c6f868a7",
+    "size_bytes": 1344569742,
+    "verified_source": true,
+    "packages": {
+      "ros-jazzy-control-msgs": "5.10.0-1noble.20260911.141005",
+      "ros-jazzy-rclpy": "7.1.12-1noble.20260912.162354",
+      "ros-jazzy-rmw-fastrtps-cpp": "8.4.4-1noble.20260911.100940",
+      "ros-jazzy-rosbridge-server": "2.7.1-1noble.20261006.035306",
+      "ros-jazzy-sensor-msgs": "5.3.8-1noble.20260911.140426",
+      "ros-jazzy-trajectory-msgs": "5.3.8-1noble.20260911.111503"
+    }
+  },
+  "lyrical": {
+    "image": "ros-robot-studio/lyrical:0.1.0",
+    "image_id": "sha256:2250265f366b2fa92ddd039306ae181caa1e31581fa8464dc425b62d273b93eb",
+    "base": "ros:lyrical-ros-base-resolute",
+    "source_hash": "b230f63be058ca8f0a4bf4fbe63bf438881f33dbbe5da517cbe28289c6f868a7",
+    "size_bytes": 1534456189,
+    "verified_source": true,
+    "packages": {
+      "ros-lyrical-control-msgs": "6.10.0-1resolute.20260915.052457",
+      "ros-lyrical-rclpy": "10.0.11-1resolute.20260915.061807",
+      "ros-lyrical-rmw-fastrtps-cpp": "9.4.10-1resolute.20260915.053043",
+      "ros-lyrical-rosbridge-server": "4.2.1-1resolute.20260915.083650",
+      "ros-lyrical-sensor-msgs": "5.9.3-1resolute.20260915.051912",
+      "ros-lyrical-trajectory-msgs": "5.9.3-1resolute.20260915.051919"
+    }
+  },
+  "docker_version": "29.9.3"
+}

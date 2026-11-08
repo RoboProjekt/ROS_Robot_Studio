@@ -1,0 +1,14 @@
+{
+  "versions": [
+    "humble",
+    "jazzy",
+    "lyrical",
+    "humble"
+  ],
+  "one_project_preserved": true,
+  "original_tasks_preserved": true,
+  "default_ros_preserved": true,
+  "native_action_diagnostics": true,
+  "final_mode": "offline",
+  "hardware_access": false
+}

@@ -6,7 +6,7 @@
 | --- | --- |
 | `app` | CLI, QApplication, rotierende strukturierte JSON-Logs |
 | `gui` | Vier Qt-Tabs, Assistent, Dialoge, Status, Worker, Theme und Strukturviewer |
-| `core` | Validierte Datenverträge und XDG-Einstellungen |
+| `core` | Validierte Datenverträge, unveränderliche RobotState-Snapshots, thread-sicherer State Manager, XDG-Einstellungen |
 | `projects` | Atomisches YAML-Speichern, Laden und URDF-Assetkopien |
 | `kinematics` | URDF-Ketten, Rang-/Konditionsanalyse, austauschbarer optionaler SciPy-IK-Solver |
 | `motion` | Framed Teach-in, versionierte Tasks, Pick-and-Place, kubische Trajektorien, Offline-Backend |
@@ -148,7 +148,8 @@ vervollständigt; es gibt keine zweite Kinematik im Viewer. Generische Demo-Nach
 
 `JointMappingAdapter` ist ein reiner Vertrag für spätere kalibrierte Umrechnungen.
 Die mitgelieferte unkalibrierte Implementierung verweigert jede Hardware-/ROS-Abbildung.
-Isaac Sim ist ausschließlich deklarative Planung (USD-Pfad null, Mapping unkonfiguriert).
+Das USD-Asset bleibt unkonfiguriert. Ein generischer externer ROS-Simulationsadapter ist
+inzwischen implementiert; seine konkrete Isaac-SO-101-Szene bleibt ungeprüft.
 Es werden keine Motorbefehle erzeugt, keine LeRobot-/Isaac-Bibliotheken installiert und
 keine Hardwaretreiber importiert.
 
@@ -172,7 +173,8 @@ MotionWorkspace / PickPlaceWizard / PositionManager
                   │
            ExecutionBackend
                   ├── OfflinePreviewBackend ─── bestehender RobotView + virtueller Würfel
-                  └── ROS 2 / Isaac Sim / Hardware: nur Erweiterungsverträge
+                  ├── ROS2ExecutionBackend ─── native rclpy-Actions im isolierten Container
+                  └── Isaac-Szenenabnahme / Hardware: offen bzw. gesperrt
 ```
 
 Numerische Suchläufe und vollständige Taskvalidierungen laufen im eigenen seriellen
@@ -189,3 +191,44 @@ Provider sind vorbereitet. Weitere Steuerstrukturen erfordern eine künftige Sch
 Erweiterung. Eine fremde Bibliothek kann keine Hardwarefreigabe aus einem IK-Erfolg ableiten.
 
 Ausführliche Konventionen, Algorithmusentscheidung und Grenzen: [KINEMATICS.md](docs/KINEMATICS.md).
+
+## Gemeinsamer Robot State und echte ROS-Simulation
+
+```text
+Joint controls / explicit IK Apply / OfflinePreviewBackend
+                           │
+                           ▼
+                  RobotStateManager ◀── Rosbridge JointStates
+                           │                         ▲
+                 Qt queued StateSignals             │
+                           │                  ROS simulator
+            ┌──────────────┼────────────┐            ▲
+       Robot config   existing viewers  Monitoring   │
+                                                   native ActionServer
+TaskCompiler → existing JointTrajectory → ROS converter → container ActionClient
+```
+
+`RobotStateManager` ist die einzige Zustandsautorität. Modellinstanz und Quellen-Lease
+verhindern alte Updates; Zeitstempel, Arrays, Namen, Mimic und Bounds werden geprüft.
+Rendercaches sind keine getrennten Bewegungsquellen. Fehlende Messgrößen bleiben N/A.
+Offline veröffentlicht analytische Cubic-Ableitungen. ROS-Tasks werden durch native
+FollowJointTrajectory-Actions ausgeführt; beide Viewer folgen ausschließlich Rückmeldungen.
+
+`ROS2ExecutionBackend` sequenziert denselben CompiledTask wie Offline. Das Gateway im
+Container übersetzt begrenzte Session-/Goal-Kommandos in rclpy-Actions. Publish, Goalannahme,
+Feedback, Result und beobachtete Zielwerte sind getrennte Zustände. Heartbeat, Timeouts,
+Abbruch und Quellenwechsel verhindern unbeabsichtigte Fortsetzung. Hardware bleibt gesperrt.
+
+Jede verwaltete Bridge-Sitzung hat ein eigenes Docker-Netz mit Ownership-Label; Stop
+entfernt nur dieses Netz. Gleichnamige ROS-Topics paralleler Sitzungen vermischen sich nicht.
+
+Der Runtime-Installer baut einen kuratierten kleinen Kontext aus gemeinsamem Parser,
+Interpolation und Controllercode. Ein Quellfingerabdruck erkennt veraltete Images.
+Verified verlangt tatsächlich ausgeführte native Action-/Feedbackdiagnose für die aktuelle
+Image-ID. Alle drei Distributionen wurden real getestet; Apt-Builds sind keine vollständigen Snapshots.
+
+Details: [Robot State Manager](docs/ROBOT_STATE_MANAGER.md), [ROS-Ausführung](docs/ROS_EXECUTION.md),
+[Monitoring](docs/LIVE_MONITORING.md), [Runtime](docs/ROS_RUNTIME.md).
+Die frühere Darstellung „ROS/Isaac nur vorbereitet“ in den Kinematik-Abschnitten beschreibt
+den Stand vor dieser Erweiterung. ROS-Simulation ist implementiert; echte Hardware und
+Isaac-Szenenabnahme bleiben getrennte, nicht freigegebene bzw. offene Arbeiten.

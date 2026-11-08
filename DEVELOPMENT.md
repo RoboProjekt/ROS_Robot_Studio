@@ -157,3 +157,61 @@ Paketierte direkt ladbare Projekte liegen unter `src/ros_robot_studio/data/examp
 Der Menü-/CLI-Einstieg baut dieselben Beispieldaten über `motion.demos.pick_place_demo`
 neu auf und validiert sie gegen die tatsächliche URDF. Modellbezogene Beispiel-Jointwerte
 sind Teach-in-Daten; Solver und Taskgenerator enthalten keine SO-spezifischen Algorithmen.
+
+## Robot State, ROS-Actions und echte Runtime-Abnahme
+
+```bash
+# Lokal / ohne Socket- und Dockerfreigabe:
+env -u PYTHONPATH QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q
+# Alle echten Runtime-/SO-101-Tasktests, nachdem die Images installiert wurden:
+env -u PYTHONPATH QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --run-docker --run-model-download -ra
+# Einzelne reale End-to-End-Abnahme:
+env -u PYTHONPATH QT_QPA_PLATFORM=offscreen .venv/bin/python scripts/verify_ros_runtime.py --distro humble
+# Native Screenshots und GUI-Abnahme:
+env -u PYTHONPATH QT_QPA_PLATFORM=xcb \
+  LD_LIBRARY_PATH="$PWD/.venv/native/usr/lib/x86_64-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+  .venv/bin/python scripts/verify_ros_runtime.py --distro humble --screenshots
+# Optionaler JointState-Kommandopfad, privater ROS-Szenenemulator (kein Isaac-Test):
+env -u PYTHONPATH QT_QPA_PLATFORM=offscreen .venv/bin/python scripts/verify_external_adapter.py
+```
+
+`test_robot_state.py` prüft Leases, Zeit, Namen, fehlende/ungültige Daten, Threadreihenfolge,
+FK und analytische Ableitungen. `test_ros_execution.py` prüft Cubic→ROS→Hermite-Gleichheit,
+Start-/Velocitylimits, Goalannahme, Fehler, Timeout, Abbruch und Feedback als Erfolgskriterium.
+`test_ros_integration.py` startet pro Distribution dieselbe echte GUI-/ROS-Teststrecke in
+einem separaten Prozess mit temporären Settings und ausschließlich eigenen Containern.
+Ein freier Loopback-Port wird gewählt. Ohne erforderliche Voraussetzungen wird mit Grund
+übersprungen; es gibt keine impliziten großen Downloads aus den Tests.
+
+Nach Änderungen an `data/runtime`, dem geteilten URDF-Parser, der Interpolation oder dem
+Controllerkern ändert sich `runtime_source_hash`. Vor erneuter ROS-Ausführung müssen die
+Images über Install Runtime aktualisiert werden. Die Paket-Layer bleiben im Docker-Buildcache.
+Quellfingerabdruck und echte Image-ID sind von Verified-Diagnose getrennt.
+
+Die neue Hauptansicht für Monitoring ist Robot State. Tests der alten Signalinspektion
+wählen die synthetische Ansicht ausdrücklich; sie dürfen kein unabhängiges Robotersinus-
+Playback als Standard erwarten. Das Projektformat bleibt v3 mit optionalen neuen Verträgen;
+alte v1/v2/v3-Dateien laden weiterhin. Runtimezustände und aktive Leases werden nicht gespeichert.
+
+## GUI-Lebensdauer und Qt-Version
+
+Die Desktop-venv verwendet gemeinsam gepinntes PySide6/Addons/Essentials/Shiboken **6.9.3**,
+PyQtGraph **0.13.7**, NumPy **2.2.6** und PyOpenGL **3.1.9**. Historische Berichte mit 6.8.3
+beschreiben frühere Abnahmen. Aktueller Befund und Begründung:
+[GUI_STABILITY_REPORT.md](docs/GUI_STABILITY_REPORT.md).
+
+```bash
+env -u PYTHONPATH .venv/bin/python -m pip check
+env -u PYTHONPATH QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q \
+  tests/test_gui_lifecycle.py --run-model-download
+env -u PYTHONPATH QT_QPA_PLATFORM=xcb \
+  LD_LIBRARY_PATH="$PWD/.venv/native/usr/lib/x86_64-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+  .venv/bin/python scripts/verify_gui_lifecycle.py --robot so101 --cycles 20 \
+  --report docs/gui-lifecycle-verification.json
+```
+
+Der Prozess-Timeout ist an die Zykluszahl gekoppelt: 20 originale SO-101-Wizard-/IK-
+Berechnungen können mit konkurrierenden Tests länger als 150 Sekunden dauern. Native
+Prüfungen validieren Framebuffer und Shaderprogramme in jedem neu erstellten Kontext.
+Die Tests lassen GC eingeschaltet, liefern nach Close noch gequeue-te Nachrichten aus,
+prüfen `DeferredDelete`, joinen die Threadpools und verlangen keine verbleibenden Widgets.

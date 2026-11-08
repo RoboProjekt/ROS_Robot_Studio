@@ -1,0 +1,8 @@
+{
+  "transport": "native FollowJointTrajectory \u2192 JointState commands \u2192 observed JointState feedback",
+  "scene": "private ROS emulator inside owned container",
+  "adapter": "IsaacSimROSAdapter",
+  "success": true,
+  "actual_isaac_sim": "NOT TESTED",
+  "hardware_access": false
+}

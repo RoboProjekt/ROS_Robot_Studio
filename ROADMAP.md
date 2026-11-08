@@ -23,7 +23,7 @@
   amd64-Manifeste, digestgebundener Build, Progress, Cache, eigene Container, Start,
   Stop, Restart, Logs, Healthchecks, begrenzte Ressourcen und loopbackgebundener Port.
 - Echte rclpy-Demo-Publisher und Subscriber im Container; Ende-zu-Ende-Prüfaktion
-  im Assistenten und Hauptfenster. Diese ROS-Läufe sind in dieser Umgebung ungetestet.
+  im Assistenten und Hauptfenster. Humble, Jazzy und Lyrical sind inzwischen real geprüft.
 - Single-file-Xacro-Verarbeitung im laufenden eigenen ROS-Container; ungetestet ohne Docker.
 - Deklarative Plugins mit Validierung und sichtbarem Kompatibilitäts-/Planungsstatus;
   Kompatibilitätsbericht und Schnittstelle für künftige regelbasierte Generierung.
@@ -41,10 +41,22 @@
 - Geprüfte SO101_PickAndPlace_Demo, generische 3P-Demo und Full-Pose-Test eines eigenen 6R-Arms.
 - Native GUI-Abnahme und Screenshots; [aktueller Bericht](docs/KINEMATICS_REPORT.md).
 
+## Implementierte ROS-Runtime und Synchronisierung
+
+- Gemeinsamer thread-sicherer Robot State Manager mit Modell-/Quellen-Leases und FK.
+- Robot-State-Monitoring als Standard, dynamische Gelenktabelle, kompakter Originalmodell-
+  Viewer, bounded Positions-/Velocity-/Effort-/Toolplots; Sinusdemo explizit ausgelagert.
+- Tatsächlich gebaute Humble-/Jazzy-/Lyrical-Runtimes; native FollowJointTrajectory-Action,
+  generischer ROS-Simulationscontroller und echte SO-101-Pick-and-Place-Rückmeldungen.
+- Wiederholter Demo/ROS-Wechsel, Abbruch, Heartbeat-/Zeit-/Startzustandsprüfung und
+  aktuelle Image-Fingerabdrücke. Verified nur nach tatsächlicher Diagnose.
+- Explizite externe Simulation, DDS-/Mappingdialog und optionaler JointState-Kommandopfad.
+  Dieser ist gegen einen ROS-Szenenemulator geprüft; echte Isaac-SO-101-Szene weiterhin offen.
+
 ## Nächste Arbeiten
 
-1. Auf einem Docker-fähigen Ubuntu-Rechner Humble bauen und Ende-zu-Ende-Tests ausführen;
-   danach Jazzy und Lyrical. Paketquellen, QoS, Starts und Stop-Verhalten real prüfen.
+1. Die inzwischen real geprüften Humble-/Jazzy-/Lyrical-Builds in CI wiederholen;
+   QoS, Netzunterbrechungen, größere Robotermodelle und langfristige Laufzeiten erweitern.
 2. Image-Builds in CI prüfen, Adapter-/Aptpakete über signierte Snapshots stärker pinnen,
    Paketverfügbarkeit und Gesamtdownloadgrößen zuverlässiger vorab ermitteln.
 3. Abbruch/Fortsetzen laufender Builds, Registry-Authentifizierung, Recovery und manuelles
@@ -66,16 +78,18 @@
 
 ## Bekannte Grenzen und Risiken
 
-- Kein nutzbarer Docker-Daemonzugriff in der Entwicklungsumgebung (zuletzt fehlende
-  Zugriffsrechte): keine tatsächlichen ROS-Image-Builds oder ROS-Containerläufe nachgewiesen. Registry-Verfügbarkeit allein beweist sie nicht.
-- HTTPS-Zertifikatsfehler beim zusätzlichen ROS-Binärpaketindex-Probeaufruf; keine
-  Zertifikatsprüfung wurde deaktiviert. Builds müssen die Paketquellen real bestätigen.
+- Der frühere Docker-Berechtigungsblocker wurde mit ausdrücklicher Benutzerfreigabe behoben.
+  Alle drei Runtimes sind real getestet. Bestehende Sitzungen benötigen nach Gruppenänderung
+  weiterhin eine neue Anmeldung; ein erfolgreicher Build allein bedeutet keine Verified-Abnahme.
+- Ein früherer zusätzlicher Host-Paketindex-Probeaufruf hatte einen TLS-Fehler. Die echten
+  Container-Builds haben inzwischen die signierten Paketquellen erfolgreich verwendet;
+  Zertifikatsprüfungen wurden nicht abgeschaltet.
 - OpenGL wird für tatsächliche Meshes benötigt; ohne Kontext wird nur die explizite
   Strukturansicht angezeigt. Floating-/Planar-Gelenke bleiben bei Nullpose. Benutzerimport
   unterstützt STL und einfache Primitive. Relative STL-Dateien werden beim Export kopiert,
   Katalogmodelle bleiben als feste model://-Referenzen im XDG-Datenverzeichnis.
 - Der SO-101-Offline-Modellpfad wurde mit Originaldateien und nativer 3D-GUI verifiziert.
-  Hardware-/ROS-/Isaac-Backends sind weiterhin unkonfiguriert. Weitere Katalogmodelle und
+  Hardware- und Isaac-Szenenverbindung sind weiterhin unkonfiguriert; ROS-Simulation ist implementiert. Weitere Katalogmodelle und
   eine mehrstufige Versionsauswahl benötigen zusätzliche überprüfte Manifeste.
 - Xacro-Includes vom Host, Paketauflösung und beliebige Xacro-Workspaces werden nicht
   automatisch übertragen. Lange Xacro-Verarbeitung besitzt noch keinen GUI-Abbruch.
@@ -98,3 +112,7 @@ Full Pose wird für den SO-101 bewusst nicht angeboten. Numerische IK kann lokal
 liefern und beweist keine globale Nichterreichbarkeit. Kamera-3D-Lokalisierung, dynamische
 TF-Provider, Sensortrigger, Schleifen und Verzweigungen bleiben offen. Details und
 Konventionen: [KINEMATICS.md](docs/KINEMATICS.md).
+
+ROS-Action-Pause/Resume ist noch nicht implementiert; Stop cancelt, anschließend wird neu
+geplant. Kollisionsprüfung, Hardwarefreigabe und kalibrierte Sim-to-Real-Mappings bleiben
+zukünftige Arbeiten. [Aktueller Bericht](docs/ROS_RUNTIME_VERIFICATION.md).
