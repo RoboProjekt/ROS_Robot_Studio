@@ -199,6 +199,7 @@ def main():
                 distribution=args.distro,
                 robot="so101_follower",
                 runtime_image=w.manager.specs[args.distro].image,
+                image_id=w.docker_status.image_ids.get(args.distro),
                 docker_access=True,
                 ros_graph=True,
                 native_action=True,
