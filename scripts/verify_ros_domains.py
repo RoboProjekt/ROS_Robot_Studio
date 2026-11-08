@@ -1,5 +1,6 @@
 """DDS isolation over a common host-loopback network, plus a read-only hardware fixture."""
 
+import argparse
 import io
 import json
 import tarfile
@@ -51,6 +52,14 @@ def archive(files):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--start-mode", choices=("overlapping", "sequential"), default="overlapping"
+    )
+    parser.add_argument(
+        "--report", type=Path, default=Path("docs/backend-domain-verification.json")
+    )
+    args = parser.parse_args()
     app = QApplication([])
     runtime = RuntimeManager()
     status = runtime.status()
@@ -69,6 +78,15 @@ def main():
     token = uuid4().hex[:12]
     state_topic = "/studio/testing_" + token + "/joint_states"
     command_topic = "/studio/testing_" + token + "/joint_command"
+
+    def ready(profile):
+        session = manager.sessions.get(profile.id)
+        expected = "/studio_fixture_" + token + "_" + str(profile.domain_id)
+        return bool(
+            session
+            and "joint_state_feedback" in session.capabilities.available
+            and expected in session.graph.get("nodes", [])
+        )
 
     def wait(predicate, timeout=40):
         deadline = time.monotonic() + timeout
@@ -102,6 +120,7 @@ def main():
                 network_mode="host",
                 environment={
                     "ROS_DOMAIN_ID": str(domain),
+                    "PYTHONFAULTHANDLER": "1",
                     "ROS_LOCALHOST_ONLY": "0",
                     "RMW_IMPLEMENTATION": "rmw_fastrtps_cpp",
                     "FASTRTPS_DEFAULT_PROFILES_FILE": "/opt/studio/fastdds_localhost.xml",
@@ -135,13 +154,9 @@ def main():
             profiles.append(profile)
             observed[domain] = []
             manager.connect_profile(profile.id)
-        wait(
-            lambda: len(manager.sessions) == 3
-            and all(
-                "joint_state_feedback" in s.capabilities.available and s.graph.get("nodes")
-                for s in manager.sessions.values()
-            )
-        )
+            if args.start_mode == "sequential":
+                wait(lambda: ready(profile))
+        wait(lambda: len(manager.sessions) == 3 and all(ready(profile) for profile in profiles))
         for _ in range(30):
             app.processEvents()
             QTest.qWait(30)
@@ -187,6 +202,28 @@ def main():
             assert code == 0
             counts.append(int(data))
         assert counts == [0, 0, 0]
+        health = {}
+        for profile in profiles:
+            session = manager.sessions[profile.id]
+            container = runtime._owned(client, session.container_id)
+            container.reload()
+            log = container.logs().decode(errors="replace")
+            stats = container.stats(stream=False, one_shot=True)
+            health[str(profile.domain_id)] = dict(
+                restarts=log.count("STUDIO_ROS_CHILD_RESTART"),
+                unexpected_exits=[
+                    line
+                    for line in log.splitlines()
+                    if "process has died" in line
+                    or "STUDIO_RUNTIME_PROCESS_FAILED" in line
+                    or "Fatal Python error" in line
+                    or "Segmentation fault" in line
+                ],
+                oom_killed=container.attrs["State"].get("OOMKilled", False),
+                memory_bytes=stats.get("memory_stats", {}).get("usage"),
+            )
+        distinct_endpoints = len({s.port for s in manager.sessions.values()}) == len(profiles)
+        assert distinct_endpoints
         manager.deactivate()
         manager.disconnect_all()
         wait(lambda: not manager.sessions and not manager.runner.busy)
@@ -203,10 +240,11 @@ def main():
             raw_publish_blocked=True,
             command_spy_counts=counts,
             hardware_access=False,
+            start_mode=args.start_mode,
+            distinct_endpoints=distinct_endpoints,
+            runtime_health=health,
         )
-        Path("docs/backend-domain-verification.json").write_text(
-            json.dumps(report, indent=2) + "\n"
-        )
+        args.report.write_text(json.dumps(report, indent=2) + "\n")
         print(json.dumps(report, indent=2), flush=True)
     except Exception:
         for profile in profiles:

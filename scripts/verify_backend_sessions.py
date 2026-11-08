@@ -18,11 +18,15 @@ from ros_robot_studio.motion.demos import pick_place_demo
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--screenshots", action="store_true")
+    parser.add_argument("--distro", choices=("humble", "jazzy", "lyrical"), default="humble")
+    parser.add_argument("--fault-injection", action="store_true")
     args = parser.parse_args()
     app = QApplication([])
     app.setStyle("Fusion")
     errors = []
     b_samples = []
+    fault_expected = [False]
+    expected_errors, a_goals, invalid_states, frozen_a_samples = [], [], [], []
     with tempfile.TemporaryDirectory(prefix="studio-backends-") as temp:
         w = MainWindow(Settings(Path(temp) / "settings.json"), show_wizard=False)
         w.runner.failed.disconnect()
@@ -30,7 +34,9 @@ def main():
         w.show_error = errors.append
         w.backend_manager.failed.disconnect()
         w.backend_manager.failed.connect(errors.append)
-        w.ros_execution.error.connect(errors.append)
+        w.ros_execution.error.connect(
+            lambda message: (expected_errors if fault_expected[0] else errors).append(message)
+        )
         w.show()
 
         def wait(predicate, timeout=45):
@@ -38,7 +44,7 @@ def main():
             while not predicate():
                 app.processEvents()
                 QTest.qWait(15)
-                assert not errors, errors
+                assert not errors, tuple(errors)
                 assert time.monotonic() < end, w.runtime.output.toPlainText()[-2500:]
 
         def idle():
@@ -56,8 +62,12 @@ def main():
             w.apply_project()
             idle()
             manager = w.backend_manager
-            a = manager.add(new_profile("ros_demo", name="ROS Demo A", domain_id=10))
-            b = manager.add(new_profile("ros_demo", name="ROS Demo B", domain_id=11))
+            a = manager.add(
+                new_profile("ros_demo", name="ROS Demo A", domain_id=10, distribution=args.distro)
+            )
+            b = manager.add(
+                new_profile("ros_demo", name="ROS Demo B", domain_id=11, distribution=args.distro)
+            )
             w.start_profile_ros(a.id)
             w.start_profile_ros(b.id)
             wait(
@@ -84,6 +94,82 @@ def main():
                 all(abs(q[n] - value) < 1e-8 for n, value in before.items()) for q in b_samples
             )
             manager.changed.disconnect(record)
+            if args.fault_injection:
+                command_topic = sa.payload["control_namespace"] + "/command"
+
+                def command_seen(topic, message):
+                    if topic == command_topic:
+                        command = json.loads(message.get("data", "{}"))
+                        if command.get("operation") == "goal":
+                            a_goals.append(command["id"])
+
+                sa.transport.message.connect(command_seen)
+                sa.transport.subscribe(command_topic, "std_msgs/msg/String")
+                w.state_manager.subscribe(
+                    lambda state: invalid_states.append(state.valid) if fault_expected[0] else None
+                )
+                initial_a = dict(w.state_manager.snapshot().positions)
+                w.motion.compile_task(True)
+                wait(lambda: not w.motion.runner.busy)
+                wait(
+                    lambda: w.ros_execution.status == "executing"
+                    and any(
+                        abs(w.state_manager.snapshot().positions[n] - q) > 0.03
+                        for n, q in initial_a.items()
+                    )
+                )
+                wait(lambda: bool(a_goals))
+                goals_before = len(a_goals)
+                fault_expected[0] = True
+                fault_started = time.monotonic()
+                client = w.manager.client_factory()
+                try:
+                    container = w.manager._owned(client, sa.container_id)
+                    code, output = container.exec_run(
+                        [
+                            "python3",
+                            "-c",
+                            """import glob,os,signal
+found=[]
+for p in glob.glob('/proc/[0-9]*/cmdline'):
+ try:
+  if any(a.endswith(b'/lib/rosbridge_server/rosbridge_websocket') for a in open(p,'rb').read().split(b'\\0')[:2]):found.append(int(p.split('/')[2]))
+ except OSError:pass
+assert len(found)==1,found
+os.kill(found[0],signal.SIGKILL)
+""",
+                        ]
+                    )
+                    assert code == 0, output
+                finally:
+                    client.close()
+                wait(
+                    lambda: w.ros_execution.status == "failed"
+                    and w.ros_execution.reconnect_required
+                )
+                failure_detected_seconds = time.monotonic() - fault_started
+                assert not w.ros_execution.ready() and expected_errors
+                assert expected_errors[-1] in w.runtime.output.toPlainText()
+                wait(
+                    lambda: sa.transport.connected
+                    and sa.controller_available
+                    and sa.controller_time > fault_started
+                    and not sa.remote_busy
+                )
+                QTest.qWait(500)
+                assert len(a_goals) == goals_before
+                assert w.ros_execution.status == "failed" and not w.ros_execution.ready()
+                assert False in invalid_states
+                assert w.state_manager.backend_snapshot(b.id).positions == before
+                frozen_a = dict(w.state_manager.backend_snapshot(a.id).positions)
+
+                def record_a():
+                    state = w.state_manager.backend_snapshot(a.id)
+                    if state and state.valid:
+                        frozen_a_samples.append(dict(state.positions))
+
+                manager.changed.connect(record_a)
+                fault_expected[0] = False
             w.open_backend_connections()
             if args.screenshots:
                 QTest.qWait(150)
@@ -100,7 +186,16 @@ def main():
                     for n, v in before.items()
                 )
             )
-            w.motion.stop()
+            if args.fault_injection:
+                wait(lambda: w.ros_execution.status == "succeeded")
+                assert len(a_goals) == goals_before
+                assert frozen_a_samples and all(
+                    all(abs(q[n] - value) < 1e-8 for n, value in frozen_a.items())
+                    for q in frozen_a_samples
+                )
+                manager.changed.disconnect(record_a)
+            else:
+                w.motion.stop()
             wait(lambda: not w.ros_execution.remote_busy)
             assert w.state_manager.snapshot().backend_id == b.id
             assert w.robot_panel.view.values == {
@@ -129,6 +224,7 @@ def main():
             wait(lambda: not manager.sessions and not w.runner.busy)
             report = dict(
                 domains=[10, 11],
+                distribution=args.distro,
                 robot="so101_follower",
                 distinct_ports=True,
                 distinct_containers=True,
@@ -144,9 +240,26 @@ def main():
                 hardware_access=False,
                 network="separate owned private bridges; DDS-domain isolation tested separately",
             )
-            Path("docs/backend-session-verification.json").write_text(
-                json.dumps(report, indent=2) + "\n"
+            if args.fault_injection:
+                report.update(
+                    bridge_killed_during_motion=True,
+                    task_failed_immediately=True,
+                    stale_state_observed=True,
+                    reconnect_does_not_resume_task=True,
+                    backend_switch_after_crash=True,
+                    other_backend_task_succeeded=True,
+                    failed_backend_unchanged_while_other_executes=True,
+                    no_new_goals_after_failure=True,
+                    failure_detected_seconds=failure_detected_seconds,
+                    gui_error_visible=True,
+                    expected_errors=expected_errors,
+                )
+            report_path = Path(
+                f"docs/backend-failure-{args.distro}-verification.json"
+                if args.fault_injection
+                else "docs/backend-session-verification.json"
             )
+            report_path.write_text(json.dumps(report, indent=2) + "\n")
             print(json.dumps(report, indent=2), flush=True)
         finally:
             errors.clear()

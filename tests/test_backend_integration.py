@@ -10,7 +10,7 @@ from ros_robot_studio.backends.isaac import IsaacSimInstallationManager
 from ros_robot_studio.runtime.manager import RuntimeManager
 
 
-def run(script, report, timeout):
+def run(script, report, timeout, arguments=()):
     status = RuntimeManager().status()
     if not status.available or "humble" not in status.installed:
         pytest.skip("Current managed Humble image and Docker access required")
@@ -20,7 +20,7 @@ def run(script, report, timeout):
     )
     environment.pop("PYTHONPATH", None)
     result = subprocess.run(
-        [sys.executable, str(root / "scripts" / script)],
+        [sys.executable, str(root / "scripts" / script), *arguments],
         cwd=root,
         env=environment,
         capture_output=True,
@@ -54,3 +54,19 @@ def test_real_isaac_so101_task_and_feedback():
     assert report["task_status"] == "succeeded" and report["task_steps"] == 13
     assert report["real_jointstate_samples"] > 20
     assert report["scene"]["urdf_unmodified"]
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("distro", ["humble", "jazzy", "lyrical"])
+def test_motion_failure_and_backend_switch_do_not_resume_old_goal(distro):
+    if distro not in RuntimeManager().status().installed:
+        pytest.skip("Current managed runtime required")
+    report = run(
+        "verify_backend_sessions.py",
+        f"backend-failure-{distro}-verification.json",
+        180,
+        ("--distro", distro, "--fault-injection"),
+    )
+    assert report["reconnect_does_not_resume_task"]
+    assert report["other_backend_task_succeeded"]
+    assert report["failed_backend_unchanged_while_other_executes"]
