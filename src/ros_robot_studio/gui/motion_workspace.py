@@ -146,13 +146,22 @@ class MotionWorkspace(QObject):
         self.solver.addItem("Automatic · SciPy bounded IK", "auto")
         for descriptor in KinematicsSolverManager().catalog():
             self.solver.addItem(descriptor.name, descriptor.id)
-            if not descriptor.implemented:
-                self.solver.model().item(self.solver.count() - 1).setEnabled(False)
+            self.solver.setItemData(
+                self.solver.count() - 1,
+                "Available"
+                if descriptor.implemented and descriptor.installed
+                else "Not implemented"
+                if not descriptor.implemented
+                else "Dependency missing",
+                Qt.ItemDataRole.ToolTipRole,
+            )
         form.addRow("Base frame", self.base)
         form.addRow("End-effector frame", self.end)
         form.addRow("Gripper joint", self.gripper)
         form.addRow("Offline solver", self.solver)
         setup_body.addLayout(form)
+        self.solver_info = label("", "subtitle", True)
+        setup_body.addWidget(self.solver_info)
         setup_body.addWidget(label("Active arm joints (gripper excluded)", "subtitle"))
         self.active = QListWidget()
         self.active.setMaximumHeight(140)
@@ -176,7 +185,7 @@ class MotionWorkspace(QObject):
         for combo in (self.base, self.end, self.gripper):
             combo.currentIndexChanged.connect(self.chain_selection_changed)
         self.active.itemChanged.connect(self.config_edited)
-        self.solver.currentIndexChanged.connect(self.config_edited)
+        self.solver.currentIndexChanged.connect(self.solver_selected)
         for spin in (self.position_tolerance, self.angle_tolerance, self.starts):
             spin.valueChanged.connect(self.options_edited)
         layout.addWidget(label(COLLISION_NOTICE, "warning", True))
@@ -462,6 +471,7 @@ class MotionWorkspace(QObject):
             + "\n".join(analysis.notes)
         )
         self.kinematics_ready = bool(test and test.success and self.config.confirmed)
+        self.solver_selected()
         status = (
             "Robot Kinematics: Ready · offline only"
             if self.kinematics_ready
@@ -514,6 +524,24 @@ class MotionWorkspace(QObject):
             self.ready.setText(str(exc))
         self.config_edited()
 
+    def solver_selected(self, *_):
+        identifier = self.solver.currentData()
+        identifier = "scipy_trf" if identifier == "auto" else identifier
+        descriptor = next(
+            (d for d in KinematicsSolverManager().catalog() if d.id == identifier), None
+        )
+        status = (
+            "Available · confirm chain to activate"
+            if descriptor and descriptor.implemented and descriptor.installed
+            else "Dependency missing · install Universal Kinematics Support"
+            if descriptor and descriptor.implemented
+            else "Not implemented · information only"
+        )
+        active = getattr(self, "config", None)
+        self.solver_info.setText(
+            f"Selected: {self.solver.currentText()} · {status}\nActive solver: {active.solver if active else 'none'}"
+        )
+
     def config_edited(self, *_):
         if self.loading:
             return
@@ -536,6 +564,14 @@ class MotionWorkspace(QObject):
 
     def confirm_chain(self):
         if self.runner.busy or not self.engine:
+            return
+        self.solver_selected()
+        candidate = self.solver.currentData()
+        identifier = "scipy_trf" if candidate == "auto" else candidate
+        descriptor = next(
+            (d for d in KinematicsSolverManager().catalog() if d.id == identifier), None
+        )
+        if not descriptor or not descriptor.implemented or not descriptor.installed:
             return
         try:
             grippers = [self.gripper.currentData()] if self.gripper.currentData() else []
