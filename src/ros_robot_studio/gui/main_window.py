@@ -838,18 +838,24 @@ class MainWindow(QMainWindow):
             old, self.transport = self.transport, None
             if hasattr(self, "ros_execution") and self.ros_execution.transport is old:
                 self.ros_execution.disconnect_backend()
+            managed = hasattr(self, "backend_manager") and self.backend_manager.owns_transport(old)
             for signal, slot in (
                 (old.status, self.connection_status),
                 (old.graph, self.monitor.set_graph),
                 (old.message, getattr(self, "_transport_message_slot", None)),
                 (old.error, self.transport_error),
             ):
-                if slot is not None:
+                if slot is not None or not managed:
                     try:
-                        signal.disconnect(slot)
+                        if managed:
+                            signal.disconnect(slot)
+                        else:
+                            # Legacy transports have one UI owner; release all
+                            # callbacks before their Qt objects are destroyed.
+                            signal.disconnect()
                     except (RuntimeError, TypeError):
                         pass
-            managed = hasattr(self, "backend_manager") and self.backend_manager.owns_transport(old)
+            self._transport_message_slot = None
             if not managed:
                 old.disconnect_transport()
                 old.deleteLater()

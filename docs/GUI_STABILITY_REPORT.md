@@ -1,5 +1,7 @@
 # GUI-Stabilisierung und Lebensdauertests
 
+Aktuelle Multi-Domain-/Isaac-Abnahme: [BACKEND_VERIFICATION.md](BACKEND_VERIFICATION.md). Die folgenden ursprünglichen Ergebnisse werden durch die dort dokumentierten späteren nativen, gdb- und ASan-Läufe ergänzt.
+
 Stand: 8. November 2026. Fortsetzung des vorhandenen Entwicklungsstands; keine neue
 Anwendung, kein Remote-Push, keine globalen Python-Paketänderungen.
 
