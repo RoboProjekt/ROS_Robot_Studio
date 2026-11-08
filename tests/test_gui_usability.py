@@ -546,3 +546,42 @@ def test_cartesian_orientation_mode_and_units_survive_editing(studio, qtbot):
     qtbot.addWidget(reopened)
     reopened.show()
     assert reopened.step() == step
+
+
+def test_vertical_groups_scroll_without_compressing_existing_controls(studio, qtbot):
+    w = studio
+    drag_tab(w.tabs, w.monitor, w.tabs.groups[0], "bottom")
+    qtbot.wait(50)
+    for panel in (w.robot_panel, w.monitor):
+        page = w.tabs.pages[panel]
+        assert page.verticalScrollBar().maximum() > 0
+        assert panel.height() >= panel.minimumSizeHint().height()
+    assert not w.robot_panel.view.geometry().intersects(w.robot_panel.joint_controls.geometry())
+    assert not w.monitor.robot_state.table.geometry().intersects(
+        w.monitor.robot_state.plot.geometry()
+    )
+
+
+def test_main_close_waits_for_setup_worker_before_accepting(studio, qtbot, monkeypatch):
+    from threading import Event
+
+    release = Event()
+
+    def report():
+        release.wait(5)
+        return {
+            "docker_available": False,
+            "Docker daemon / permissions": "Fixture: no Docker",
+            "Docker process diagnostics": {},
+        }
+
+    monkeypatch.setattr("ros_robot_studio.gui.wizard.system_report", report)
+    studio.open_wizard()
+    qtbot.waitUntil(lambda: studio.wizard.runner.busy)
+    studio.dirty = False
+    try:
+        assert not studio.close() and not studio.closed
+    finally:
+        release.set()
+    qtbot.waitUntil(lambda: studio.closed, timeout=7000)
+    assert not studio.wizard.runner.busy

@@ -144,6 +144,8 @@ def verify(cycles, output):
             QTest.qWait(70)
             assert split.sizes() != old_sizes, "Splitter handle did not respond"
             control = next(iter(w.robot_panel.joint_controls.controls.values()))[1]
+            w.tabs.pages[w.robot_panel].ensureWidgetVisible(control)
+            QTest.qWait(30)
             type_number(control, "5")
             QTest.qWait(100)
             joint = next(iter(w.robot_panel.joint_controls.controls))
@@ -154,6 +156,9 @@ def verify(cycles, output):
 
             for view in (w.robot_panel.view, w.monitor.robot_state.view):
                 assert view.gl_view is not None
+                panel = w.robot_panel if view is w.robot_panel.view else w.monitor
+                w.tabs.pages[panel].ensureWidgetVisible(view)
+                QTest.qWait(30)
                 gl = view.gl_view
                 before_angle, before_distance = gl.opts["azimuth"], gl.opts["distance"]
                 center = gl.rect().center()
@@ -185,6 +190,27 @@ def verify(cycles, output):
             drag_tab(w.tabs, w.monitor, w.tabs.groups[0], "bottom")
             assert w.tabs.root.orientation() == Qt.Orientation.Vertical
             layouts.append("vertical")
+            for panel, view in (
+                (w.robot_panel, w.robot_panel.view),
+                (w.monitor, w.monitor.robot_state.view),
+            ):
+                page = w.tabs.pages[panel]
+                QTest.qWait(30)
+                assert page.verticalScrollBar().maximum() > 0
+                assert panel.height() >= panel.minimumSizeHint().height()
+                bar = page.verticalScrollBar()
+                before = bar.value()
+                QTest.keyClick(bar, Qt.Key.Key_PageDown)
+                assert bar.value() > before, "Small dock content cannot be scrolled"
+                page.ensureWidgetVisible(view)
+                QTest.qWait(30)
+                assert not view.gl_view.grabFramebuffer().isNull()
+            assert not w.robot_panel.view.geometry().intersects(
+                w.robot_panel.joint_controls.geometry()
+            )
+            assert not w.monitor.robot_state.table.geometry().intersects(
+                w.monitor.robot_state.plot.geometry()
+            )
             if not cycle:
                 capture(w, "workspace-vertical.png")
             # A second split supports more than two simultaneous groups.

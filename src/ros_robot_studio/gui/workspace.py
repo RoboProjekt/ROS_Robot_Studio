@@ -4,7 +4,41 @@ from __future__ import annotations
 
 from PySide6.QtCore import QPoint, QRect, Qt, Signal
 from PySide6.QtGui import QColor, QPainter, QPen
-from PySide6.QtWidgets import QApplication, QSplitter, QTabBar, QTabWidget, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QApplication,
+    QFrame,
+    QLayout,
+    QScrollArea,
+    QSplitter,
+    QTabBar,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
+
+
+class WorkspaceGroup(QTabWidget):
+    """Expose original panels while Qt hosts their persistent scroll pages."""
+
+    def __init__(self, workspace):
+        super().__init__(workspace)
+        self.workspace = workspace
+
+    def addTab(self, panel, title):
+        return super().addTab(self.workspace.pages[panel], title)
+
+    def widget(self, index):
+        page = super().widget(index)
+        return self.workspace.originals.get(page)
+
+    def currentWidget(self):
+        return self.workspace.originals.get(super().currentWidget())
+
+    def indexOf(self, panel):
+        return super().indexOf(self.workspace.pages.get(panel))
+
+    def setCurrentWidget(self, panel):
+        super().setCurrentWidget(self.workspace.pages[panel])
 
 
 class DropOverlay(QWidget):
@@ -73,6 +107,8 @@ class Workspace(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.panels = []
+        self.pages = {}
+        self.originals = {}
         self.titles = {}
         self.groups = []
         self.body = QVBoxLayout(self)
@@ -84,7 +120,7 @@ class Workspace(QWidget):
         self.overlay = DropOverlay(self)
 
     def new_group(self):
-        group = QTabWidget(self)
+        group = WorkspaceGroup(self)
         group.setTabBar(WorkspaceTabBar(group, self))
         group.setDocumentMode(True)
         group.setMinimumSize(190, 150)
@@ -95,6 +131,15 @@ class Workspace(QWidget):
     def addTab(self, panel, title):
         self.panels.append(panel)
         self.titles[panel] = title
+        page = QScrollArea(self.staging)
+        page.setFrameShape(QFrame.Shape.NoFrame)
+        page.setWidgetResizable(True)
+        # A small split scrolls the content instead of compressing layouts below
+        # the minimum heights of the existing viewers, labels and controls.
+        panel.layout().setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
+        page.setWidget(panel)
+        self.pages[panel] = page
+        self.originals[page] = panel
         return self.groups[0].addTab(panel, title)
 
     def count(self):
@@ -281,7 +326,7 @@ class Workspace(QWidget):
         for panel in self.panels:
             group = self.group_for(panel)
             group.removeTab(group.indexOf(panel))
-            panel.setParent(self.staging)
+            self.pages[panel].setParent(self.staging)
         self.groups = []
 
         def build(node):
