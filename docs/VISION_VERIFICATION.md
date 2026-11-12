@@ -48,7 +48,7 @@ Streams. Ein typisiertes `/clock`-Paket setzte die Vision-Epoche zurück. Bild,
 Detektionen und Position blieben nach dem Sprung leer. Die zweite Schulterbewegung
 lieferte während der Ausführung 46 RGB-Frames, 30 HSV-Ergebnisse und 47 JointStates.
 Die Bildfrequenz lag in diesem Lauf bei 14,27 FPS und die Medianlatenz bei 84,5 ms.
-[Zweiter SDK-Lauf](../.bootstrap/vision/final-sdk/verification.json) · [Kalibrierungsdialog](../.bootstrap/vision/final-sdk/camera-calibration.png) · [PNG-Snapshot](../.bootstrap/vision/final-sdk/rgb-snapshot.png)
+[Kalibrierungsdialog](images/tutorial/31-calibration.png)
 
 ## Zweite RGB-Quelle und Detektoren
 
@@ -64,7 +64,7 @@ die vier Bildecken. Beide Prüfsitzungen und ihre Publisher wurden beendet.
 
 Der abschließende Durchlauf benutzte den Dateidialog mit Qt-Maus- und Tastatureingaben.
 Die gemessene Inferenzstichprobe lag bei 391,5 ms für YOLO und 40,6 ms für ArUco.
-[Abschließende Detektor-Messdaten](../.bootstrap/vision/final-detectors/detector-verification.json)
+[ArUco-Abnahme](images/tutorial/32-aruco.png)
 
 ## Regression
 
@@ -80,35 +80,25 @@ Unter X11 bestanden acht native Bedienzyklen mit OpenGL, Drag-and-drop,
 Dateidialogen und Layoutpersistenz. In weiteren 20 SO-101-Fensterzyklen wurden
 20 OpenGL-Ansichten und 20 vollständige Fensterfreigaben bestätigt. Der
 Lebenszyklustest injiziert ausstehende ROS-Pakete in den Studio-Transport.
-[Pytest-Protokoll](../.bootstrap/vision/regression/pytest.log) · [Native Bedienzyklen](../.bootstrap/vision/regression/usability.log) · [SO-101-Fensterzyklen](../.bootstrap/vision/regression/lifecycle.json)
 
-## Lokale Dateien und Start
+## Reproduktion
 
-Die für die Abnahme erzeugte USD liegt unter
-`$HOME/Desktop/ROS_APP/ros-robot-studio/.bootstrap/vision/so101-acceptance/SO101_RGB_Vision_Demo.usd`.
-Das zugehörige Studio-Projekt und eine lokale Konfiguration mit zugeordneter USD
-liegen im selben Ordner. Der Startbefehl nutzt diese Konfiguration. Das Projekt
-öffnete sich im geprüften Launcher mit vorausgewählter USD und 17 SO-101-OpenGL-Meshes.
-[Studio-Start](../.bootstrap/vision/startup.png)
+Eine neue SO-101-USD kann mit dem [Haupttutorial](../README.md#8-eigene-usd-aus-der-urdf-erzeugen-und-bearbeiten)
+aus der Original-URDF erzeugt werden. Die SDK-Abnahme nimmt die USD über `--source` entgegen
+und speichert das abgeleitete Projekt, seine Szene und die Messdaten im gewählten Ausgabeordner.
 
 ```bash
-cd $HOME/Desktop/ROS_APP/ros-robot-studio
-XDG_CONFIG_HOME="$PWD/.bootstrap/vision/so101-acceptance/config" \
-  ./start.sh --project "$PWD/.bootstrap/vision/so101-acceptance/SO101_RGB_Vision_Demo.studio.yaml"
+env -u PYTHONPATH QT_QPA_PLATFORM=xcb .venv/bin/python scripts/verify_vision_isaac.py \
+  --source /pfad/zur/SO101-Szene.usd .bootstrap/vision/acceptance
 ```
 
-Im Studio **Start Simulation** wählen, Isaac auf **Play** setzen und dann
-**Start Stream** unter **Camera & Vision** klicken. Ein passender Detektor wird
+Für die manuelle Abnahme im Studio **Start Simulation** wählen, Isaac auf **Play**
+setzen und **Start Stream** unter **Camera & Vision** klicken. Detektoren werden
 über das Dropdown und **Start Detection** aktiviert.
 
-- [Kameraassistent](../.bootstrap/vision/so101-acceptance/camera-setup-wizard.png), [sichtbare Isaac-Szene](../.bootstrap/vision/so101-acceptance/isaac-camera-scene.png), [RGB-Livebild](../.bootstrap/vision/so101-acceptance/rgb-live.png)
-- [HSV und planare Position](../.bootstrap/vision/so101-acceptance/hsv-planar-position.png), [angedockte Ansicht](../.bootstrap/vision/so101-acceptance/camera-beside-robot.png)
-- [YOLO](../.bootstrap/vision/detector-acceptance/yolo-onnx.png), [ArUco](../.bootstrap/vision/detector-acceptance/aruco.png)
-- [Isaac-Messdaten](../.bootstrap/vision/so101-acceptance/verification.json), [Detektor-Messdaten](../.bootstrap/vision/detector-acceptance/detector-verification.json)
-
-USD, Gewichte, Testbild, Screenshots und Laufzeitprotokolle liegen im lokal
-ignorierten Verzeichnis `.bootstrap/vision`. Die Messläufe sind über
-`scripts/verify_vision_isaac.py` und `scripts/verify_vision_detectors.py` reproduzierbar.
+- [Kameraassistent](images/tutorial/27-camera-setup.png) · [RGB-Livebild](images/tutorial/28-rgb-stream.png)
+- [HSV und planare Position](images/tutorial/30-detection-result.png) · [Andockbare Ansicht](images/features/camera-vision.png)
+- [ArUco-Erkennung](images/tutorial/32-aruco.png) · [YOLO-Modellvertrag](YOLO_ONNX_INTEGRATION.md)
 
 ## Grenzen
 

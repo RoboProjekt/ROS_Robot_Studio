@@ -30,3 +30,20 @@ robot-cache/
 *.stl
 *.obj
 *.ply
+
+# Local development and desktop settings
+venv/
+env/
+.DS_Store
+Thumbs.db
+/.local/
+/.xdg/
+/.docker/
+/.isaacsim/
+/settings.json
+
+# Locally generated Isaac stages, simulator recordings and profiles
+/simulation_scenes/
+*.mp4
+*.webm
+*.safetensors
