@@ -121,8 +121,11 @@ def main():
                 and p.id in w.isaac_processes.processes
             )
             assert "--auto-play" in w.isaac_processes.processes[p.id].arguments()
-            wait(lambda: w.backend_manager.active_id == p.id and w.ros_execution.ready())
-            header.refresh_status()
+            wait(
+                lambda: w.backend_manager.active_id == p.id
+                and w.ros_execution.ready()
+                and "Simulation Ready" in header.status.text()
+            )
             assert "Play: Playing" in header.status.text()
             assert "Simulation Ready" in header.status.text()
             samples = []

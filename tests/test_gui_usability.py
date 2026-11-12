@@ -1,6 +1,7 @@
 """Exercise user input, identity, persistence and truthful capability presentation."""
 
 from copy import deepcopy
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -408,6 +409,36 @@ def test_scene_status_does_not_reuse_validation_for_new_selection(studio):
     finally:
         w.isaac_processes.processes.clear()
         w.isaac_processes.ready_reports.clear()
+
+
+def test_isaac_banner_requires_reconnect_after_execution_failure(studio, monkeypatch):
+    w, header = studio, studio.simulation_header
+    manager = w.backend_manager
+    profile = manager.add(new_profile("isaac_sim"))
+    manager.select_profile(profile.id)
+    manager.active_id = profile.id
+    manager.sessions[profile.id] = SimpleNamespace(
+        status="Execution Ready",
+        transport=SimpleNamespace(connected=True),
+        clock_seen=True,
+        last_clock_received=manager.clock(),
+        capabilities=SimpleNamespace(available={"joint_state_feedback"}, execution_permitted=True),
+        requires_reconnect=False,
+    )
+    monkeypatch.setattr(w.ros_execution, "ready", lambda: not w.ros_execution.reconnect_required)
+    try:
+        header.refresh_status()
+        assert "Simulation Ready" in header.status.text()
+        w.ros_execution.reconnect_required = True
+        header.refresh_status()
+        assert (
+            "Play: Playing" in header.status.text() and "State: Available" in header.status.text()
+        )
+        assert "Reconnect required" in header.status.text()
+        assert "Simulation Ready" not in header.status.text()
+    finally:
+        manager.active_id = None
+        manager.sessions.clear()
 
 
 def test_setup_access_help_does_not_recommend_adding_an_existing_group(studio):

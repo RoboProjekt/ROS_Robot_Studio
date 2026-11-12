@@ -209,13 +209,27 @@ class SimulationHeader(QWidget):
                 and self.manager.clock() - session.last_clock_received < 1.5
             )
             state = bool(session and "joint_state_feedback" in session.capabilities.available)
+            reconnect = bool(
+                session
+                and (
+                    session.requires_reconnect
+                    or (active and self.main.ros_execution.reconnect_required)
+                )
+            )
             ready = bool(
-                active and session and session.capabilities.execution_permitted and playing
+                active
+                and session
+                and session.capabilities.execution_permitted
+                and playing
+                and self.main.ros_execution.ready()
+            )
+            execution_status = (
+                "Reconnect required" if reconnect else "Simulation Ready" if ready else connection
             )
             self.set_status(
                 f"Process: {'Stopping (owned)' if p.id in self.processes.stopping else 'Running (owned)' if owned else 'Not owned / external unverified'} · Scene: {'Loaded & validated' if scene else 'Unverified'} · "
                 f"Bridge: {'Connected' if bridge else 'Waiting'} · Play: {'Playing' if playing else 'Paused / waiting'} · "
-                f"State: {'Available' if state else 'Waiting'} · {'Simulation Ready' if ready else connection}"
+                f"State: {'Available' if state else 'Waiting'} · {execution_status}"
             )
         else:
             self.set_status(
