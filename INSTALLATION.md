@@ -13,6 +13,22 @@ und globale Suchpfade werden nicht verändert. Weitere fehlende Desktopbibliothe
 werden nicht automatisch als Systempakete installiert; die Fehlermeldung von Qt/`ldd`
 ist dann zu prüfen. Headless-Tests verwenden `QT_QPA_PLATFORM=offscreen`.
 
+## Optionale RGB-Detektoren
+
+**Help → Setup assistant → Components → Install optional RGB detector support**
+installiert OpenCV Contrib Headless und ONNX Runtime in die gestartete Studio-`.venv`.
+Alternativ nach dem Bootstrap im Repository ausführen.
+
+```bash
+.venv/bin/python -m pip install --only-binary=:all: 'opencv-contrib-python-headless==4.12.0.88' 'onnxruntime==1.22.1'
+```
+
+Die Kameraansicht für ROS-Rohbilder, JPEG und PNG kann ohne diese Pakete verwendet
+werden. YOLO nutzt eine separat ausgewählte lokale ONNX-Datei. ROS-Kameras brauchen
+eine erreichbare Studio-Backend-Sitzung und die Docker-CLI am selben Daemon wie das
+Python-SDK. Für die SO-101-Simulationskamera Isaac Sim 5.1 und ROS 2 Humble über
+**Backend Connections** einrichten. [Kamera-USD](docs/ISAAC_SIM_RGB_CAMERA.md) · [YOLO](docs/YOLO_ONNX_INTEGRATION.md)
+
 ## Fünf Schritte
 
 1. **System:** OS, Architektur, Python, Internet, Speicherplatz, Docker-CLI und

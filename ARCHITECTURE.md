@@ -5,7 +5,7 @@
 | Modul | Verantwortung |
 | --- | --- |
 | `app` | CLI, QApplication, rotierende strukturierte JSON-Logs |
-| `gui` | Vier verschiebbare Qt-Panels, Assistent, Dialoge, Status, Worker, Theme und Strukturviewer |
+| `gui` | Fünf verschiebbare Qt-Panels, Assistent, Dialoge, Status, Worker, Theme und Strukturviewer |
 | `core` | Validierte Datenverträge, unveränderliche RobotState-Snapshots, thread-sicherer State Manager, XDG-Einstellungen |
 | `projects` | Atomisches YAML-Speichern, Laden und URDF-Assetkopien |
 | `kinematics` | URDF-Ketten, Rang-/Konditionsanalyse, austauschbarer optionaler SciPy-IK-Solver |
@@ -13,12 +13,26 @@
 | `robots` | Model Manager, Quell-Locks, STL-Import und gemeinsame homogene Vorwärtskinematik |
 | `ros_bridge` | Austauschbarer Signalvertrag, Offline-Transport, rosbridge-Client, Messpuffer |
 | `runtime` | Docker SDK, Status, Registry-Katalog, Installation, Start/Stop, Healthchecks |
+| `vision` | Backendgebundene Kameraprofile, binärer RGB-Empfang, Inferenz-Worker und planare Lokalisierung |
 | `plugins` | Sichere deklarative Manifest-Discovery und Validierung |
 | `compatibility` | Deklarative Kompatibilitätsberichte und zukünftiger MigrationRule-Vertrag |
 | `data` | Paketierte Manifeste, Demo-URDF und distributionsübergreifender Docker-Buildkontext |
 
 `sensors` reserviert einen Namespace für künftige Sensoradapter. Die heutigen
 Sensor-Datenverträge liegen in `core.models`, die Konfigurationsoberfläche in `gui`.
+
+## RGB-Vision
+
+Das Projekt speichert Kamera- und Ebenenprofile. Ein Kameraprofil verweist auf ein
+Backendprofil und übernimmt dessen Domain. Ein ROS-Empfänger im vorhandenen
+Backend-Container liefert RGB, CameraInfo und zeitgebundene TF2-Abfragen über einen
+begrenzten Binärstream. Graph und Robotik verwenden weiterhin den rosbridge-Kanal.
+Ein separater Worker führt Detektoren auf dem jüngsten RGB-Frame aus. Die Qt-Ansicht
+verbindet Ergebnisse mit dem ausgewerteten Frame. Der VisionPoseProvider liefert
+einen planaren Punkt und kann mit expliziten Werkzeugparametern einen Kinematikentwurf
+erzeugen. Die SDK-interne Isaac-Komponente erstellt Camera Prims, Render Products und
+ROS-Graphs außerhalb des Desktop-Prozesses.
+[Transportvertrag](docs/ROS_CAMERA_TRANSPORT.md) · [Lokalisierung](docs/PLANAR_OBJECT_LOCALIZATION.md)
 
 ## Kommunikation und Nebenläufigkeit
 

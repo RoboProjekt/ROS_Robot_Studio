@@ -149,10 +149,19 @@ Dockergruppenrechte erfordern nach Änderung eine neue Anmeldung. In dieser Entw
 hat der Benutzer außerdem eine temporäre Benutzer-ACL freigegeben; Schritte zur regulären
 Einrichtung und Entfernung stehen in [ROS_RUNTIME.md](docs/ROS_RUNTIME.md).
 
-DDS/Topics/Joint-Mapping und explizites externes Simulationsprofil sind konfigurierbar.
-Der JointState-Kommandopfad wurde gegen einen ROS-Szenenemulator geprüft. Ein echter
-Isaac-Sim-SO-101-Szenentest bleibt offen; Lyrical/Isaac wird nicht als kompatibel behauptet.
-Kollisionsprüfung und reale Hardwareausführung bleiben deaktiviert.
+DDS, Topics und Joint-Mapping sind für externe Simulationsprofile konfigurierbar.
+Der JointState-Kommandopfad wurde mit der sichtbaren SO-101-Szene in Isaac Sim und
+ROS 2 Humble geprüft. [Simulationsabnahme](docs/PRE_VISION_SYSTEM_VERIFICATION.md)
+
+## RGB-Kamera und Objekterkennung
+
+Unter **Sensor Configuration → Add Camera to Isaac Sim…** lässt sich eine feste
+RGB-Kamera zur SO-101-Szene hinzufügen und als abgeleitete USD speichern. Für andere
+ROS-Kameras verwendet **Add Camera…** Topics des jeweils verbundenen Backends.
+**Camera & Vision** zeigt das RGB-Bild, HSV-, ArUco- oder YOLOv5n-v7-Detektionen und
+planare Positionen aus CameraInfo und TF2. Das Panel lässt sich neben Robot
+Configuration und Live Monitoring andocken. OpenCV und ONNX Runtime sind optional.
+[Kamerabedienung](docs/CAMERA_MANAGER.md) · [RGB-Abnahme](docs/VISION_VERIFICATION.md)
 
 ## Stand und Grenzen
 
@@ -164,8 +173,8 @@ Der [Prüfbericht der Grundanwendung](docs/VERIFICATION.md) bleibt als historisc
 
 Der historische SO-101-Bericht entstand vor der ROS-Ausführung. Inzwischen sind Humble,
 Jazzy und Lyrical einschließlich echter nativer Actions und JointState-Rückkanal geprüft. Das SO-101-Modell
-benötigt diese Runtimes nicht. Hardware-/LeRobot-Ansteuerung, kalibrierte Joint-Mappings,
-reale Hardwareausführung, Isaac-Szenenverbindung, TF-Publishing und Kamerakalibrierung sind noch offen.
+benötigt diese Runtimes nicht. Reale Roboteranbindung ist lesend ausgelegt. Physische
+Greifvalidierung und Kalibrierung einer realen Kamera stehen aus.
 Sensorgrenzen sind **keine zertifizierten Sicherheitsfunktionen**.
 
 ## Dokumentation
@@ -194,4 +203,6 @@ Wiederholte Fenster-/OpenGL-/ROS-Callback-Freigabe wird mit eigenen Regressionst
 [Stabilitätsbericht](docs/GUI_STABILITY_REPORT.md).
 
 
-Aktuelle GUI-/Runtime-Abnahme: **231 Tests, 0 Fehler, 0 übersprungen**, 28 native Fensterzyklen sowie zusätzlicher sichtbarer Isaac-Banner-/Bewegungstest. [Abschlussbericht und Screenshots](docs/GUI_RUNTIME_RELEASE.md).
+Die GUI-/Runtime-Abnahme vor der Vision-Erweiterung dokumentiert 231 bestandene Tests,
+28 native Fensterzyklen und den sichtbaren Isaac-Banner- und Bewegungstest.
+[GUI-/Runtime-Bericht](docs/GUI_RUNTIME_RELEASE.md) · [Aktuelle RGB-Abnahme](docs/VISION_VERIFICATION.md)

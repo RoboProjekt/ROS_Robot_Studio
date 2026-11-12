@@ -68,11 +68,11 @@
 6. Kollisionsprüfung, kartesische Zwischenpunktplanung/Gizmo und verifizierte externe 6R-Modelle;
    Controller-, ros2_control-, MoveIt- und KDL-Ausführung; echte erzeugte Launch-Dateien
    und getestete ROS-Migrationsregeln mit separaten Ausgabeordnern.
-7. Weitere Meshformate, Kollisions-/inertiale Darstellung, TF-Broadcasting, RViz-nahe Ansichten,
-   Kamerastreams, Kalibrierung und ROS-Bag-Aufzeichnung.
-8. YOLO, Tracking, Modellklassenauswahl und optionale KI-/Vision-Anbindungen.
-9. Isaac-Sim-/USD-Anbindung und geprüfte Sim-to-Real-Joint-Mappings einschließlich
-   Greiferkonvention; Kameraintegration und spätere kalibrierte Sensor-/Framezuordnung.
+7. Weitere Meshformate, Kollisions-/inertiale Darstellung, RViz-nahe Ansichten und ROS-Bag-Aufzeichnung.
+8. RGB-Streams, planare Kalibrierung, HSV, ArUco und YOLOv5n v7 ONNX sind verfügbar.
+   Offen sind Homographie, Tracking, weitere Modellverträge und bewegte Kamera-Montagen.
+9. Isaac-Sim-/USD-Anbindung mit fester RGB-Kamera ist verfügbar. Geprüfte Sim-to-Real-Joint-Mappings
+   einschließlich Greiferkonvention und kalibrierter Sensor-/Framezuordnung bleiben offen.
 10. Native Installer/AppImage, vollständige deutsche Lokalisierung und Plattformadapter
    für Windows/WSL2 und macOS. Derzeit ist nur Ubuntu 22.04 amd64 Zielplattform.
 
@@ -121,4 +121,6 @@ zukünftige Arbeiten. [Aktueller Bericht](docs/ROS_RUNTIME_VERIFICATION.md).
 
 Implementiert: portable Backend-Profile, editierbare Domains, gleichzeitige Verbindungen, aktiver Quellenwechsel, GUI-Verwaltung, Diagnose, striktes Hardware-Monitoring und getrennte Isaac-Prozess-/Szenenverwaltung. Der vorhandene Taskeditor und die universelle Kinematik bleiben gemeinsam. Tatsächlich geprüfte Ergebnisse stehen im [Backend-Prüfbericht](docs/BACKEND_VERIFICATION.md).
 
-Weiter vorbereitet: native MuJoCo-Integration, Gazebo mit ros_gz_bridge, Hardwareausführung, Kameras/erweiterte Sensorbrücken sowie physikalische Griff-/Kontaktvalidierung. Die generierte Isaac-Szene ist eine Gelenk-/ROS-Simulation; ein stabiler realitätsnaher Objektgriff benötigt gesonderte Modellierung und Prüfung.
+Weiter vorbereitet sind native MuJoCo-Integration, Gazebo mit ros_gz_bridge,
+erweiterte Sensorbrücken sowie physikalische Griff- und Kontaktvalidierung.
+Die RGB-Erweiterung für Isaac und andere ROS-Quellen ist im [Vision-Bericht](docs/VISION_VERIFICATION.md) dokumentiert.
