@@ -124,6 +124,8 @@ class CameraStream:
 
     def stop(self):
         self.stop_requested.set()
+        with self.lock:
+            self.latest = None
 
     def poll(self):
         with self.lock:
@@ -208,6 +210,8 @@ class CameraStream:
                         except (ValueError, TypeError, KeyError) as exc:
                             error = str(exc)
                     with self.lock:
+                        if self.stop_requested.is_set():
+                            return
                         epoch = meta["epoch"]
                         if epoch != self.epoch:
                             self.latest = None

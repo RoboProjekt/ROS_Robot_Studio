@@ -18,7 +18,7 @@ from ros_robot_studio.vision.detection import (
 )
 from ros_robot_studio.vision.geometry import Intrinsics
 from ros_robot_studio.vision.profiles import CalibrationRecord, CameraMount, CameraProfile
-from ros_robot_studio.vision.stream import RGBFrame
+from ros_robot_studio.vision.stream import CameraStream, RGBFrame
 
 
 def test_camera_settings_edit_preserves_calibration_until_geometry_changes(qtbot):
@@ -123,3 +123,12 @@ def test_camera_info_checks_frame_distortion_and_crop():
     ]:
         with pytest.raises(ValueError, match=reason):
             Intrinsics.from_info(info | updates, frame)
+
+
+def test_receiver_stop_releases_pending_frame_immediately():
+    camera = CameraProfile(name="RGB", backend_id="test")
+    receiver = CameraStream(camera, None)
+    receiver.latest = RGBFrame(np.zeros((20, 20, 3), np.uint8), {})
+    receiver.stop()
+    assert receiver.stop_requested.is_set()
+    assert receiver.poll()[0] is None
