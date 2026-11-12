@@ -165,6 +165,8 @@ class SetupWizard(QWizard):
             "Install Universal Kinematics Support · SciPy 1.15.3", self.install_kinematics
         )
         layout.addWidget(self.kinematics_install)
+        self.vision_install = button("Install optional RGB detector support", self.install_vision)
+        layout.addWidget(self.vision_install)
         layout.addWidget(button("Refresh installed component status", self.component_status))
         row = QHBoxLayout()
         self.verify_distro = QComboBox()
@@ -377,6 +379,7 @@ class SetupWizard(QWizard):
         self.verify_button.setEnabled(not busy and self.available)
         self.offline_button.setEnabled(not busy)
         self.kinematics_install.setEnabled(not busy)
+        self.vision_install.setEnabled(not busy)
         self.progress.setRange(0, 0 if busy else 1)
 
     def component_status(self):
@@ -387,9 +390,43 @@ class SetupWizard(QWizard):
                 + "\n\nInstalled Studio images: "
                 + (", ".join(status.installed) or "None")
                 + "\n\nLive connection test: not run by this check. Use Verify ROS demo in the main window."
+                + "\nRGB detector support: "
+                + ", ".join(
+                    f"{name} {'installed' if importlib.util.find_spec(name) else 'missing'}"
+                    for name in ("cv2", "onnxruntime")
+                )
             )
 
         self.runner.run(lambda _: self.manager.status(), done)
+
+    def install_vision(self):
+        if self.runner.busy:
+            return
+
+        def work(progress):
+            if sys.prefix == sys.base_prefix:
+                raise ValueError("Use ./start.sh to install into the local virtual environment")
+            progress("Installing local OpenCV and ONNX Runtime wheels…")
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pip",
+                    "install",
+                    "--only-binary=:all:",
+                    "opencv-contrib-python-headless==4.12.0.88",
+                    "onnxruntime==1.22.1",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+            if result.returncode:
+                raise ValueError(result.stderr[-4000:])
+            importlib.invalidate_caches()
+            return result.stdout[-4000:]
+
+        self.runner.run(work, self.components.appendPlainText)
 
     def install_kinematics(self):
         if self.runner.busy:

@@ -35,6 +35,7 @@ from ros_robot_studio.gui.plots import close_plot
 from ros_robot_studio.gui.robot_monitor import StateSignals
 from ros_robot_studio.gui.sensor_dialog import SensorDialog
 from ros_robot_studio.gui.theme import DARK, LIGHT
+from ros_robot_studio.gui.vision_workspace import VisionWorkspace
 from ros_robot_studio.gui.widgets import label
 from ros_robot_studio.gui.wizard import SetupWizard
 from ros_robot_studio.gui.workers import TaskRunner
@@ -141,6 +142,8 @@ class MainWindow(QMainWindow):
         from ros_robot_studio.gui.simulation_header import install_header
 
         self.simulation_header = install_header(self)
+        self.vision = VisionWorkspace(self)
+        self.tabs.addTab(self.vision.panel, "05  Camera & Vision")
         self.restore_workspace()
         view = self.menuBar().addMenu("View")
         view.addAction("Reset workspace layout", self.tabs.reset)
@@ -318,6 +321,8 @@ class MainWindow(QMainWindow):
         self.robot_panel.update_compatibility(self.selected_distro)
         if hasattr(self, "backend_workspace"):
             self.backend_workspace.load(self.project)
+        if hasattr(self, "vision"):
+            self.vision.load(self.project)
         self.loading = False
         self.dirty = False
         self.update_title()
@@ -1638,6 +1643,11 @@ class MainWindow(QMainWindow):
             # Stop asynchronously, then close after the worker has finished.
             self.dirty = False
             self.stop_ros(after=self.close)
+            return
+        if not self.vision.close_ready():
+            self.dirty = False
+            QTimer.singleShot(100, self, self.close)
+            event.ignore()
             return
         self.save_workspace()
         self.closed = True

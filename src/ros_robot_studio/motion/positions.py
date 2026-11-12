@@ -118,7 +118,26 @@ class TFFramePoseProvider:
 
 
 class VisionPoseProvider:
+    def __init__(self, estimates=None):
+        self.estimates = estimates
+
+    def get_position(self, target_id):
+        if self.estimates is None or target_id not in self.estimates:
+            raise ValueError("No valid current vision estimate for this target")
+        return self.estimates[target_id]
+
     def get_pose(self, target_id):
+        if self.estimates is not None:
+            raise ValueError("A planar estimate needs explicit tool orientation and a grasp offset")
         raise NotImplementedError(
             "Vision localization needs calibration and a 3D pose provider; 2D detection alone is insufficient"
+        )
+
+    def draft(self, target_id, end_effector, rpy, offset):
+        estimate = self.get_position(target_id)
+        return CartesianPose(
+            frame=estimate.frame_id,
+            end_effector=end_effector,
+            rpy=rpy,
+            position=tuple(position + delta for position, delta in zip(estimate.position, offset)),
         )

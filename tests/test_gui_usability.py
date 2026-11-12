@@ -256,7 +256,7 @@ def test_drag_split_merge_restore_identity_and_corrupt_layout(studio, qtbot):
     w.restore_workspace()
     assert workspace.root.orientation() == Qt.Orientation.Horizontal
     workspace.reset()
-    assert len(workspace.groups) == 1 and workspace.count() == 4
+    assert len(workspace.groups) == 1 and workspace.count() == 5
 
 
 def test_header_selection_scene_history_and_missing_files_are_local(studio, tmp_path):

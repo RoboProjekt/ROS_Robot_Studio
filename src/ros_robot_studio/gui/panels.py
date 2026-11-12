@@ -477,13 +477,6 @@ class SensorPanel(QWidget):
                 True,
             )
         )
-        layout.addWidget(
-            label(
-                "PLANNED   Camera calibration · Hand-eye calibration · YOLO · Tracking · AI integrations",
-                "subtitle",
-                True,
-            )
-        )
         self.sensors = []
 
     def set_sensors(self, sensors):

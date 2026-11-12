@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
+
 from PySide6.QtCore import QPoint, QRect, Qt, Signal
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import (
@@ -102,7 +104,7 @@ class WorkspaceTabBar(QTabBar):
 
 class Workspace(QWidget):
     layout_changed = Signal()
-    VERSION = 1
+    VERSION = 2
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -315,9 +317,17 @@ class Workspace(QWidget):
                     validate(child, depth + 1)
 
         try:
-            if state.get("version") != self.VERSION:
+            version = state.get("version")
+            if version not in (1, self.VERSION):
                 return False
             validate(state["tree"])
+            if version == 1 and len(self.panels) == 5 and sorted(seen) == list(range(4)):
+                state = deepcopy(state)
+                first = state["tree"]
+                while "children" in first:
+                    first = first["children"][0]
+                first["tabs"].append(4)
+                seen.append(4)
             if sorted(seen) != list(range(len(self.panels))):
                 return False
         except (ValueError, KeyError, TypeError, AttributeError):

@@ -27,7 +27,7 @@ def window(qtbot, tmp_path):
 
 def test_gui_without_docker_and_live_demo(qtbot, tmp_path):
     instance = window(qtbot, tmp_path)
-    assert instance.tabs.count() == 4
+    assert instance.tabs.count() == 5
     assert instance.distro.currentData() == "humble"
     qtbot.waitUntil(lambda: len(instance.monitor.buffer.samples) > 3)
     assert "simulated" in instance.ros_status
