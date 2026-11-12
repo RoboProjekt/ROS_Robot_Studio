@@ -248,6 +248,7 @@ def main():
             click(dialog.buttons.button(QDialogButtonBox.StandardButton.Save))
 
         previous_receiver = vision.stream.thread
+        wait(lambda: vision.calibration() is not None)
         QTimer.singleShot(200, w, store_calibration)
         click(button(vision.panel, "Calibrate…"))
         assert vision.profile().calibration is not None
@@ -389,6 +390,7 @@ def main():
         toolkit_space(app, sdk_pid, None)
         wait(lambda: vision.latest is None, timeout=15)
         previous_epoch = vision.epoch
+        first_expected_error = len(errors)
         command = [
             "docker",
             "exec",
@@ -411,6 +413,10 @@ def main():
             assert (
                 vision.latest is None and not vision.results.detections and vision.estimate is None
             )
+            assert all(
+                "clock reset" in str(error).lower() for error in errors[first_expected_error:]
+            )
+            del errors[first_expected_error:]
             report["clock_reset_cleared_vision_epoch"] = True
         finally:
             if reset.poll() is None:
