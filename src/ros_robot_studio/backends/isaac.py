@@ -63,7 +63,17 @@ class IsaacSimInstallationManager:
 
 
 class IsaacSimSceneManager:
-    def prepare(self, profile, model, directory, positions=None, existing_scene=None):
+    def prepare(
+        self,
+        profile,
+        model,
+        directory,
+        positions=None,
+        existing_scene=None,
+        *,
+        camera=None,
+        vision_output=None,
+    ):
         from ros_robot_studio.kinematics.engine import UniversalKinematicsEngine
         from ros_robot_studio.robots.urdf import origin_transform
 
@@ -130,6 +140,25 @@ class IsaacSimSceneManager:
                 raise ValueError("Use a separate output directory when opening an existing scene")
             request["existing_scene"] = str(scene)
             request["source_files"][str(scene)] = hashlib.sha256(scene.read_bytes()).hexdigest()
+        if camera is not None:
+            if (
+                camera.backend_id != profile.id
+                or not camera.mount
+                or camera.mount.kind != "world_fixed"
+                or camera.mount.reference_frame != camera.world_frame
+                or camera.encoding != "raw"
+                or camera.base_frame != model.root
+            ):
+                raise ValueError(
+                    "Isaac authoring requires a world-fixed raw camera and the active model's base frame"
+                )
+            destination = Path(vision_output).expanduser().resolve()
+            if not existing_scene or destination.suffix.lower() not in (".usd", ".usda", ".usdc"):
+                raise ValueError("Select a source scene and a new USD destination")
+            if destination.exists() or not destination.parent.is_dir():
+                raise ValueError("Choose a new USD file in an existing directory")
+            request["vision_camera"] = camera.model_dump(mode="json")
+            request["vision_output"] = str(destination)
         path = directory / "scene-request.json"
         atomic_text(path, json.dumps(request, indent=2))
         return path

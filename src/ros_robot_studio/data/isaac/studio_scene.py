@@ -66,6 +66,7 @@ def run_scene(args, app, request, output, source_hashes):
     from isaacsim.core.utils.extensions import enable_extension
     from isaacsim.core.utils.viewports import set_camera_view
     from pxr import Gf, PhysxSchema, UsdGeom, UsdLux, UsdPhysics
+    from studio_vision import GRAPH, configure, export_derived, read_cameras
 
     enable_extension("isaacsim.asset.importer.urdf")
     enable_extension("isaacsim.ros2.bridge")
@@ -84,6 +85,9 @@ def run_scene(args, app, request, output, source_hashes):
     # ROS clock/state or receives commands from a previous request/domain.
     if request.get("existing_scene") and stage.GetPrimAtPath("/World/ROS2").IsValid():
         stage.RemovePrim("/World/ROS2")
+    cameras = read_cameras(stage)
+    if cameras and stage.GetPrimAtPath(GRAPH).IsValid():
+        stage.RemovePrim(GRAPH)
     if not request.get("existing_scene"):
         world.scene.add_default_ground_plane(z_position=-0.75)
         # Procedural mounting table; no network asset dependency.
@@ -296,8 +300,15 @@ def run_scene(args, app, request, output, source_hashes):
         "Generated scene currently requires identity mapping; configure custom existing scenes explicitly"
     )
     set_camera_view(eye=np.array([0.75, 0.65, 0.45]), target=np.array([0.10, 0, 0.18]))
+    cameras = configure(stage, request, cameras)
+    if cameras:
+        og.Controller.set(og.Controller.attribute(graph + "/Time.inputs:resetOnStop"), True)
     scene_path = output / ("studio-scene.usd" if request.get("existing_scene") else "scene.usd")
-    stage.GetRootLayer().Export(str(scene_path))
+    if request.get("vision_output"):
+        scene_path = Path(request["vision_output"])
+        export_derived(stage, str(scene_path))
+    else:
+        stage.GetRootLayer().Export(str(scene_path))
     report = dict(
         valid=True,
         simulator_process_id=os.getpid(),
@@ -321,6 +332,8 @@ def run_scene(args, app, request, output, source_hashes):
         drive_stiffness=5000.0,
         drive_damping=50.0,
     )
+    if cameras:
+        report["rgb_cameras"] = cameras
     (output / "scene-validation.json").write_text(json.dumps(report, indent=2))
     world.pause()
     print("STUDIO_SCENE_READY " + json.dumps(report), flush=True)
