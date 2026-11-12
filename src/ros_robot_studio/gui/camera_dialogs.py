@@ -209,9 +209,10 @@ class CameraDialog(FormDialog):
             mount=mount,
         )
         if self.original:
-            old = self.original.model_dump()
             change = any(
-                data[key] != old[key] for key in data if key not in ("name", "display_fps")
+                value != getattr(self.original, key)
+                for key, value in data.items()
+                if key not in ("name", "display_fps")
             )
             data.update(
                 id=self.original.id,

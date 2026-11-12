@@ -6,13 +6,14 @@ import subprocess
 import time
 from dataclasses import asdict
 from pathlib import Path
-from unittest.mock import patch
+from types import SimpleNamespace
 
 import cv2
 import numpy as np
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QFileDialog, QPushButton
+from PySide6.QtWidgets import QApplication, QPushButton
+from verify_gui_usability import choose_scene_file
 from verify_vision_isaac import click
 
 from ros_robot_studio.backends.profiles import new_profile
@@ -179,14 +180,12 @@ def main():
         choose(vision.detector_choice, vision.detector_choice.findData("hsv"))
         click(button("Start Detection"))
         wait(lambda: vision.detector.processed > 0)
-        with patch.object(
-            QFileDialog, "getOpenFileName", return_value=(str(args.model.resolve()), "ONNX")
-        ):
-            click(button("Add ONNX…"))
+        choose_scene_file(SimpleNamespace(browse=button("Add ONNX…")), args.model.resolve())
         choose(vision.detector_choice, vision.detector_choice.findData("yolo"))
         wait(lambda: {"person", "bus"} <= find_labels())
         assert vision.stream is receiver and receiver.thread.is_alive()
         yolo = [asdict(item.finding) for item in vision.results.detections]
+        yolo_inference_ms = vision.results.seconds * 1000
         assert all(0.25 <= item["score"] <= 1 for item in yolo)
         assert vision.estimate is None
         capture("yolo-onnx.png")
@@ -202,10 +201,13 @@ def main():
         (marker,) = (item.finding for item in vision.results.detections)
         assert marker.score is None and len(marker.corners) == 4
         assert vision.estimate is None
+        aruco_inference_ms = vision.results.seconds * 1000
         capture("aruco.png")
         result = dict(
             yolo=yolo,
             aruco=asdict(marker),
+            yolo_inference_ms=yolo_inference_ms,
+            aruco_inference_ms=aruco_inference_ms,
             topic=TOPIC,
             encoding="JPEG CompressedImage",
             backend_domains=[profile.domain_id for profile in profiles],

@@ -14,6 +14,7 @@ from unittest.mock import patch
 
 import numpy as np
 from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QImage
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QDialogButtonBox, QFileDialog, QPushButton
 from verify_gui_usability import choose, choose_scene_file, drag_tab
@@ -21,7 +22,7 @@ from verify_gui_usability import choose, choose_scene_file, drag_tab
 from ros_robot_studio.backends.isaac import IsaacSimInstallationManager
 from ros_robot_studio.backends.profiles import new_profile
 from ros_robot_studio.core.settings import Settings
-from ros_robot_studio.gui.camera_dialogs import CameraDialog
+from ros_robot_studio.gui.camera_dialogs import CalibrationDialog, CameraDialog
 from ros_robot_studio.gui.main_window import MainWindow
 from ros_robot_studio.motion.demos import pick_place_demo
 from ros_robot_studio.motion.schema import MotionTask, TaskStep
@@ -199,6 +200,7 @@ def main():
         wait(lambda: profile.id in w.isaac_processes.ready_reports)
         wait(
             lambda: profile.id in w.backend_manager.sessions
+            and w.backend_manager.sessions[profile.id].transport is not None
             and w.backend_manager.sessions[profile.id].transport.connected
         )
         session = w.backend_manager.sessions[profile.id]
@@ -217,11 +219,17 @@ def main():
         )
         wait(lambda: vision.profile().rgb_topic in session.graph["topics"])
         capture("rgb-live.png")
+        snapshot = out / "rgb-snapshot.png"
+        with patch.object(QFileDialog, "getSaveFileName", return_value=(str(snapshot), "PNG")):
+            click(button(vision.panel, "Snapshot…"))
+        saved = QImage(str(snapshot))
+        assert (saved.width(), saved.height()) == (640, 480)
         print("Native Play, discovered RGB, CameraInfo, TF2 and rendered image", flush=True)
         choose(vision.detector_choice, vision.detector_choice.findData("hsv"))
         click(button(vision.panel, "Start Detection"))
         wait(lambda: vision.results.detections and vision.estimate)
         frame = vision.results.frame
+        hsv_inference_ms = vision.results.seconds * 1000
         camera = vision.profile()
         found = vision.results.detections[0].finding
         world = vision.results.estimate(camera, found, camera.world_frame)
@@ -232,7 +240,23 @@ def main():
         assert error < 0.065, (world, truth, error)
         w.tabs.pages[vision.panel].ensureWidgetVisible(vision.position)
         capture("hsv-planar-position.png")
+
+        def store_calibration():
+            dialog = w.findChild(CalibrationDialog)
+            click(dialog.store)
+            assert dialog.grab().save(str(out / "camera-calibration.png"))
+            click(dialog.buttons.button(QDialogButtonBox.StandardButton.Save))
+
+        previous_receiver = vision.stream.thread
+        QTimer.singleShot(200, w, store_calibration)
+        click(button(vision.panel, "Calibrate…"))
+        assert vision.profile().calibration is not None
+        wait(lambda: not previous_receiver.is_alive())
+        save_project(w.collect(), project_path)
         w.tabs.pages[vision.panel].ensureWidgetVisible(vision.status)
+        click(button(vision.panel, "Start Stream"))
+        click(button(vision.panel, "Start Detection"))
+        wait(lambda: vision.estimate is not None)
         toolkit_space(app, sdk_pid, out / "isaac-camera-scene.png")
         wait(lambda: vision.latest is None and not vision.results.detections, timeout=15)
         toolkit_space(app, sdk_pid, None)
@@ -293,11 +317,12 @@ def main():
         wait(lambda: w.ros_execution.status == "executing")
         begin_frames = vision.stream.count
         begin_detections = vision.detector.processed
+        begin_states = counts["joint_states"]
         wait(lambda: w.ros_execution.status == "succeeded", timeout=45)
         during = dict(
             rgb_frames=vision.stream.count - begin_frames,
             detections=vision.detector.processed - begin_detections,
-            joint_states=counts["joint_states"],
+            joint_states=counts["joint_states"] - begin_states,
         )
         assert min(during.values()) > 1, during
         final = w.state_manager.snapshot()
@@ -338,6 +363,9 @@ def main():
             center_error_m=error,
             bottom_error_m=float(np.linalg.norm(np.asarray(bottom.position) - truth)),
             detection=asdict(found),
+            hsv_inference_ms=hsv_inference_ms,
+            calibration_saved=True,
+            snapshot_verified=True,
             motion=during,
             shoulder_delta_rad=final.positions["shoulder_pan"] - initial.positions["shoulder_pan"],
             rates_median_fps=np.median(observed_fps, axis=0).tolist(),
@@ -358,6 +386,38 @@ def main():
             vision.detector.thread,
             session.container_id,
         )
+        toolkit_space(app, sdk_pid, None)
+        wait(lambda: vision.latest is None, timeout=15)
+        previous_epoch = vision.epoch
+        command = [
+            "docker",
+            "exec",
+            container,
+            "bash",
+            "-c",
+            'source "/opt/ros/$ROS_DISTRO/setup.bash" && '
+            "ros2 topic pub --once --wait-matching-subscriptions 2 /clock "
+            'rosgraph_msgs/msg/Clock "{clock: {sec: 0, nanosec: 0}}"',
+        ]
+        reset = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        try:
+            wait(lambda: reset.poll() is not None, timeout=18, cleanup=True)
+            assert reset.returncode == 0, reset.communicate()[0]
+            wait(
+                lambda: vision.epoch > previous_epoch and session.requires_reconnect,
+                timeout=10,
+                cleanup=True,
+            )
+            assert (
+                vision.latest is None and not vision.results.detections and vision.estimate is None
+            )
+            report["clock_reset_cleared_vision_epoch"] = True
+        finally:
+            if reset.poll() is None:
+                reset.terminate()
+            reset.communicate(timeout=5)
+        w.activateWindow()
+        w.raise_()
         click(button(vision.panel, "Stop Stream"))
         wait(lambda: not receiver.is_alive() and not detector.is_alive())
         assert vision.view.image.isNull() and not vision.results.detections
