@@ -15,6 +15,7 @@ from ros_robot_studio.motion.schema import (
     MotionTask,
     SavedPosition,
 )
+from ros_robot_studio.vision.profiles import CameraManager, CameraProfile
 
 Distro = Literal["humble", "jazzy", "lyrical"]
 
@@ -157,6 +158,7 @@ class RuntimeConfig(Model):
 
 class Project(Model):
     backends: list[BackendProfile] = Field(default_factory=list)
+    cameras: list[CameraProfile] = Field(default_factory=list)
     active_backend: str | None = None
     format_version: Literal[3] = 3
     kinematics: KinematicSettings = Field(default_factory=KinematicSettings)
@@ -181,10 +183,17 @@ class Project(Model):
             raise ValueError("Backend IDs must be unique")
         if self.active_backend is not None and self.active_backend not in backend_ids:
             raise ValueError("Active backend must reference an existing profile")
-        for library, title in [(self.positions, "position"), (self.tasks, "task")]:
+        for library, title in [
+            (self.positions, "position"),
+            (self.tasks, "task"),
+            (self.cameras, "camera"),
+        ]:
             ids = [item.id for item in library]
             if len(ids) != len(set(ids)):
                 raise ValueError(f"{title} IDs must be unique")
+        cameras = CameraManager()
+        for camera in self.cameras:
+            cameras.save(camera)
         ids = [s.id for s in self.sensors]
         if len(ids) != len(set(ids)):
             raise ValueError("Sensor IDs must be unique")
