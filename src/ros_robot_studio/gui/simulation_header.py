@@ -153,7 +153,12 @@ class SimulationHeader(QWidget):
         self.scene.clear()
         selected = self.local().get("scene_path", "")
         if files:
-            self.scene.addItem("Select a scene file…", "")
+            default_scene = (
+                "Generate from current robot"
+                if kind == "isaac_sim" and profile.connection_mode == "local_installation"
+                else "Select a scene file…"
+            )
+            self.scene.addItem(default_scene, "")
             recent = self.main.settings.get("simulation_recent_files", {}).get(kind, [])
             for path in dict.fromkeys(([selected] if selected else []) + recent):
                 exists = Path(path).is_file()
@@ -403,13 +408,16 @@ class SimulationHeader(QWidget):
             raise ValueError(
                 "Review host-network and simulation confirmation in Backends before starting Isaac"
             )
-        scene = Path(local.get("scene_path", ""))
-        if not scene.is_file() or scene.suffix.lower() not in EXTENSIONS["isaac_sim"]:
+        selected_scene = local.get("scene_path", "")
+        scene = Path(selected_scene).resolve() if selected_scene else None
+        if scene is not None and (
+            not scene.is_file() or scene.suffix.lower() not in EXTENSIONS["isaac_sim"]
+        ):
             raise ValueError("Select an existing USD / USDA / USDC scene first")
         if identity in self.processes.processes:
             data = json.loads(Path(self.processes.requests[identity]).read_text())
             if (
-                data.get("existing_scene") != str(scene.resolve())
+                data.get("existing_scene") != (str(scene) if scene else None)
                 or data.get("model_signature") != p.model_signature
             ):
                 raise ValueError(
@@ -438,6 +446,8 @@ class SimulationHeader(QWidget):
                 "Install the selected ROS runtime in Project & Runtime before starting the simulator"
             )
         directory = self.main.model_manager.root.parent / "simulations" / identity / uuid4().hex
+        if scene is None and local.get("scene_directory"):
+            directory = Path(local["scene_directory"]).expanduser() / directory.name
         model, positions = self.main.model, self.main.independent_positions()
         self.pending.add(identity)
 
@@ -503,6 +513,8 @@ class SimulationHeader(QWidget):
                     report.get("model_signature"),
                     report.get("domain_id"),
                 )
+                if "existing_scene" not in data:
+                    self.main.activity(f"Generated Isaac USD: {report['scene']}")
             except (OSError, ValueError, KeyError):
                 self.scene_ready_keys.pop(identity, None)
         self.pending.discard(identity)

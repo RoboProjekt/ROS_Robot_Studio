@@ -107,7 +107,9 @@ def drag_tab(workspace, panel, target, edge):
     [
         (
             "process_groups_inactive",
-            dict(account_groups=["docker"], effective_groups=["local-user"], socket_group="docker"),
+            dict(
+                account_groups=["docker"], effective_groups=["studio-user"], socket_group="docker"
+            ),
             PermissionError("permission denied"),
         ),
         (
@@ -396,6 +398,43 @@ def test_isaac_other_owned_or_external_instance_requires_choice(studio, tmp_path
         w.isaac_processes.processes.clear()
 
 
+def test_isaac_start_can_generate_from_bound_robot(studio, tmp_path, monkeypatch, qtbot):
+    from ros_robot_studio.backends.isaac import IsaacSimInstallationManager, IsaacSimSceneManager
+
+    w, header = studio, studio.simulation_header
+    profile = w.backend_manager.add(
+        new_profile(
+            "isaac_sim",
+            connection_mode="local_installation",
+            network_confirmed=True,
+            simulation_confirmed=True,
+        )
+    )
+    w.backend_manager.select_profile(profile.id)
+    w.docker_status = RuntimeStatus(True, "Test API", installed=["humble"])
+    installation = MagicMock(bridge_distributions=["humble"])
+    monkeypatch.setattr(IsaacSimInstallationManager, "validate", lambda *args: installation)
+    monkeypatch.setattr(w.isaac_processes, "external_instances", lambda *args: [])
+    prepare = MagicMock(return_value=tmp_path / "scene-request.json")
+    start, connect = MagicMock(), MagicMock()
+    monkeypatch.setattr(IsaacSimSceneManager, "prepare", prepare)
+    monkeypatch.setattr(w.isaac_processes, "start", start)
+    monkeypatch.setattr(w.backend_workspace, "connect", connect)
+    header.save_local(profile.id, {"scene_directory": str(tmp_path)})
+
+    assert header.scene.currentText() == "Generate from current robot"
+    header.start_profile(profile.id)
+    qtbot.waitUntil(lambda: start.called)
+
+    args = prepare.call_args.args
+    assert args[0] is profile and args[1] is w.model
+    assert args[2].parent == tmp_path and args[4] is None
+    start.assert_called_once_with(
+        profile, installation, prepare.return_value, headless=False, auto_play=False
+    )
+    connect.assert_called_once_with(profile.id, activate=True)
+
+
 def test_scene_status_does_not_reuse_validation_for_new_selection(studio):
     w, header = studio, studio.simulation_header
     p = w.backend_manager.add(new_profile("isaac_sim"))
@@ -445,7 +484,7 @@ def test_setup_access_help_does_not_recommend_adding_an_existing_group(studio):
     w = studio
     w.open_wizard()
     wizard = w.wizard
-    wizard.system_diagnostics = dict(account_groups=["docker"], effective_groups=["local-user"])
+    wizard.system_diagnostics = dict(account_groups=["docker"], effective_groups=["studio-user"])
     wizard.docker_status_text = "Current process lacks effective socket group"
     wizard.docker_access_help()
     text = wizard.docker_output.toPlainText()

@@ -76,10 +76,13 @@ def toolkit_space(app, sdk_pid, output):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("out", type=Path)
+    parser.add_argument(
+        "--source", type=Path, default=Path("simulation_scenes/IsaacSim/So-101_demo/scene.usd")
+    )
     args = parser.parse_args()
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
-    source = Path("simulation_scenes/IsaacSim/So-101_demo/scene.usd").resolve()
+    source = args.source.resolve(strict=True)
     scene_path = out / "SO101_RGB_Vision_Demo.usd"
     project_path = out / "SO101_RGB_Vision_Demo.studio.yaml"
     hashes = {p: sha256(p.read_bytes()).hexdigest() for p in source.parent.rglob("*.usd")}
