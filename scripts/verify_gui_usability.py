@@ -39,30 +39,29 @@ def choose_scene_file(header, scene, cancel=False):
         chooser.setOption(QFileDialog.Option.DontUseNativeDialog)
         chooser.setFileMode(QFileDialog.FileMode.ExistingFile)
         chooser.setNameFilter(filters)
-        buttons = chooser.findChild(QDialogButtonBox)
-        action = (
-            QDialogButtonBox.StandardButton.Cancel
-            if cancel
-            else QDialogButtonBox.StandardButton.Open
-        )
-        button = buttons.button(action)
-        clicks = []
-        button.clicked.connect(lambda: clicks.append(True))
+        interactions = []
 
         def enter_file():
-            if not cancel:
+            if cancel:
+                button = chooser.findChild(QDialogButtonBox).button(
+                    QDialogButtonBox.StandardButton.Cancel
+                )
+                button.clicked.connect(lambda: interactions.append("cancel"))
+                QTest.mouseClick(button, Qt.MouseButton.LeftButton)
+            else:
                 entry = chooser.findChild(QLineEdit, "fileNameEdit")
                 assert entry is not None
                 QTest.mouseClick(entry, Qt.MouseButton.LeftButton)
                 QTest.keyClick(entry, Qt.Key.Key_A, Qt.KeyboardModifier.ControlModifier)
                 QTest.keyClicks(entry, str(scene))
-            QTest.mouseClick(button, Qt.MouseButton.LeftButton)
+                QTest.keyClick(entry, Qt.Key.Key_Return)
+                interactions.append("select")
 
         QTimer.singleShot(250, chooser, enter_file)
         QTimer.singleShot(5000, chooser, chooser.reject)
         accepted = chooser.exec() == QDialog.DialogCode.Accepted
         files = chooser.selectedFiles() if accepted else []
-        outcomes.append((bool(clicks), accepted, files))
+        outcomes.append((interactions, accepted, files))
         chooser.deleteLater()
         return (files[0] if files else ""), filters
 
@@ -72,7 +71,7 @@ def choose_scene_file(header, scene, cancel=False):
     finally:
         QFileDialog.getOpenFileName = original_picker
     # Qt reports slot exceptions without propagating them to QTest.mouseClick.
-    expected = (True, not cancel, [] if cancel else [str(scene)])
+    expected = (["cancel" if cancel else "select"], not cancel, [] if cancel else [str(scene)])
     assert outcomes == [expected], f"Qt file chooser input failed: {outcomes!r}"
 
 
