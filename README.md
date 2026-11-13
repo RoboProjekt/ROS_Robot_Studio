@@ -96,13 +96,15 @@ Die Schritte 1–5 funktionieren offline. Ab Schritt 6 verwendet das Beispiel ei
 
 ### 1. Installation
 
-1. Im lokalen Checkout ein Terminal öffnen. Auf Ubuntu 22.04 werden Git, Python 3.10, das passende `venv`-Modul und eine native Qt/OpenGL-Umgebung benötigt.
+1. Auf Ubuntu 22.04 Git, Python 3.10, das passende `venv`-Modul und eine native Qt/OpenGL-Umgebung bereitstellen. Das Repository klonen und im Projektordner ein Terminal öffnen.
 2. `./start.sh` im Projektordner ausführen. Der Launcher erstellt `.venv`, installiert die gesperrten Python-Abhängigkeiten und öffnet den Setup-Assistenten.
 3. Für den Offline-Einstieg **Open offline demo** wählen. Über **Help → Setup assistant** lässt sich der Assistent später erneut öffnen.
 4. Für den Simulationsabschnitt Docker Engine installieren und starten. Bei einem vorhandenen systemweiten Dienst zeigt `systemctl is-active docker` den Zustand. `docker info` muss aus derselben Benutzersitzung wie Studio funktionieren. Die Mitgliedschaft in der Docker-Gruppe gewährt weitreichende Hostrechte und wird erst nach einer neuen Anmeldung wirksam. Die Anwendung als normaler Benutzer starten.
 5. In **Setup assistant → Components** über **Install Universal Kinematics Support** den SciPy-Solver installieren. **Install optional RGB detector support** ergänzt OpenCV und ONNX Runtime für Schritt 16.
 
 ```bash
+git clone https://github.com/RoboProjekt/ROS_Robot_Studio.git
+cd ROS_Robot_Studio
 ./start.sh
 ```
 
