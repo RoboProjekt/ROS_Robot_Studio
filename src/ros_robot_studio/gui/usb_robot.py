@@ -85,6 +85,8 @@ class USBJointDialog(QDialog):
         self.port = port
         self.settings = settings
         self.jog_active = False
+        self.jog_failed = False
+        self.manual_read = False
         self.calibration_verified = False
         self.python = settings.get("lerobot_python") or lerobot_interpreter()
         self.process = QProcess(self)
@@ -92,6 +94,8 @@ class USBJointDialog(QDialog):
         self.process.errorOccurred.connect(self.process_error)
         self.deadline = QTimer(self, singleShot=True, interval=12000)
         self.deadline.timeout.connect(self.read_timed_out)
+        self.poll = QTimer(self, singleShot=True, interval=400)
+        self.poll.timeout.connect(lambda: self.read_positions(automatic=True))
         layout = QFormLayout(self)
         port_label = QLabel(port)
         port_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
@@ -132,7 +136,11 @@ class USBJointDialog(QDialog):
             for widget in (self.joint, self.lower, self.upper):
                 jog_row.addWidget(widget)
             layout.addRow("One motor at a time", jog_row)
-            self.calibration.currentIndexChanged.connect(self.reset_jog)
+            self.motion_status = QLabel()
+            self.motion_status.setTextFormat(Qt.TextFormat.PlainText)
+            self.motion_status.setWordWrap(True)
+            layout.addRow(self.motion_status)
+        self.calibration.currentIndexChanged.connect(self.invalidate_reading)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(self.reject)
         self.read = buttons.addButton("Read positions", QDialogButtonBox.ButtonRole.ActionRole)
@@ -140,7 +148,16 @@ class USBJointDialog(QDialog):
         layout.addRow(buttons)
         self.update_jog_controls()
 
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.read_positions(automatic=True)
+
+    def schedule_poll(self):
+        if self.isVisible():
+            self.poll.start()
+
     def choose_interpreter(self):
+        self.poll.stop()
         path, _ = QFileDialog.getOpenFileName(
             self, "Select LeRobot's Python interpreter", self.python
         )
@@ -148,7 +165,8 @@ class USBJointDialog(QDialog):
             self.python = path
             self.settings.set("lerobot_python", path)
             self.interpreter.setText(path)
-            self.reset_jog()
+            self.invalidate_reading()
+        self.schedule_poll()
 
     def add_calibration(self, path):
         self.calibration.addItem(Path(path).stem, str(path))
@@ -157,6 +175,7 @@ class USBJointDialog(QDialog):
         )
 
     def choose_calibration(self):
+        self.poll.stop()
         path, _ = QFileDialog.getOpenFileName(
             self, "Select SO-101 calibration", "", "JSON (*.json)"
         )
@@ -166,43 +185,51 @@ class USBJointDialog(QDialog):
                 self.add_calibration(path)
                 index = self.calibration.count() - 1
             self.calibration.setCurrentIndex(index)
+        self.schedule_poll()
 
-    def reset_jog(self):
+    def invalidate_reading(self):
         self.calibration_verified = False
-        if self.arm:
-            self.arm.setChecked(False)
+        for value in self.positions.values():
+            value.setText("—")
+        self.status.setText("Waiting for current motor positions…")
         self.update_jog_controls()
 
     def update_jog_controls(self):
         if self.arm:
             ready = self.calibration_verified and self.read.isEnabled()
-            self.arm.setEnabled(ready)
-            for control in (self.joint, self.lower, self.upper):
-                control.setEnabled(ready and self.arm.isChecked())
+            self.arm.setEnabled(self.calibration_verified or self.arm.isChecked())
+            self.joint.setEnabled(self.arm.isChecked() and not self.jog_active)
+            for control in (self.lower, self.upper):
+                control.setEnabled(ready and self.arm.isChecked() and not self.jog_failed)
 
     def step_joint(self, direction):
-        if self.arm and self.arm.isChecked() and self.calibration_verified:
+        if self.arm and self.arm.isChecked() and self.calibration_verified and not self.jog_failed:
             self.read_positions(jog=(self.joint.currentText(), direction))
 
-    def read_positions(self, _checked=False, *, jog=None):
+    def read_positions(self, _checked=False, *, jog=None, automatic=False):
         if not self.read.isEnabled():
             return
-        for value in self.positions.values():
-            value.setText("—")
+        self.poll.stop()
+        self.manual_read = not automatic and jog is None
         access_error = port_access_error(self.port)
         if access_error:
-            self.reset_jog()
-            self.status.setText(access_error)
+            self.finish_read(access_error)
             return
-        self.calibration_verified = False
         self.jog_active = jog is not None
-        for control in (self.read, self.interpreter, self.calibration, self.browse):
-            control.setEnabled(False)
+        self.read.setEnabled(False)
+        if jog:
+            for control in (self.interpreter, self.calibration, self.browse):
+                control.setEnabled(False)
         self.update_jog_controls()
-        self.status.setText("Executing one motor step…" if jog else "Reading motor positions…")
+        if jog:
+            self.motion_status.setText("Executing one motor step…")
+        elif not automatic:
+            self.status.setText("Reading motor positions…")
         self.deadline.start()
         args = ["-B", so101_usb.__file__, self.port]
-        if selected := self.calibration.currentData():
+        selected = self.calibration.currentData()
+        self.read_context = (self.python, selected)
+        if selected:
             args.append(selected)
         if jog:
             joint, direction = jog
@@ -215,7 +242,7 @@ class USBJointDialog(QDialog):
 
     def read_timed_out(self):
         if self.jog_active:
-            self.status.setText("Waiting for torque release. Keep the arm supported.")
+            self.motion_status.setText("Waiting for torque release. Keep the arm supported.")
         else:
             self.process.kill()
 
@@ -224,6 +251,9 @@ class USBJointDialog(QDialog):
         timed_out = not self.deadline.isActive() and not jog
         data = bytes(self.process.readAllStandardOutput())
         error = bytes(self.process.readAllStandardError()).decode(errors="replace").strip()
+        if self.read_context != (self.python, self.calibration.currentData()):
+            self.finish_read("Waiting for current motor positions…")
+            return
         if timed_out:
             self.finish_read("No response. Check the port, arm power, and motor setup.")
             return
@@ -253,32 +283,45 @@ class USBJointDialog(QDialog):
             self.positions[name].setText(f"{value:.2f}{unit}" if calibrated else f"{value:g}{unit}")
         if calibrated:
             if jog:
-                result = "Step complete · torque released"
-            elif self.arm:
-                result = "Calibration matches the motors. Support the arm before enabling steps."
-            else:
-                result = "LeRobot calibration matches the motors · read only"
+                self.motion_status.setText("Step complete · torque released")
+            result = (
+                "Calibration matches the motors · live"
+                if self.arm
+                else "LeRobot calibration matches the motors · read only"
+            )
         elif self.calibration.currentData():
             result = "Calibration does not match the motors · showing raw counts"
         else:
             result = "Raw motor counts · read only"
-        self.calibration_verified = calibrated
-        self.finish_read(result)
+        self.finish_read(result, calibrated=calibrated, valid_sample=True)
 
-    def finish_read(self, text):
+    def finish_read(self, text, *, calibrated=False, valid_sample=False):
         self.deadline.stop()
+        if not valid_sample:
+            for value in self.positions.values():
+                value.setText("—")
+        if self.jog_active and not calibrated:
+            self.jog_failed = True
+            self.motion_status.setText(
+                text[:1200] + " · Use Read positions to verify before another step."
+            )
+        if self.manual_read and calibrated and self.jog_failed:
+            self.jog_failed = False
+            self.motion_status.clear()
         self.jog_active = False
+        self.calibration_verified = calibrated
         self.status.setText(text[:1200])
         for control in (self.read, self.interpreter, self.calibration, self.browse):
             control.setEnabled(True)
-        if not self.calibration_verified:
-            self.reset_jog()
         self.update_jog_controls()
+        self.schedule_poll()
 
     def done(self, result):
         if self.jog_active:
             return
+        self.poll.stop()
+        self.deadline.stop()
+        super().done(result)
         if self.process.state() != QProcess.ProcessState.NotRunning:
             self.process.kill()
             self.process.waitForFinished(1000)
-        super().done(result)

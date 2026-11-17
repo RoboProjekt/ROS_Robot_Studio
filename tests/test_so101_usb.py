@@ -91,9 +91,56 @@ def test_usb_dialog_detects_calibration_and_reads_positions(
             "--direction",
             "1",
         ]
-        assert dialog.status.text() == "Step complete · torque released"
+        assert dialog.motion_status.text() == "Step complete · torque released"
         dialog.calibration.setCurrentIndex(0)
-        assert not dialog.arm.isEnabled() and not dialog.upper.isEnabled()
+        assert dialog.arm.isChecked() and not dialog.upper.isEnabled()
+
+
+def test_live_usb_reads_keep_confirmation_and_stop_when_dialog_closes(qtbot, tmp_path, monkeypatch):
+    port = tmp_path / "ttyACM0"
+    port.touch()
+    counter = tmp_path / "count"
+    helper = tmp_path / "helper.py"
+    helper.write_text(
+        "import json, sys\nfrom pathlib import Path\n"
+        "if '--joint' in sys.argv: sys.exit('Simulated step error')\n"
+        f"counter = Path({str(counter)!r})\n"
+        "count = int(counter.read_text()) + 1 if counter.exists() else 1\n"
+        "counter.write_text(str(count))\n"
+        f"print(json.dumps(dict(calibrated=True, positions=dict.fromkeys({JOINT_NAMES!r}, count))))\n"
+    )
+    monkeypatch.setattr("ros_robot_studio.backends.so101_usb.__file__", str(helper))
+    settings = Settings(tmp_path / "settings.json")
+    settings.set("lerobot_python", sys.executable)
+    dialog = USBJointDialog(str(port), settings, allow_jog=True)
+    qtbot.addWidget(dialog)
+    dialog.poll.setInterval(70)
+    dialog.show()
+    qtbot.waitUntil(dialog.arm.isEnabled)
+    first = dialog.positions["shoulder_pan"].text()
+    dialog.arm.setChecked(True)
+    qtbot.waitUntil(lambda: dialog.positions["shoulder_pan"].text() != first)
+    assert dialog.arm.isChecked()
+
+    port.unlink()
+    qtbot.waitUntil(lambda: "disconnected" in dialog.status.text())
+    assert dialog.arm.isChecked() and not dialog.upper.isEnabled()
+    assert dialog.positions["shoulder_pan"].text() == "—"
+    port.touch()
+    qtbot.waitUntil(dialog.upper.isEnabled)
+
+    dialog.upper.click()
+    qtbot.waitUntil(lambda: "Simulated step error" in dialog.motion_status.text())
+    qtbot.waitUntil(lambda: dialog.calibration_verified and dialog.read.isEnabled())
+    assert dialog.arm.isChecked() and not dialog.upper.isEnabled()
+    dialog.read.click()
+    qtbot.waitUntil(dialog.upper.isEnabled)
+    assert dialog.arm.isChecked()
+
+    dialog.close()
+    final_count = counter.read_text()
+    qtbot.wait(180)
+    assert not dialog.poll.isActive() and counter.read_text() == final_count
 
 
 def test_manual_project_uses_the_offline_model_and_no_vision_or_ros_execution():
