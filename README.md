@@ -13,6 +13,7 @@ ROS Robot Studio ist eine modulare Desktop-Anwendung für Roboterkonfiguration, 
   - [Gelenkbewegung, Positionen und Tasks](#11-gelenkbewegung-und-live-monitoring)
   - [RGB-Kamera und Objekterkennung](#14-rgb-kamera-zur-usd-hinzufügen)
   - [Eigene Roboter und Szenen](#eigene-roboter-und-szenen)
+- [Physischen SO-101 Follower über USB anbinden](#physischen-so-101-follower-über-usb-anbinden)
 
 ## ROS Robot Studio – Overview & Features
 
@@ -27,7 +28,7 @@ ROS Robot Studio ist eine modulare Desktop-Anwendung für Roboterkonfiguration, 
 | Dockable Workspace | Supported | Haupttabs ziehen, horizontal oder vertikal teilen, Layout speichern und wiederherstellen |
 | Camera & Vision | Supported | ROS-RGB-Kameras, feste Isaac-Kamera, HSV, ArUco, YOLOv5n v7 ONNX, CameraInfo/TF2 und planare Positionen |
 | Vision PoseProvider | Supported | Gültigen Punkt in einen manuellen Zielentwurf mit expliziter Werkzeugorientierung und Versatz übernehmen |
-| Real Robot | Read Only | ROS-Zustand empfangen und überwachen |
+| Real Robot | Read Only | ROS-Gelenkdaten überwachen oder SO-101-Follower-Positionen direkt über USB lesen |
 | Physischer Objektkontakt, bewegte Kamera-Montagen, Homographie | Planned | Greif- und Kontaktvalidierung sowie zusätzliche Kalibrierungs- und Montageverfahren |
 | MuJoCo und Gazebo | Planned | Profilverwaltung und lokale Dateizuordnung sind vorbereitet. Adapter und Start fehlen. |
 
@@ -391,5 +392,41 @@ Bei einer aktiven ROS-Quelle dienen die virtuellen Gelenkregler dem Offline-Work
 3. Für Isaac eine neue Stage aus dem gebundenen Modell erzeugen oder eine kompatible USD über **Browse…** zuordnen. Die automatische Validierung erwartet Meter, Z-up, eine Articulation unter `/World/Robot` und zur URDF passende Gelenke, Achsen und Limits. Eine externe ROS-Simulation kann ihre eigenen Controller und Topics bereitstellen.
 4. Im Backendprofil Domain, Controller-Schnittstelle, Topics und Mapping prüfen. JointState-Feedback vor einer Taskausführung im Monitoring bestätigen. Einen kleinen Task validieren und das Projekt speichern.
 5. Für die Offline-Einführung gibt es das [generische Beispiel](examples/generic_robot/demo.studio.yaml) und das [portable SO-101-Katalogprojekt](examples/so101/so101.studio.yaml). USD-Dateien werden über Schritt 8 lokal erzeugt.
+
+## Physischen SO-101 Follower über USB anbinden
+
+Studio liest die sechs Motorpositionen des SO-101 Followers über den USB-Seriell-Adapter. Der USB-Modus ist lesend. Studio-Tasks werden im Offline- oder Simulationsbackend ausgeführt.
+
+### LeRobot installieren und den Follower kalibrieren
+
+1. LeRobot in einer eigenen Python-Umgebung einrichten und die Feetech-Unterstützung in derselben Umgebung installieren. Bei einer Installation von PyPI lautet der Befehl `pip install 'lerobot[feetech]'`. Im LeRobot-Quellcodeordner lautet er `pip install -e '.[feetech]'`. [Offizielle LeRobot-Installation](https://huggingface.co/docs/lerobot/installation) · [Feetech-Unterstützung](https://huggingface.co/docs/lerobot/installation#motor-control)
+2. Den Follower-Adapter per USB anschließen und den Arm mit Strom versorgen. In der LeRobot-Umgebung `lerobot-find-port` starten und den Follower-Adapter abziehen, wenn das Programm dazu auffordert. Den gemeldeten Port merken, den Adapter wieder anschließen und den [USB-Zugriff prüfen](#usb-zugriff-unter-ubuntu-prüfen). Wenn die Motor-IDs oder die Baudrate noch eingerichtet werden müssen, den Schritten für den Follower folgen. [USB-Port und Motoren einrichten](https://huggingface.co/docs/lerobot/so101#configure-the-motors)
+3. Den Follower nach der Originalanleitung kalibrieren, falls für diesen Arm noch keine Kalibrierung vorliegt. Im Beispiel heißt der Arm `SO101` und der Anschluss `/dev/ttyACM0`. Ersetze den Port durch den zuvor ermittelten Anschluss. LeRobot speichert die Kalibrierung unter der gewählten Roboter-ID. [Offizielle SO-101-Kalibrierung mit Video](https://huggingface.co/docs/lerobot/so101#calibrate)
+
+   ```bash
+   lerobot-calibrate --robot.type=so101_follower --robot.port=/dev/ttyACM0 --robot.id=SO101
+   ```
+
+### USB-Zugriff unter Ubuntu prüfen
+
+Wenn Studio **No access** meldet, prüfe mit `ls -l /dev/ttyACM0` die Gerätegruppe und mit `id -nG` die Gruppen der aktuellen Sitzung. Gehört der Anschluss zu `dialout` und fehlt diese Gruppe in deiner Sitzung, füge deinen Benutzer hinzu. Melde dich anschließend vollständig ab und wieder an und starte Studio aus der neuen Sitzung.
+
+```bash
+sudo usermod -aG dialout "$USER"
+```
+
+### Port auswählen und Gelenkpositionen lesen
+
+1. Im Runtime-Banner **Simulation Runtime → Real Robot** wählen. **Robot Connection** erscheint und listet die USB-Seriell-Adapter auf. Wähle den Port des Followers. **Refresh ports** lädt die Liste nach dem Einstecken neu. Unter Linux verwendet Studio, sofern vorhanden, intern den stabilen Gerätenamen unter `/dev/serial/by-id/`.
+
+   ![Runtime-Banner mit Real Robot und ausgewähltem USB-Adapter ttyACM0](docs/images/hardware/usb-runtime.png)
+
+2. **Read USB Joints…** öffnen. Kontrolliere unter **LeRobot Python**, dass der Interpreter deiner LeRobot-Umgebung ausgewählt ist. Studio findet eine übliche Miniforge-Installation mit dem Environment `lerobot` automatisch. Über die Schaltfläche mit dem Interpreterpfad kannst du einen anderen Python-Interpreter auswählen.
+3. Unter **LeRobot calibration** erscheint eine einzelne gefundene Follower-Datei automatisch. Studio sucht im LeRobot-Cache und berücksichtigt `HF_LEROBOT_CALIBRATION`. Mit **Choose calibration file…** kannst du die JSON-Datei aus einem anderen Ordner auswählen. Schließe LeLab oder andere Programme, die denselben seriellen Port verwenden, und klicke auf **Read positions**.
+4. **LeRobot calibration matches the motors** bestätigt die Übereinstimmung der Datei mit der Motorkalibrierung. Studio zeigt fünf Armwinkel in Grad und den normierten Greiferwert in Prozent. Ohne passende Kalibrierung erscheinen rohe Motorzählwerte. Bei ausbleibender Antwort prüfe den gewählten Port, die Stromversorgung und die Motor-Einrichtung.
+
+   ![USB-Auslesedialog mit erkannter SO101-Kalibrierung, fünf Winkeln und einem Greiferwert](docs/images/hardware/usb-joint-positions.png)
+
+   *Beispielmessung an einem per USB angeschlossenen SO-101 Follower. Die Werte hängen von der aktuellen Armstellung ab.*
 
 [Installieren](INSTALLATION.md) · [Entwickeln und testen](DEVELOPMENT.md) · [Mitwirken](CONTRIBUTING.md) · [Projektformat](docs/PROJECT_FORMAT.md) · [Roadmap](ROADMAP.md) · [Prüfbericht](docs/PUBLICATION_VERIFICATION.md) · [Apache-2.0](LICENSE) · [Drittanbieter-Lizenzen](THIRD_PARTY_LICENSES.md)

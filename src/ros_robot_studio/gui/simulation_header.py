@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 from ros_robot_studio.backends.isaac import IsaacSimInstallationManager, IsaacSimSceneManager
 from ros_robot_studio.backends.profiles import DEFAULTS, new_profile
 from ros_robot_studio.gui.backend_connections import BackendProfileDialog
+from ros_robot_studio.gui.usb_robot import USBJointDialog, port_access_error, usb_ports
 
 EXTENSIONS = {
     "isaac_sim": (".usd", ".usda", ".usdc"),
@@ -40,6 +41,7 @@ class SimulationHeader(QWidget):
         self.operation_error = None
         self.pending = set()
         self.scene_ready_keys = {}
+        self.port_profile = None
         body = QGridLayout(self)
         body.setContentsMargins(4, 3, 4, 3)
         body.addWidget(QLabel("ROS Runtime"), 0, 0)
@@ -64,6 +66,20 @@ class SimulationHeader(QWidget):
         menu.addAction("Clear recent files for this simulator", lambda: self.remove_recent(True))
         self.history_menu.setMenu(menu)
         body.addWidget(self.history_menu, 0, 7)
+        self.port_label = QLabel("Robot Connection")
+        body.addWidget(self.port_label, 0, 4)
+        self.robot_port = QComboBox()
+        self.robot_port.setMinimumWidth(180)
+        self.robot_port.setMaximumWidth(430)
+        self.robot_port.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+        )
+        self.robot_port.setToolTip(
+            "Choose a USB serial adapter for the SO-101 Follower, or monitor ROS JointState."
+        )
+        body.addWidget(self.robot_port, 0, 5)
+        self.refresh_ports_button = QPushButton("Refresh ports")
+        body.addWidget(self.refresh_ports_button, 0, 6, 1, 2)
         self.start = QPushButton("Start Simulation")
         body.addWidget(self.start, 0, 8)
         self.connect_button = QPushButton("Connect ROS")
@@ -80,6 +96,9 @@ class SimulationHeader(QWidget):
         body.addWidget(self.disconnect, 1, 9)
         self.runtime.activated.connect(self.select_runtime)
         self.scene.activated.connect(self.select_scene)
+        self.robot_port.activated.connect(self.select_port)
+        self.refresh_ports_button.clicked.connect(self.refresh_ports)
+        self.refresh_ports_button.clicked.connect(self.refresh)
         self.browse.clicked.connect(self.browse_scene)
         self.auto_play.toggled.connect(self.save_auto_play)
         self.start.clicked.connect(
@@ -138,7 +157,10 @@ class SimulationHeader(QWidget):
             for p in profiles:
                 self.runtime.addItem(p.name, p.id)
             if not profiles:
-                self.runtime.addItem(DEFAULTS[kind]["name"] + " · configure…", "new:" + kind)
+                name = DEFAULTS[kind]["name"]
+                self.runtime.addItem(
+                    name if kind == "real_robot" else name + " · configure…", "new:" + kind
+                )
         self.runtime.setCurrentIndex(max(0, self.runtime.findData(self.manager.selected_id)))
         self.runtime.blockSignals(False)
         profile = self.profile()
@@ -147,8 +169,18 @@ class SimulationHeader(QWidget):
             self.main.distro.setCurrentIndex(self.main.distro.findData(profile.distribution))
             self.main.distro.blockSignals(False)
         kind = profile.backend_type if profile else "offline"
+        hardware = kind == "real_robot"
         files = kind in EXTENSIONS
-        self.file_label.setText("Hardware Profile" if kind == "real_robot" else "Simulation File")
+        for widget in (self.file_label, self.scene, self.browse, self.history_menu):
+            widget.setVisible(not hardware)
+        for widget in (self.port_label, self.robot_port, self.refresh_ports_button):
+            widget.setVisible(hardware)
+            widget.setEnabled(not busy)
+        port_profile = profile.id if hardware else None
+        if self.port_profile != port_profile:
+            self.port_profile = port_profile
+            if hardware:
+                self.refresh_ports()
         self.scene.blockSignals(True)
         self.scene.clear()
         selected = self.local().get("scene_path", "")
@@ -166,7 +198,7 @@ class SimulationHeader(QWidget):
                 self.scene.setItemData(self.scene.count() - 1, path, 3)  # Qt.ToolTipRole
             self.scene.setCurrentIndex(max(0, self.scene.findData(selected)))
         else:
-            self.scene.addItem(profile.name if kind == "real_robot" else "Not required", "")
+            self.scene.addItem("Not required", "")
         self.scene.blockSignals(False)
         for widget in (self.scene, self.browse, self.history_menu):
             widget.setEnabled(files and not busy)
@@ -175,10 +207,48 @@ class SimulationHeader(QWidget):
         self.auto_play.blockSignals(False)
         self.auto_play.setVisible(kind == "isaac_sim")
         self.auto_play.setEnabled(not busy)
-        self.start.setText("Connect Read Only" if kind == "real_robot" else "Start Simulation")
-        self.start.setEnabled(not self.main.runner.busy and kind not in ("mujoco", "gazebo"))
-        self.connect_button.setEnabled(bool(profile) and kind not in ("mujoco", "gazebo"))
+        serial_selected = hardware and bool(self.robot_port.currentData())
+        self.start.setText(
+            "Read USB Joints…"
+            if serial_selected
+            else "Connect Read Only"
+            if hardware
+            else "Start Simulation"
+        )
+        self.start.setEnabled(
+            not busy
+            and kind not in ("mujoco", "gazebo")
+            and (
+                not serial_selected
+                or self.robot_port.model().item(self.robot_port.currentIndex()).isEnabled()
+            )
+        )
+        self.connect_button.setEnabled(
+            bool(profile) and not serial_selected and kind not in ("mujoco", "gazebo")
+        )
         self.refresh_status()
+
+    def refresh_ports(self):
+        selected = self.local().get("usb_serial_port", "")
+        self.robot_port.clear()
+        self.robot_port.addItem("ROS JointState · read only", "")
+        ports = usb_ports()
+        for path, title in ports:
+            self.robot_port.addItem(title, path)
+            self.robot_port.setItemData(self.robot_port.count() - 1, path, 3)  # Qt.ToolTipRole
+        if selected and self.robot_port.findData(selected) < 0:
+            self.robot_port.addItem("Disconnected · " + Path(selected).name, selected)
+            self.robot_port.model().item(self.robot_port.count() - 1).setEnabled(False)
+        elif not ports:
+            self.robot_port.addItem("No USB serial adapters detected")
+            self.robot_port.model().item(self.robot_port.count() - 1).setEnabled(False)
+        self.robot_port.setCurrentIndex(max(0, self.robot_port.findData(selected)))
+
+    def select_port(self, index):
+        self.operation_error = None
+        self.save_local(
+            self.manager.selected_id, {"usb_serial_port": self.robot_port.itemData(index)}
+        )
 
     def set_status(self, text):
         if self.operation_error and self.operation_error[0] == self.manager.selected_id:
@@ -196,6 +266,12 @@ class SimulationHeader(QWidget):
         active = self.manager.active_id == p.id
         if p.backend_type in ("mujoco", "gazebo"):
             self.set_status(f"{p.name} · adapter not implemented · files can be assigned locally")
+            return
+        port = self.robot_port.currentData() if p.backend_type == "real_robot" else ""
+        if port:
+            self.set_status(
+                port_access_error(port) or "SO-101 Follower · USB joint readings · Read Only"
+            )
             return
         connection = session.status if session else "Disconnected"
         if p.backend_type == "isaac_sim":
@@ -264,13 +340,17 @@ class SimulationHeader(QWidget):
 
     def _select_runtime(self, identity):
         if isinstance(identity, str) and identity.startswith("new:"):
-            profile = new_profile(identity.split(":", 1)[1], distribution=self.main.selected_distro)
-            editor = BackendProfileDialog(self.main, profile, self, is_new=True)
-            if editor.exec() != QDialog.DialogCode.Accepted:
-                self.refresh()
-                return
-            profile = self.manager.add(editor.values(), bind_current=False)
-            self.save_local(profile.id, editor.local_values())
+            kind = identity.split(":", 1)[1]
+            profile = new_profile(kind, distribution=self.main.selected_distro)
+            if kind == "real_robot":
+                profile = self.manager.add(profile, bind_current=False)
+            else:
+                editor = BackendProfileDialog(self.main, profile, self, is_new=True)
+                if editor.exec() != QDialog.DialogCode.Accepted:
+                    self.refresh()
+                    return
+                profile = self.manager.add(editor.values(), bind_current=False)
+                self.save_local(profile.id, editor.local_values())
             identity = profile.id
         if identity == self.manager.selected_id:
             return
@@ -386,6 +466,11 @@ class SimulationHeader(QWidget):
         p = self.manager.profiles.get(identity)
         if not p:
             self.main.request_offline()
+            return
+        if p.backend_type == "real_robot" and self.robot_port.currentData():
+            dialog = USBJointDialog(self.robot_port.currentData(), self.main.settings, self)
+            dialog.exec()
+            dialog.deleteLater()
             return
         if p.backend_type != "isaac_sim" or p.connection_mode != "local_installation":
             if p.backend_type in ("mujoco", "gazebo"):

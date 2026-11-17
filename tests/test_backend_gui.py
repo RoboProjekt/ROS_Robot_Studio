@@ -59,6 +59,35 @@ def test_hardware_editor_cannot_enable_motion_even_programmatically(window, qtbo
         editor.values()
 
 
+def test_real_robot_shows_usb_selector_and_preserves_a_disconnected_choice(
+    window, tmp_path, monkeypatch
+):
+    port = str(tmp_path / "ttyACM0")
+    ports = [(port, "ttyACM0 · USB Single Serial")]
+    monkeypatch.setattr("ros_robot_studio.gui.simulation_header.usb_ports", lambda: ports)
+    header = window.simulation_header
+    assert header.robot_port.isHidden()
+    header.select_runtime(header.runtime.findData("new:real_robot"))
+    assert header.profile().backend_type == "real_robot"
+    assert header.profile().read_only
+    assert not header.robot_port.isHidden() and header.scene.isHidden()
+    index = header.robot_port.findData(port)
+    header.robot_port.setCurrentIndex(index)
+    header.select_port(index)
+    assert header.start.text() == "Read USB Joints…"
+    assert not header.connect_button.isEnabled()
+    assert port not in window.collect().model_dump_json()
+    ports.clear()
+    header.refresh_ports_button.click()
+    assert header.robot_port.currentData() == port
+    assert not header.start.isEnabled()
+    ports.append((port, "ttyACM0 · USB Single Serial"))
+    header.refresh_ports_button.click()
+    assert header.start.isEnabled()
+    header.select_runtime(0)
+    assert header.robot_port.isHidden() and not header.scene.isHidden()
+
+
 def test_connection_manager_crud_and_prepared_backends(window, qtbot):
     manager = window.backend_manager
     first = manager.add(new_profile("ros_demo"))

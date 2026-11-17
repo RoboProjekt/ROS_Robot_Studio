@@ -280,8 +280,9 @@ def test_header_selection_scene_history_and_missing_files_are_local(studio, tmp_
     assert not header.local().get("scene_path")
     hardware = w.backend_manager.add(new_profile("real_robot"))
     w.backend_manager.select_profile(hardware.id)
-    assert header.file_label.text() == "Hardware Profile"
-    assert not header.scene.isEnabled()
+    assert header.port_label.text() == "Robot Connection"
+    assert not header.robot_port.isHidden()
+    assert header.scene.isHidden() and not header.scene.isEnabled()
     assert "Read Only" in header.status.text()
     w.manager.start.assert_not_called()
 
