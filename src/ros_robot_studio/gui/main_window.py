@@ -44,6 +44,7 @@ from ros_robot_studio.motion.ros_backend import ROS2ExecutionBackend
 from ros_robot_studio.plugins.registry import PluginRegistry
 from ros_robot_studio.projects.store import (
     EXAMPLE_URDF,
+    PROJECTS_DIR,
     asset_path,
     atomic_text,
     demo_project,
@@ -405,7 +406,7 @@ class MainWindow(QMainWindow):
             filename, _ = QFileDialog.getSaveFileName(
                 self,
                 "Save robot project",
-                str(path or Path.home() / "robot.studio.yaml"),
+                str(path or self.default_project_directory() / "robot.studio.yaml"),
                 "Studio project (*.yaml *.yml)",
             )
             if not filename:
@@ -431,13 +432,21 @@ class MainWindow(QMainWindow):
 
         self.runner.run(work, done)
 
+    def default_project_directory(self):
+        return PROJECTS_DIR if PROJECTS_DIR.is_dir() else Path.home()
+
+    def simulation_directory(self):
+        if self.project_path and self.project_path.resolve().is_relative_to(PROJECTS_DIR):
+            return self.project_path.parent / "isaac-scenes" / self.project.id
+        return self.model_manager.root.parent / "simulations"
+
     def open_project_dialog(self):
         if not self.confirm_discard():
             return
         filename, _ = QFileDialog.getOpenFileName(
             self,
             "Open robot project",
-            self.settings.get("last_project", str(Path.home())),
+            self.settings.get("last_project", str(self.default_project_directory())),
             "Studio project (*.yaml *.yml)",
         )
         if filename:

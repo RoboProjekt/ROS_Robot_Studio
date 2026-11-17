@@ -1,0 +1,23 @@
+format_version: 3
+id: 947d1ed4-e1bc-4a96-bc67-da6478714ae9
+name: SO-101 · USB Joint Control
+description: SO-101 Follower mit dem Offline-Referenzmodell und einzelnen USB-Gelenkschritten.
+default_ros: humble
+robot:
+  profile: so101
+  model_id: so101_follower
+  model_version: 1.0.0
+  source_revision: a758567c3978dfeefe282ede0500085a48fe8f78
+  urdf: model://so101_follower/a758567c3978dfeefe282ede0500085a48fe8f78/so101_new_calib.urdf
+  end_effector: gripper_frame_link
+sensors: []
+backends:
+  - id: so101_real_usb
+    name: Real Robot · SO-101
+    backend_type: real_robot
+    domain_id: 0
+    distribution: humble
+    robot_model_id: so101_follower
+    model_revision: a758567c3978dfeefe282ede0500085a48fe8f78
+    usb_joint_jog: true
+active_backend: so101_real_usb

@@ -236,6 +236,7 @@ class BackendProfileDialog(QDialog):
         data.update(
             name=self.name.text().strip(),
             backend_type=self.kind.currentText(),
+            usb_joint_jog=self.original.usb_joint_jog and self.kind.currentText() == "real_robot",
             connection_mode=self.mode.currentText(),
             distribution=self.distribution.currentText(),
             domain_id=self.domain.value(),
@@ -291,7 +292,7 @@ class BackendConnectionsDialog(QDialog):
         body.addWidget(label("ROS backend connections", "section"))
         body.addWidget(
             label(
-                "Independent domains and endpoints · one active robot state · hardware remains read only",
+                "Independent domains and endpoints · one active robot state · ROS hardware connections are read only",
                 "subtitle",
                 True,
             )
@@ -614,10 +615,7 @@ class BackendConnectionsDialog(QDialog):
             directory = (
                 Path(local["scene_directory"]).expanduser()
                 if local.get("scene_directory")
-                else self.main.model_manager.root.parent
-                / "simulations"
-                / identity
-                / profile.model_signature[:16]
+                else self.main.simulation_directory() / identity / profile.model_signature[:16]
             )
             model = self.main.model
             positions = self.main.independent_positions()

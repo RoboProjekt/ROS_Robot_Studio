@@ -7,6 +7,7 @@ ROS Robot Studio ist eine modulare Desktop-Anwendung für Roboterkonfiguration, 
 *Der SO-101 Follower in Robot Configuration neben dem Live Monitoring. Beide Ansichten verwenden denselben aktiven Roboterzustand.*
 
 - [ROS Robot Studio – Overview & Features](#ros-robot-studio--overview--features)
+- [Projekte und Isaac-Szenen öffnen](#projekte-und-isaac-szenen-öffnen)
 - [Tutorial – SO-101 in ROS Robot Studio und Isaac Sim](#tutorial--so-101-in-ros-robot-studio-und-isaac-sim)
   - [Installieren und den SO-101 konfigurieren](#1-installation)
   - [Humble, Isaac Sim und eine eigene USD](#6-ros-2-humble-einrichten)
@@ -28,7 +29,7 @@ ROS Robot Studio ist eine modulare Desktop-Anwendung für Roboterkonfiguration, 
 | Dockable Workspace | Supported | Haupttabs ziehen, horizontal oder vertikal teilen, Layout speichern und wiederherstellen |
 | Camera & Vision | Supported | ROS-RGB-Kameras, feste Isaac-Kamera, HSV, ArUco, YOLOv5n v7 ONNX, CameraInfo/TF2 und planare Positionen |
 | Vision PoseProvider | Supported | Gültigen Punkt in einen manuellen Zielentwurf mit expliziter Werkzeugorientierung und Versatz übernehmen |
-| Real Robot | Read Only | ROS-Gelenkdaten überwachen oder SO-101-Follower-Positionen direkt über USB lesen |
+| Real Robot | USB manual / ROS read only | ROS-Gelenkdaten überwachen, SO-101-Positionen über USB lesen und mit dem mitgelieferten Projekt einzelne Gelenke bewegen |
 | Physischer Objektkontakt, bewegte Kamera-Montagen, Homographie | Planned | Greif- und Kontaktvalidierung sowie zusätzliche Kalibrierungs- und Montageverfahren |
 | MuJoCo und Gazebo | Planned | Profilverwaltung und lokale Dateizuordnung sind vorbereitet. Adapter und Start fehlen. |
 
@@ -284,7 +285,7 @@ Bei einer aktiven ROS-Quelle dienen die virtuellen Gelenkregler dem Offline-Work
 
 ![Gelenkrückmeldung während eines Isaac-Tasks im geteilten Workspace](docs/images/tutorial/22-live-monitoring.png)
 
-*Das Monitoring folgt der laufenden Simulationsbewegung. Hardware-Profile bleiben Read Only.*
+*Das Monitoring folgt der laufenden Simulationsbewegung. ROS-Verbindungen zu physischen Robotern sind lesend.*
 
 ### 12. Positionen speichern
 
@@ -393,9 +394,13 @@ Bei einer aktiven ROS-Quelle dienen die virtuellen Gelenkregler dem Offline-Work
 4. Im Backendprofil Domain, Controller-Schnittstelle, Topics und Mapping prüfen. JointState-Feedback vor einer Taskausführung im Monitoring bestätigen. Einen kleinen Task validieren und das Projekt speichern.
 5. Für die Offline-Einführung gibt es das [generische Beispiel](examples/generic_robot/demo.studio.yaml) und das [portable SO-101-Katalogprojekt](examples/so101/so101.studio.yaml). USD-Dateien werden über Schritt 8 lokal erzeugt.
 
+## Projekte und Isaac-Szenen öffnen
+
+Studio speichert Robotereinstellungen und Backendprofile gemeinsam in der jeweiligen `.studio.yaml`. Öffne sie über **Project → Open…**. Die gespeicherten Backends findest du danach unter **Simulation Runtime** und **Backends…**. Der Ordner [Projects/](Projects/) ist im Checkout der vorgeschlagene Speicherort für neue Projektdateien. Er kann auch Isaac-Sim-Dateien mit ihren zugehörigen USD-Layern aufnehmen. Bei einem dort gespeicherten Projekt legt Studio generierte Szenen standardmäßig im Unterordner `isaac-scenes/` neben der Projektdatei ab.
+
 ## Physischen SO-101 Follower über USB anbinden
 
-Studio liest die sechs Motorpositionen des SO-101 Followers über den USB-Seriell-Adapter. Der USB-Modus ist lesend. Studio-Tasks werden im Offline- oder Simulationsbackend ausgeführt.
+Studio liest die sechs Motorpositionen des SO-101 Followers über den USB-Seriell-Adapter. Für kleine manuelle Bewegungen bietet das Projekt [SO-101-Real.studio.yaml](Projects/SO-101-Real.studio.yaml) eine separate Einzelgelenksteuerung. Studio-Tasks werden im Offline- oder Simulationsbackend ausgeführt.
 
 ### LeRobot installieren und den Follower kalibrieren
 
@@ -428,5 +433,12 @@ sudo usermod -aG dialout "$USER"
    ![USB-Auslesedialog mit erkannter SO101-Kalibrierung, fünf Winkeln und einem Greiferwert](docs/images/hardware/usb-joint-positions.png)
 
    *Beispielmessung an einem per USB angeschlossenen SO-101 Follower. Die Werte hängen von der aktuellen Armstellung ab.*
+
+### Einzelne Gelenke am echten Arm bewegen
+
+1. **Project → Open…** wählen und `Projects/SO-101-Real.studio.yaml` öffnen. Das Projekt verwendet das SO-101-Referenzmodell aus der Offline-Vorlage und enthält keine Kamera oder Objekterkennung. Den USB-Port des Followers unter **Robot Connection** wählen und **USB Joint Control…** öffnen.
+2. Den Arm am Tisch befestigen und so abstützen, dass er sich auch bei ausgeschaltetem Drehmoment nicht absenkt. Den Bewegungsbereich freihalten und die Stromversorgung erreichbar halten. Andere Programme schließen, die den Port verwenden.
+3. **Read positions** klicken. Bei passender Kalibrierung das Kontrollkästchen **Arm is fixed and supported. Enable manual steps.** aktivieren. Im Gelenkmenü zum Beispiel `shoulder_pan` wählen und einmal **− Step** oder **+ Step** klicken.
+4. Jeder Klick bewegt nur den gewählten Motor um höchstens 12 Encoder-Schritte innerhalb des kalibrierten Bereichs. Der Motor muss vor dem Schritt im Positionsmodus sein und sein Drehmoment ausgeschaltet haben. **Step complete · torque released** erscheint, wenn der Motor sein Ziel erreicht und das Abschalten seines Drehmoments bestätigt hat. Der Arm bleibt danach frei beweglich. Bei einer Meldung, dass das Abschalten nicht bestätigt werden konnte, den Arm abgestützt lassen und die Motorversorgung trennen.
 
 [Installieren](INSTALLATION.md) · [Entwickeln und testen](DEVELOPMENT.md) · [Mitwirken](CONTRIBUTING.md) · [Projektformat](docs/PROJECT_FORMAT.md) · [Roadmap](ROADMAP.md) · [Prüfbericht](docs/PUBLICATION_VERIFICATION.md) · [Apache-2.0](LICENSE) · [Drittanbieter-Lizenzen](THIRD_PARTY_LICENSES.md)

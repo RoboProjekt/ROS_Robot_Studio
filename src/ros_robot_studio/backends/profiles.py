@@ -35,6 +35,7 @@ class BackendProfile(Model):
     enabled: bool = True
     execution_enabled: bool = False
     read_only: bool = True
+    usb_joint_jog: bool = False
     simulation_confirmed: bool = False
     shared_domain_confirmed: bool = False
     auto_start: bool = False
@@ -63,7 +64,11 @@ class BackendProfile(Model):
         if self.port and self.port < 1024:
             raise ValueError("Bridge port must be zero (automatic) or 1024..65535")
         if self.backend_type == "real_robot" and (not self.read_only or self.execution_enabled):
-            raise ValueError("Real Robot is always read only; hardware execution is locked")
+            raise ValueError("Real Robot ROS backends are read only; ROS task execution is locked")
+        if self.usb_joint_jog and (
+            self.backend_type != "real_robot" or self.robot_model_id != "so101_follower"
+        ):
+            raise ValueError("USB jogging requires a Real Robot profile for the SO-101 Follower")
         if len(set(self.joint_mapping.values())) != len(self.joint_mapping):
             raise ValueError("Joint mapping must be one-to-one")
         if any(

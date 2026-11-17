@@ -130,6 +130,13 @@ class SimulationHeader(QWidget):
     def profile(self):
         return self.manager.profiles.get(self.manager.selected_id)
 
+    def can_jog(self, profile):
+        return (
+            profile.enabled
+            and profile.usb_joint_jog
+            and (self.main.project.robot.model_id == profile.robot_model_id == "so101_follower")
+        )
+
     def local(self, identity=None):
         return dict(
             self.main.settings.get("backend_local", {}).get(
@@ -209,7 +216,7 @@ class SimulationHeader(QWidget):
         self.auto_play.setEnabled(not busy)
         serial_selected = hardware and bool(self.robot_port.currentData())
         self.start.setText(
-            "Read USB Joints…"
+            ("USB Joint Control…" if self.can_jog(profile) else "Read USB Joints…")
             if serial_selected
             else "Connect Read Only"
             if hardware
@@ -270,7 +277,12 @@ class SimulationHeader(QWidget):
         port = self.robot_port.currentData() if p.backend_type == "real_robot" else ""
         if port:
             self.set_status(
-                port_access_error(port) or "SO-101 Follower · USB joint readings · Read Only"
+                port_access_error(port)
+                or (
+                    "SO-101 Follower · USB single-joint control"
+                    if self.can_jog(p)
+                    else "SO-101 Follower · USB joint readings · Read Only"
+                )
             )
             return
         connection = session.status if session else "Disconnected"
@@ -468,7 +480,9 @@ class SimulationHeader(QWidget):
             self.main.request_offline()
             return
         if p.backend_type == "real_robot" and self.robot_port.currentData():
-            dialog = USBJointDialog(self.robot_port.currentData(), self.main.settings, self)
+            dialog = USBJointDialog(
+                self.robot_port.currentData(), self.main.settings, self, allow_jog=self.can_jog(p)
+            )
             dialog.exec()
             dialog.deleteLater()
             return
@@ -530,7 +544,7 @@ class SimulationHeader(QWidget):
             raise ValueError(
                 "Install the selected ROS runtime in Project & Runtime before starting the simulator"
             )
-        directory = self.main.model_manager.root.parent / "simulations" / identity / uuid4().hex
+        directory = self.main.simulation_directory() / identity / uuid4().hex
         if scene is None and local.get("scene_directory"):
             directory = Path(local["scene_directory"]).expanduser() / directory.name
         model, positions = self.main.model, self.main.independent_positions()

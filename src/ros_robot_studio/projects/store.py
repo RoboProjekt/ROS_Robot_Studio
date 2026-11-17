@@ -12,6 +12,7 @@ from ros_robot_studio.core.models import Project, Sensor
 
 DATA = Path(__file__).resolve().parents[1] / "data"
 EXAMPLE_URDF = DATA / "examples" / "generic_arm.urdf"
+PROJECTS_DIR = Path(__file__).resolve().parents[3] / "Projects"
 
 
 def load_project(path: Path) -> Project:
