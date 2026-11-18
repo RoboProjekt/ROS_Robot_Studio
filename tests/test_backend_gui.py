@@ -274,6 +274,7 @@ def test_usb_motor_control_and_sliders_work_with_setup_open_or_hidden(
     slider = controls.controls["shoulder_pan"][0]
     runtime = window.local_runtime
     assert toggle.isHidden()
+    assert controls.usb_limits.isHidden()
 
     runtime.start_usb(profile, str(port), allow_jog=True)
     dialog = runtime.dialog
@@ -287,17 +288,29 @@ def test_usb_motor_control_and_sliders_work_with_setup_open_or_hidden(
     assert not slider.isEnabled()
     assert dialog.positions["shoulder_pan"].text() == "0.00°"
 
-    def operations():
-        return [json.loads(line)["operation"] for line in log.read_text().splitlines()]
+    def commands():
+        return [json.loads(line) for line in log.read_text().splitlines()]
 
+    def operations():
+        return [command["operation"] for command in commands()]
+
+    assert controls.usb_limits.isVisible() and controls.usb_limits.isEnabled()
+    controls.usb_speed.setValue(60)
+    controls.usb_torque.setValue(35)
     qtbot.mouseClick(toggle, Qt.MouseButton.LeftButton, pos=QPoint(8, toggle.height() // 2))
     qtbot.waitUntil(slider.isEnabled)
+    assert {"operation": "arm", "speed": 60, "torque": 35} in commands()
+    assert "limits" not in operations()
     assert toggle.isChecked() and not dialog.calibration.isEnabled()
     slider.setValue(5500)
     qtbot.waitUntil(lambda: operations().count("target") == 1)
     dialog.close()
     assert not dialog.isVisible()
     assert toggle.isChecked() and slider.isEnabled()
+    controls.usb_speed.setValue(80)
+    qtbot.waitUntil(lambda: {"operation": "limits", "speed": 80, "torque": 35} in commands())
+    controls.usb_torque.setValue(40)
+    qtbot.waitUntil(lambda: {"operation": "limits", "speed": 80, "torque": 40} in commands())
     ping_count = operations().count("ping")
     qtbot.waitUntil(lambda: operations().count("ping") > ping_count)
     slider.setValue(4500)
@@ -315,6 +328,7 @@ def test_usb_motor_control_and_sliders_work_with_setup_open_or_hidden(
     qtbot.waitUntil(lambda: runtime.retiring_usb is None)
     assert operations()[-1] == "close"
     assert window.mode == "offline" and toggle.isHidden() and not toggle.isChecked()
+    assert controls.usb_limits.isHidden()
 
 
 def test_cancelled_close_preserves_unsaved_project_and_connected_backends(window, monkeypatch):

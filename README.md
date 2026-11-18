@@ -446,6 +446,15 @@ sudo usermod -aG dialout "$USER"
 5. Einen Slider oder Zahlenwert in **Robot Configuration** ändern. Studio sendet das Ziel direkt an den jeweiligen Motor. Die 3D-Ansicht und **Live Monitoring** folgen den gemessenen Werten. Ziele bleiben innerhalb der kalibrierten und der URDF-Grenzen. Bei Isaac Sim und MuJoCo steuern dieselben Regler die jeweils aktive Simulation.
 6. Die Freigabe bleibt beim Ausblenden des USB-Dialogs aktiv. Stütze den Arm ab, bevor du den Haken entfernst oder **Disconnect** klickst. Beides schaltet das Motordrehmoment ab. Wenn Studio meldet, dass das Abschalten nicht bestätigt werden konnte, lass den Arm abgestützt und trenne die Motorversorgung.
 
+### Geschwindigkeit und maximales Drehmoment einstellen
+
+Unter der Motorfreigabe in **Robot Configuration** stehen zwei Regler für alle sechs SO-101-Motoren zur Verfügung, sobald die USB-Kalibrierung bestätigt ist.
+
+- **USB Speed** (blau, runder Griff) setzt die Sollgeschwindigkeit auf 1–240 Encoder-Schritte pro Sekunde. Eine neue USB-Verbindung startet mit 24 Schritten pro Sekunde.
+- **USB Max torque** (orange, eckiger Griff) setzt eine Obergrenze von 1–100 % der Servo-Skala. Der Standardwert von 100 % behält die vorhandenen Motorgrenzen bei. Wenn ein Motor tiefer begrenzt ist, etwa der Greifer, gilt seine niedrigere Grenze. Bei einem niedrigen Wert kann der Arm seine Position unter Last verlieren.
+
+Du kannst beide Werte vor der Motorfreigabe einstellen. Bei aktiver Freigabe übernimmt Studio eine Änderung, sobald du den Regler loslässt. Beim Deaktivieren der Motorfreigabe oder Trennen der Verbindung stellt Studio die zuvor gelesenen Registerwerte wieder her.
+
 ## Lokale MuJoCo-Runtime
 
 Die optionale Abhängigkeit im Studio-Projektordner installieren.

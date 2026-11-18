@@ -61,13 +61,20 @@ class USBSessionDialog(USBPositionDialog):
             message = json.dumps(dict(operation=operation, **values)) + "\n"
             self.process.write(message.encode())
 
-    def set_motor_control(self, enabled):
+    def set_motor_control(self, enabled, speed, torque):
         if self.motor_control_requested == enabled or not self.can_change_motor_control():
             return
         self.motor_control_requested = enabled
         self.motor_control_pending = True
-        self.send("arm" if enabled else "disarm")
+        if enabled:
+            self.send("arm", speed=speed, torque=torque)
+        else:
+            self.send("disarm")
         self.notify()
+
+    def set_limits(self, speed, torque):
+        if self.can_command():
+            self.send("limits", speed=speed, torque=torque)
 
     def request_target(self, joint, encoder):
         if self.can_command():

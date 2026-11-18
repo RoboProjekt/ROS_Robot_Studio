@@ -5,7 +5,7 @@ import math
 from PySide6.QtCore import QObject, QSignalBlocker, QTimer
 
 from ros_robot_studio.backends.local_mujoco import LocalMujoco
-from ros_robot_studio.backends.so101_usb import JOINT_NAMES
+from ros_robot_studio.backends.so101_usb import JOG_SPEED, JOINT_NAMES, USB_TORQUE_RANGE
 from ros_robot_studio.gui.usb_session import USBSessionDialog
 
 
@@ -19,8 +19,11 @@ class LocalJointRuntime(QObject):
         self.error = ""
         self.timer = QTimer(self, interval=30)
         self.timer.timeout.connect(self.step_mujoco)
-        self.motor_control = main.robot_panel.joint_controls.usb_motor_control
+        self.controls = main.robot_panel.joint_controls
+        self.motor_control = self.controls.usb_motor_control
         self.motor_control.toggled.connect(self.set_usb_motor_control)
+        self.controls.usb_speed.valueChanged.connect(self.set_usb_limits)
+        self.controls.usb_torque.valueChanged.connect(self.set_usb_limits)
         main.backend_manager.changed.connect(self.check_selected_profile)
 
     def check_selected_profile(self):
@@ -64,6 +67,8 @@ class LocalJointRuntime(QObject):
         ):
             raise ValueError("Load the catalog SO-101 Follower model before connecting USB.")
         self.enter(profile, "so101_usb", "SO-101 · USB")
+        self.controls.usb_speed.setValue(JOG_SPEED)
+        self.controls.usb_torque.setValue(USB_TORQUE_RANGE[1])
         dialog = USBSessionDialog(port, self.main.settings, self.main, allow_jog=allow_jog)
         self.dialog = dialog
         dialog.feedback.connect(lambda sample: self.usb_feedback(dialog, sample))
@@ -74,16 +79,27 @@ class LocalJointRuntime(QObject):
 
     def set_usb_motor_control(self, enabled):
         if self.dialog:
-            self.dialog.set_motor_control(enabled)
+            self.dialog.set_motor_control(
+                enabled, self.controls.usb_speed.value(), self.controls.usb_torque.value()
+            )
         self.update_usb_motor_control()
+
+    def set_usb_limits(self):
+        if self.dialog:
+            self.dialog.set_limits(
+                self.controls.usb_speed.value(), self.controls.usb_torque.value()
+            )
 
     def update_usb_motor_control(self):
         dialog = self.dialog
         available = dialog is not None and dialog.allow_motor_control
+        ready = available and dialog.can_change_motor_control()
         with QSignalBlocker(self.motor_control):
             self.motor_control.setChecked(available and dialog.motor_control_requested)
-            self.motor_control.setEnabled(available and dialog.can_change_motor_control())
+            self.motor_control.setEnabled(ready)
         self.motor_control.setVisible(available)
+        self.controls.usb_limits.setEnabled(ready)
+        self.controls.usb_limits.setVisible(available)
 
     def usb_closed(self, dialog):
         if self.dialog is dialog:

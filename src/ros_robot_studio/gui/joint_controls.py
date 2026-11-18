@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ros_robot_studio.backends.so101_usb import JOG_SPEED, USB_SPEED_RANGE, USB_TORQUE_RANGE
 from ros_robot_studio.robots.urdf import RobotModel
 
 
@@ -42,6 +43,50 @@ class JointControls(QWidget):
         )
         self.usb_motor_control.hide()
         layout.addWidget(self.usb_motor_control, alignment=Qt.AlignmentFlag.AlignLeft)
+        self.usb_limits = QWidget()
+        limits_grid = QGridLayout(self.usb_limits)
+        limits_grid.setContentsMargins(0, 0, 0, 0)
+        limits_grid.setColumnStretch(1, 1)
+        self.usb_speed = self.add_limit_slider(
+            limits_grid, 0, "USB Speed", USB_SPEED_RANGE, JOG_SPEED, " steps/s", "#74bcff", 6
+        )
+        self.usb_torque = self.add_limit_slider(
+            limits_grid,
+            1,
+            "USB Max torque",
+            USB_TORQUE_RANGE,
+            USB_TORQUE_RANGE[1],
+            " %",
+            "#ffbb68",
+            2,
+        )
+        self.usb_speed.setToolTip("SO-101 movement speed in motor encoder steps per second.")
+        self.usb_torque.setToolTip("Requested torque ceiling. Each motor retains any lower limit.")
+        self.usb_limits.hide()
+        layout.addWidget(self.usb_limits)
+
+    @staticmethod
+    def add_limit_slider(layout, row, name, bounds, default, unit, color, radius):
+        slider = QSlider(Qt.Orientation.Horizontal)
+        slider.setRange(*bounds)
+        slider.setValue(default)
+        slider.setTracking(False)
+        slider.setAccessibleName(name)
+        slider.setStyleSheet(
+            f"QSlider::sub-page:horizontal:enabled {{ background: {color}; border-radius: 2px; }}"
+            f"QSlider::handle:horizontal:enabled {{ background: {color}; border-radius: {radius}px; }}"
+            "QSlider::handle:horizontal:disabled { background: #647084; }"
+        )
+        title = QLabel(name)
+        title.setBuddy(slider)
+        value = QLabel(f"{default}{unit}")
+        value.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        slider.sliderMoved.connect(lambda number: value.setText(f"{number}{unit}"))
+        slider.valueChanged.connect(lambda number: value.setText(f"{number}{unit}"))
+        layout.addWidget(title, row, 0)
+        layout.addWidget(slider, row, 1)
+        layout.addWidget(value, row, 2)
+        return slider
 
     def set_model(self, model: RobotModel, values=None):
         self.model = model

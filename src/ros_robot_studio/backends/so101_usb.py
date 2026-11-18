@@ -18,6 +18,8 @@ JOINT_NAMES = (
 )
 JOG_COUNTS = 12
 JOG_SPEED = 24
+USB_SPEED_RANGE = (1, 240)
+USB_TORQUE_RANGE = (1, 100)
 
 
 def create_bus(port, calibration_path):
@@ -86,13 +88,26 @@ class USBControlSession:
     def __init__(self, bus):
         self.bus = bus
         self.owned = set()
-        self.speeds = {}
+        self.original_limits = {}
+        self.applied_limits = {}
+        self.limits_to_restore = set()
+        self.torque_caps = {}
 
     @property
     def armed(self):
         return len(self.owned) == len(JOINT_NAMES)
 
-    def arm(self):
+    @staticmethod
+    def validate_limits(speed, torque):
+        for name, value, (low, high) in (
+            ("Speed", speed, USB_SPEED_RANGE),
+            ("Maximum torque", torque, USB_TORQUE_RANGE),
+        ):
+            if type(value) is not int or not low <= value <= high:
+                raise ValueError(f"{name} must be an integer between {low} and {high}.")
+
+    def arm(self, speed=JOG_SPEED, torque=USB_TORQUE_RANGE[1]):
+        self.validate_limits(speed, torque)
         if self.armed:
             return
         bus = self.bus
@@ -100,19 +115,30 @@ class USBControlSession:
             raise ValueError("Matching SO-101 calibration is required before enabling motors.")
         positions = bus.sync_read("Present_Position", normalize=False)
         modes = bus.sync_read("Operating_Mode", normalize=False)
-        torque = bus.sync_read("Torque_Enable", normalize=False)
+        torque_enabled = bus.sync_read("Torque_Enable", normalize=False)
         for name in JOINT_NAMES:
             limits = bus.calibration[name]
-            if modes[name] != 0 or torque[name] != 0:
+            if modes[name] != 0 or torque_enabled[name] != 0:
                 raise ValueError(
                     f"{name}: position mode and torque off are required before arming."
                 )
             if not 0 <= limits.range_min <= positions[name] <= limits.range_max <= 4095:
                 raise ValueError(f"{name}: position is outside calibrated travel.")
+        self.original_limits = {
+            register: bus.sync_read(register, normalize=False)
+            for register in ("Torque_Limit", "Goal_Speed")
+        }
+        configured_torque = bus.sync_read("Max_Torque_Limit", normalize=False)
+        self.torque_caps = {
+            name: min(self.original_limits["Torque_Limit"][name], configured_torque[name])
+            for name in JOINT_NAMES
+        }
+        self.applied_limits = {
+            register: values.copy() for register, values in self.original_limits.items()
+        }
         try:
+            self._apply_limits(speed, torque)
             for name in JOINT_NAMES:
-                self.speeds[name] = bus.read("Goal_Speed", name, normalize=False)
-                bus.write("Goal_Speed", name, JOG_SPEED, normalize=False)
                 bus.write("Goal_Position", name, positions[name], normalize=False)
             actual = bus.sync_read("Present_Position", normalize=False)
             if any(abs(actual[n] - positions[n]) > 2 for n in JOINT_NAMES):
@@ -125,6 +151,33 @@ class USBControlSession:
         except Exception:
             self.release()
             raise
+
+    def set_limits(self, speed, torque):
+        if not self.armed:
+            raise ValueError("Enable motor control before adjusting live limits.")
+        self.validate_limits(speed, torque)
+        self._apply_limits(speed, torque)
+
+    def _apply_limits(self, speed, torque):
+        # The STS3215 volatile torque limit uses 0.1% increments.
+        for register, values in (
+            (
+                "Torque_Limit",
+                {name: min(torque * 10, cap) for name, cap in self.torque_caps.items()},
+            ),
+            ("Goal_Speed", dict.fromkeys(JOINT_NAMES, speed)),
+        ):
+            applied = self.applied_limits[register]
+            changed = {name: value for name, value in values.items() if value != applied[name]}
+            if not changed:
+                continue
+            for name, value in changed.items():
+                self.limits_to_restore.add((register, name))
+                self.bus.write(register, name, value, normalize=False)
+            readback = self.bus.sync_read(register, normalize=False, num_retry=1)
+            if any(readback.get(name) != value for name, value in changed.items()):
+                raise RuntimeError(f"Could not confirm live {register} on all addressed motors.")
+            applied.update(changed)
 
     def target(self, name, value):
         if not self.armed:
@@ -151,9 +204,16 @@ class USBControlSession:
                 "Torque release could not be confirmed. Support the arm and cut motor power. "
                 + "; ".join(errors)
             )
-        for name in tuple(self.speeds):
-            self.bus.write("Goal_Speed", name, self.speeds[name], normalize=False)
-            del self.speeds[name]
+        for register, name in tuple(self.limits_to_restore):
+            try:
+                self.bus.write(
+                    register, name, self.original_limits[register][name], normalize=False
+                )
+                self.limits_to_restore.remove((register, name))
+            except Exception as exc:
+                errors.append(f"{register}/{name}: {exc}")
+        if errors:
+            raise RuntimeError("Could not restore USB motor settings. " + "; ".join(errors))
 
 
 def stream_positions(port, calibration_path):
@@ -176,6 +236,7 @@ def stream_positions(port, calibration_path):
     try:
         while time.monotonic() - last_contact < 3:
             targets = {}
+            limits = None
             for _ in range(256):
                 try:
                     command = commands.get_nowait()
@@ -186,14 +247,21 @@ def stream_positions(port, calibration_path):
                 if operation == "close":
                     return
                 if operation == "arm":
-                    control.arm()
+                    control.arm(
+                        command.get("speed", JOG_SPEED), command.get("torque", USB_TORQUE_RANGE[1])
+                    )
                 elif operation == "disarm":
                     control.release()
                     targets.clear()
+                    limits = None
+                elif operation == "limits":
+                    limits = (command["speed"], command["torque"])
                 elif operation == "target":
                     targets[command["joint"]] = command["position"]
                 elif operation != "ping":
                     raise ValueError("Unknown USB command")
+            if limits is not None:
+                control.set_limits(*limits)
             for name, value in targets.items():
                 control.target(name, value)
             sample = sample_bus(bus)
