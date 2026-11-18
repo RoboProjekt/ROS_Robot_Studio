@@ -15,6 +15,7 @@ ROS Robot Studio ist eine modulare Desktop-Anwendung für Roboterkonfiguration, 
   - [RGB-Kamera und Objekterkennung](#14-rgb-kamera-zur-usd-hinzufügen)
   - [Eigene Roboter und Szenen](#eigene-roboter-und-szenen)
 - [Physischen SO-101 Follower über USB anbinden](#physischen-so-101-follower-über-usb-anbinden)
+- [Lokale MuJoCo-Runtime](#lokale-mujoco-runtime)
 
 ## ROS Robot Studio – Overview & Features
 
@@ -31,7 +32,8 @@ ROS Robot Studio ist eine modulare Desktop-Anwendung für Roboterkonfiguration, 
 | Vision PoseProvider | Supported | Gültigen Punkt in einen manuellen Zielentwurf mit expliziter Werkzeugorientierung und Versatz übernehmen |
 | Real Robot | USB manual / ROS read only | ROS-Gelenkdaten überwachen, SO-101-Positionen über USB lesen und mit dem mitgelieferten Projekt einzelne Gelenke bewegen |
 | Physischer Objektkontakt, bewegte Kamera-Montagen, Homographie | Planned | Greif- und Kontaktvalidierung sowie zusätzliche Kalibrierungs- und Montageverfahren |
-| MuJoCo und Gazebo | Planned | Profilverwaltung und lokale Dateizuordnung sind vorbereitet. Adapter und Start fehlen. |
+| MuJoCo | Supported | Lokale Simulation aus URDF oder MJCF mit Gelenkrückmeldung und Positionsreglern |
+| Gazebo | Planned | Profilverwaltung und lokale Dateizuordnung sind vorbereitet. |
 
 ### Funktionsansichten
 
@@ -66,7 +68,8 @@ ROS Robot Studio ist eine modulare Desktop-Anwendung für Roboterkonfiguration, 
 | ROS 2 Jazzy | Eigener Container und ROS-Demo geprüft. Der Isaac-Manager prüft die lokal vorhandene Jazzy-Bridge. |
 | ROS 2 Lyrical | Eigener Container und ROS-Demo geprüft. Isaac-Adapter unterstützt Humble/Jazzy. |
 | NVIDIA Isaac Sim | 5.1, optionaler eigener Prozess. Abnahme mit Humble und NVIDIA-GPU. |
-| MuJoCo / Gazebo | Profile vorbereitet, Ausführung geplant |
+| MuJoCo | 3.8.1 im Studio-Python, optionales Paket |
+| Gazebo | Ausführung geplant |
 
 Für eigene URDFs sind Import, FK, Kettenanalyse und der modellabhängige IK-Workflow verfügbar. Modellgrenzen, Controller, Gelenkmapping und erreichbare Ziele werden für den jeweiligen Roboter geprüft.
 
@@ -279,7 +282,7 @@ Der Workflow erzeugt den Graphen für eine neue Szene und richtet ihn beim Start
 
 ### 11. Gelenkbewegung und Live Monitoring
 
-Bei einer aktiven ROS-Quelle dienen die virtuellen Gelenkregler dem Offline-Workflow. Für Isaac unter **Robot Configuration → Positions & Tasks → Task editor** einen Gelenkschritt anlegen und ausführen. Das Beispiel in Schritt 13 bewegt `shoulder_pan` um ungefähr `5.73°` aus der Nullpose.
+Bei einer aktiven Isaac-Simulation folgen **Robot Configuration** und **Live Monitoring** den empfangenen ROS-Gelenkwerten. Nach **Play** und **Simulation Ready** senden die Regler im Studio Positionsziele über den konfigurierten Simulationscontroller. Alternativ unter **Robot Configuration → Positions & Tasks → Task editor** einen Gelenkschritt anlegen. Das Beispiel in Schritt 13 bewegt `shoulder_pan` um ungefähr `5.73°` aus der Nullpose.
 
 **Live Monitoring** öffnen und die Position sowie Geschwindigkeit des Gelenks auswählen. Ein gesendetes Ziel und die zurückgemeldete Position sind separate Werte. Der Task meldet Erfolg, wenn die beobachtete Gelenkstellung das Ziel innerhalb der konfigurierten Toleranz erreicht. Den Tab an den rechten Fensterrand von **Robot Configuration** ziehen, um beide Panels zu sehen. **View → Save workspace layout** speichert das Layout. **Restore saved workspace layout** stellt es wieder her.
 
@@ -400,7 +403,7 @@ Studio speichert Robotereinstellungen und Backendprofile gemeinsam in der jeweil
 
 ## Physischen SO-101 Follower über USB anbinden
 
-Studio liest die sechs Motorpositionen des SO-101 Followers über den USB-Seriell-Adapter. Für kleine manuelle Bewegungen bietet das Projekt [SO-101-Real.studio.yaml](Projects/SO-101-Real.studio.yaml) eine separate Einzelgelenksteuerung. Studio-Tasks werden im Offline- oder Simulationsbackend ausgeführt.
+Studio liest die sechs Motorpositionen des SO-101 Followers über den USB-Seriell-Adapter. Das Projekt [SO-101-Real.studio.yaml](Projects/SO-101-Real.studio.yaml) bietet manuelle Einzelgelenksteuerung. Die USB-Runtime liefert ihre Rückmeldungen an **Robot Configuration** und **Live Monitoring**. Studio-Tasks laufen über den Offline- oder den ROS-Simulationscontroller.
 
 ### LeRobot installieren und den Follower kalibrieren
 
@@ -441,5 +444,20 @@ sudo usermod -aG dialout "$USER"
 3. Auf die live aktualisierten Werte und die Bestätigung der Kalibrierung warten. Dann das Kontrollkästchen **Arm is fixed and supported. Enable manual steps.** aktivieren. Im Gelenkmenü zum Beispiel `shoulder_pan` wählen und einmal **− Step** oder **+ Step** klicken.
 4. Jeder Klick bewegt nur den gewählten Motor um höchstens 12 Encoder-Schritte innerhalb des kalibrierten Bereichs. Der Motor muss vor dem Schritt im Positionsmodus sein und sein Drehmoment ausgeschaltet haben. **Step complete · torque released** erscheint, wenn der Motor sein Ziel erreicht und das Abschalten seines Drehmoments bestätigt hat. Der Arm bleibt danach frei beweglich. Bei einer Meldung, dass das Abschalten nicht bestätigt werden konnte, den Arm abgestützt lassen und die Motorversorgung trennen.
 5. Der Haken bleibt in diesem Fenster gesetzt, bis du ihn selbst entfernst oder das Fenster schließt. Die Live-Anzeige liest nach jedem Schritt weiter. Bei fehlender Verbindung oder ungültiger Kalibrierung sind die Schritttasten gesperrt. Nach einem fehlgeschlagenen Bewegungsschritt prüfst du den Zustand über **Read positions**, bevor du erneut einen Schritt auslöst.
+6. Lass den USB-Dialog geöffnet und wechsle zu **Robot Configuration**, um mit den Reglern Positionsziele zu setzen. Studio nähert sich dem letzten Ziel am jeweils gewählten Motor in begrenzten Einzelschritten. Entferne den Haken oder trenne die Runtime, um weitere Schritte abzubrechen. Der laufende Einzelschritt endet mit der Drehmomentfreigabe. Beide Hauptansichten zeigen die gemessenen LeRobot-Armwinkel. Den normierten Greiferwert bildet Studio für die 3D-Geometrie auf den URDF-Greiferbereich ab. Messwerte außerhalb der URDF-Grenzen bleiben sichtbar; Positionsziele müssen innerhalb der kalibrierten und der URDF-Grenzen liegen.
+
+## Lokale MuJoCo-Runtime
+
+Die optionale Abhängigkeit im Studio-Projektordner installieren.
+
+```bash
+.venv/bin/python -m pip install '.[mujoco]'
+```
+
+1. Eine MuJoCo-kompatible URDF in Studio laden. Unter **Simulation Runtime → MuJoCo** ein Profil auswählen oder anlegen.
+2. Unter **Simulation File** **Generate from current robot** lassen oder über **Browse…** eine eigene MJCF-Szene auswählen. Bei einer Datei müssen die skalaren Gelenke und die Zuordnung zum Studio-Modell passen. Die Regler steuern passende Positionsaktoren mit direkter Gelenkübertragung. Beim Start aus der URDF erzeugt Studio diese Aktoren.
+3. **Start Simulation** klicken. MuJoCo läuft lokal, und die gemessenen Positionen und Geschwindigkeiten erscheinen in **Robot Configuration** und **Live Monitoring**. Die Regler setzen Ziele in der Simulation. Mit **Disconnect** zur Offline-Ansicht zurückkehren.
+
+Bei rein kinematischen Studio-Demos ohne Massenträgheitsangaben verwendet der lokale URDF-Import Mindestwerte von 0,1 kg und 0,001 kg·m², damit MuJoCo sie starten kann. Für physikalisch vergleichbare eigene Szenen sollten die URDF oder MJCF die tatsächlichen Massen und Trägheiten enthalten.
 
 [Installieren](INSTALLATION.md) · [Entwickeln und testen](DEVELOPMENT.md) · [Mitwirken](CONTRIBUTING.md) · [Projektformat](docs/PROJECT_FORMAT.md) · [Roadmap](ROADMAP.md) · [Prüfbericht](docs/PUBLICATION_VERIFICATION.md) · [Apache-2.0](LICENSE) · [Drittanbieter-Lizenzen](THIRD_PARTY_LICENSES.md)

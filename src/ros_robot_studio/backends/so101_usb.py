@@ -18,7 +18,7 @@ JOG_COUNTS = 12
 JOG_SPEED = 24
 
 
-def read_positions(port, calibration_path=None, jog=None):
+def read_positions(port, calibration_path=None, jog=None, target=None):
     from lerobot.motors import Motor, MotorCalibration, MotorNormMode, SerialMotorsBus
 
     calibration = {}
@@ -48,24 +48,33 @@ def read_positions(port, calibration_path=None, jog=None):
     bus.connect()
     try:
         calibrated = bool(calibration) and bus.is_calibrated
-        if jog:
+        if jog or target:
             if not calibrated:
                 raise ValueError("Manual USB movement requires matching motor calibration.")
-            joint, direction = jog
+            joint, value = jog or target
             if joint not in calibration:
                 raise ValueError("Select one calibrated SO-101 joint.")
-            jog_joint(bus, joint, direction, calibration[joint])
+            jog_joint(bus, joint, value, calibration[joint], absolute=target is not None)
+        positions = bus.sync_read("Present_Position", normalize=calibrated, num_retry=1)
         return {
             "calibrated": calibrated,
-            "positions": bus.sync_read("Present_Position", normalize=calibrated, num_retry=1),
+            "positions": positions,
+            "encoders": bus.sync_read("Present_Position", normalize=False, num_retry=1)
+            if calibrated
+            else positions,
+            "ranges": {
+                name: (motor.range_min, motor.range_max) for name, motor in calibration.items()
+            }
+            if calibrated
+            else {},
         }
     finally:
         bus.disconnect(disable_torque=False)
 
 
-def jog_joint(bus, joint, direction, calibration):
+def jog_joint(bus, joint, value, calibration, *, absolute=False):
     """Send one small relative step and return the motor to torque off."""
-    if joint not in JOINT_NAMES or direction not in (-1, 1):
+    if joint not in JOINT_NAMES or (not absolute and value not in (-1, 1)):
         raise ValueError("Select one SO-101 joint and one jog direction.")
     if bus.read("Operating_Mode", joint, normalize=False) != 0:
         raise ValueError(f"{joint} must already be in position mode.")
@@ -77,8 +86,11 @@ def jog_joint(bus, joint, direction, calibration):
     lower, upper = max(0, calibration.range_min), min(4095, calibration.range_max)
     if not lower <= position <= upper:
         raise ValueError(f"{joint} is outside its calibrated travel.")
-    goal = max(lower, min(upper, position + direction * JOG_COUNTS))
+    requested = value if absolute else position + value * JOG_COUNTS
+    goal = max(max(lower, position - JOG_COUNTS), min(min(upper, position + JOG_COUNTS), requested))
     if goal == position:
+        if absolute:
+            return
         raise ValueError(f"{joint} is at its calibrated limit in that direction.")
     speed = bus.read("Goal_Speed", joint, normalize=False)
 
@@ -115,12 +127,15 @@ if __name__ == "__main__":
     parser.add_argument("port")
     parser.add_argument("calibration", nargs="?")
     parser.add_argument("--joint", choices=JOINT_NAMES)
-    parser.add_argument("--direction", type=int, choices=(-1, 1))
+    command = parser.add_mutually_exclusive_group()
+    command.add_argument("--direction", type=int, choices=(-1, 1))
+    command.add_argument("--target", type=int)
     args = parser.parse_args()
-    if (args.joint is None) != (args.direction is None):
-        parser.error("--joint and --direction must be used together")
+    if (args.joint is None) != (args.direction is None and args.target is None):
+        parser.error("--joint requires --direction or --target")
     try:
-        jog = (args.joint, args.direction) if args.joint else None
-        print(json.dumps(read_positions(args.port, args.calibration, jog)))
+        jog = (args.joint, args.direction) if args.direction is not None else None
+        target = (args.joint, args.target) if args.target is not None else None
+        print(json.dumps(read_positions(args.port, args.calibration, jog, target)))
     except (ImportError, OSError, RuntimeError, TypeError, ValueError) as exc:
         sys.exit(str(exc))

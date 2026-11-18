@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 from ros_robot_studio.backends.isaac import IsaacSimInstallationManager, IsaacSimSceneManager
 from ros_robot_studio.backends.profiles import DEFAULTS, new_profile
 from ros_robot_studio.gui.backend_connections import BackendProfileDialog
-from ros_robot_studio.gui.usb_robot import USBJointDialog, port_access_error, usb_ports
+from ros_robot_studio.gui.usb_robot import port_access_error, usb_ports
 
 EXTENSIONS = {
     "isaac_sim": (".usd", ".usda", ".usdc"),
@@ -194,7 +194,8 @@ class SimulationHeader(QWidget):
         if files:
             default_scene = (
                 "Generate from current robot"
-                if kind == "isaac_sim" and profile.connection_mode == "local_installation"
+                if kind == "mujoco"
+                or (kind == "isaac_sim" and profile.connection_mode == "local_installation")
                 else "Select a scene file…"
             )
             self.scene.addItem(default_scene, "")
@@ -224,7 +225,7 @@ class SimulationHeader(QWidget):
         )
         self.start.setEnabled(
             not busy
-            and kind not in ("mujoco", "gazebo")
+            and kind != "gazebo"
             and (
                 not serial_selected
                 or self.robot_port.model().item(self.robot_port.currentIndex()).isEnabled()
@@ -253,6 +254,8 @@ class SimulationHeader(QWidget):
 
     def select_port(self, index):
         self.operation_error = None
+        if self.main.local_runtime.profile is self.profile():
+            self.main.start_offline()
         self.save_local(
             self.manager.selected_id, {"usb_serial_port": self.robot_port.itemData(index)}
         )
@@ -271,11 +274,20 @@ class SimulationHeader(QWidget):
             return
         session = self.manager.sessions.get(p.id)
         active = self.manager.active_id == p.id
-        if p.backend_type in ("mujoco", "gazebo"):
+        if p.backend_type == "mujoco":
+            running = self.main.local_runtime.profile is p
+            self.set_status(
+                f"MuJoCo · {self.main.ros_status if running else 'Start Simulation to load the scene or current URDF'}"
+            )
+            return
+        if p.backend_type == "gazebo":
             self.set_status(f"{p.name} · adapter not implemented · files can be assigned locally")
             return
         port = self.robot_port.currentData() if p.backend_type == "real_robot" else ""
         if port:
+            if self.main.local_runtime.profile is p:
+                self.set_status(port_access_error(port) or f"SO-101 USB · {self.main.ros_status}")
+                return
             self.set_status(
                 port_access_error(port)
                 or (
@@ -375,6 +387,8 @@ class SimulationHeader(QWidget):
             ):
                 self.refresh()
                 return
+        if self.main.mode == "local":
+            self.main.start_offline()
         self.main.motion.stop()
         self.manager.deactivate()
         self.manager.select_profile(identity)
@@ -411,6 +425,8 @@ class SimulationHeader(QWidget):
         old = self.local().get("scene_path", "")
         if old == path:
             return
+        if p.backend_type == "mujoco" and self.main.local_runtime.profile is p:
+            self.main.start_offline()
         if path:
             file = Path(path).expanduser().resolve()
             if file.suffix.lower() not in EXTENSIONS[p.backend_type] or not file.is_file():
@@ -471,6 +487,8 @@ class SimulationHeader(QWidget):
     def disconnect_selected(self):
         p = self.profile()
         if p:
+            if self.main.local_runtime.profile is p:
+                self.main.start_offline()
             self.pending.discard(p.id)
             self.manager.disconnect_profile(p.id)
 
@@ -480,14 +498,13 @@ class SimulationHeader(QWidget):
             self.main.request_offline()
             return
         if p.backend_type == "real_robot" and self.robot_port.currentData():
-            dialog = USBJointDialog(
-                self.robot_port.currentData(), self.main.settings, self, allow_jog=self.can_jog(p)
-            )
-            dialog.exec()
-            dialog.deleteLater()
+            self.main.local_runtime.start_usb(p, self.robot_port.currentData(), self.can_jog(p))
+            return
+        if p.backend_type == "mujoco":
+            self.main.local_runtime.start_mujoco(p, self.local(p.id).get("scene_path"))
             return
         if p.backend_type != "isaac_sim" or p.connection_mode != "local_installation":
-            if p.backend_type in ("mujoco", "gazebo"):
+            if p.backend_type == "gazebo":
                 raise ValueError("This simulator adapter is not implemented")
             self.workspace.connect(identity, activate=True)
             return

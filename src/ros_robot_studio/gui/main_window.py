@@ -29,6 +29,7 @@ from ros_robot_studio.core.models import Project, Robot
 from ros_robot_studio.core.robot_state import RobotStateManager
 from ros_robot_studio.core.settings import Settings, xdg_path
 from ros_robot_studio.gui.backend_workspace import BackendWorkspace
+from ros_robot_studio.gui.local_runtime import LocalJointRuntime
 from ros_robot_studio.gui.motion_workspace import MotionWorkspace
 from ros_robot_studio.gui.panels import MonitoringPanel, RobotPanel, RuntimePanel, SensorPanel
 from ros_robot_studio.gui.plots import close_plot
@@ -90,6 +91,8 @@ class MainWindow(QMainWindow):
         self.selected_topic = ""
         self.ros_status = "Offline demo"
         self.mode = "offline"
+        self.pending_live_target = None
+        self.manual_ros_plan = None
         self.docker_status = RuntimeStatus(False, "Checking Docker…")
         self.docker_dialog = None
         self.last_docker_failure = None
@@ -140,6 +143,7 @@ class MainWindow(QMainWindow):
         self.health_timer.timeout.connect(self.check_health)
         self.health_timer.start()
         self.backend_workspace = BackendWorkspace(self)
+        self.local_runtime = LocalJointRuntime(self)
         from ros_robot_studio.gui.simulation_header import install_header
 
         self.simulation_header = install_header(self)
@@ -223,6 +227,7 @@ class MainWindow(QMainWindow):
         self.robot_panel.changed.connect(self.mark_dirty)
         self.robot_panel.robot_changed.connect(self.bind_robot_state)
         self.robot_panel.joints_requested.connect(self.manual_joint_update)
+        self.robot_panel.joint_controls.target_requested.connect(self.live_joint_target)
         self.robot_panel.import_requested.connect(self.import_urdf)
         self.robot_panel.example_requested.connect(self.load_example)
         self.robot_panel.model_selected.connect(self.select_robot_model)
@@ -782,6 +787,8 @@ class MainWindow(QMainWindow):
         return dict(self.robot_panel.joint_controls.values)
 
     def bind_robot_state(self, robot, model):
+        if self.mode == "local":
+            self.start_offline()
         if hasattr(self, "backend_workspace"):
             self.backend_workspace.reset_model()
         if self.mode == "ros":
@@ -820,8 +827,10 @@ class MainWindow(QMainWindow):
         self.state_sequence = state.sequence
         if state.valid:
             values = {n: state.positions[n] for n in self.model.default_configuration()}
-            self.robot_panel.joint_controls.set_configuration(values)
-            self.robot_panel.view.set_joints(values)
+            self.robot_panel.joint_controls.set_configuration(
+                values, measured=state.backend == "so101_usb"
+            )
+            self.robot_panel.view.set_joints(values, measured=state.backend == "so101_usb")
             self.robot_panel.update_pose()
         if (
             self.mode == "ros"
@@ -837,6 +846,87 @@ class MainWindow(QMainWindow):
                 )
                 self.robot_panel.view.set_virtual_object(transform, plan.source.virtual_object.size)
         self.monitor.robot_state.receive(state, self.model)
+
+    def can_edit_ros_joints(self):
+        execution = self.ros_execution
+        return (
+            self.mode == "ros"
+            and not self.motion.runner.busy
+            and execution.ready()
+            and (
+                not execution.remote_busy
+                and execution.status != "executing"
+                or self.manual_ros_plan is not None
+                and execution.plan is self.manual_ros_plan
+                and execution.status in ("executing", "succeeded")
+            )
+        )
+
+    def update_joint_controls(self):
+        if self.mode == "offline":
+            return
+        controls = self.robot_panel.joint_controls
+        enabled = (
+            self.local_runtime.command_joints()
+            if self.mode == "local"
+            else set(controls.controls)
+            if self.can_edit_ros_joints()
+            else set()
+        )
+        controls.set_live_controls(True, enabled)
+        controls.setEnabled(True)
+        self.robot_panel.zero_pose.setEnabled(False)
+        self.robot_panel.joints_label.setText(
+            "LIVE JOINTS  /  position targets" if enabled else "LIVE JOINTS  /  feedback only"
+        )
+
+    def live_joint_target(self, joint, position):
+        if self.mode == "local":
+            try:
+                self.local_runtime.target(joint, position)
+            except ValueError as exc:
+                self.transport_error(str(exc))
+        elif self.can_edit_ros_joints():
+            self.pending_live_target = (self.state_manager.lease(), joint, position)
+
+    def dispatch_live_ros_target(self):
+        if not self.pending_live_target:
+            return
+        lease, joint, position = self.pending_live_target
+        execution = self.ros_execution
+        if (
+            self.mode != "ros"
+            or lease != self.state_manager.lease()
+            or not self.can_edit_ros_joints()
+        ):
+            self.pending_live_target = None
+            return
+        if execution.status == "executing" or execution.remote_busy:
+            return
+        self.pending_live_target = None
+        from ros_robot_studio.kinematics.engine import UniversalKinematicsEngine
+        from ros_robot_studio.motion.program import CompiledStep, CompiledTask
+        from ros_robot_studio.motion.schema import MotionTask, TaskStep
+        from ros_robot_studio.motion.trajectory import TrajectoryGenerator
+
+        current = execution.read_joint_positions()
+        if joint not in current or abs(current[joint] - position) < 1e-5:
+            return
+        target = dict(current, **{joint: position})
+        try:
+            engine = UniversalKinematicsEngine(self.model)
+            chain = engine.create_chain(self.model.root, self.state_manager.snapshot().end_effector)
+            trajectory = TrajectoryGenerator(engine).generate(current, target, minimum_duration=0.2)
+            step = TaskStep(action="move_joint", name=joint, joint_values=target)
+            task = MotionTask(name="Live joint target", steps=[step])
+            plan = CompiledTask(
+                task, chain, current, [CompiledStep(step.id, joint, trajectory, 0, "move_joint")]
+            )
+            self.manual_ros_plan = plan
+            execution.execute(plan)
+        except (ValueError, ConnectionError) as exc:
+            self.manual_ros_plan = None
+            self.transport_error(str(exc))
 
     def manual_joint_update(self, values):
         if self.mode != "offline":
@@ -922,6 +1012,9 @@ class MainWindow(QMainWindow):
         self.loading = was_loading
 
     def start_offline(self):
+        if hasattr(self, "local_runtime"):
+            self.local_runtime.stop()
+        self.pending_live_target = self.manual_ros_plan = None
         if hasattr(self, "backend_manager") and self.backend_manager.active_id:
             self.backend_workspace.offline()
             return
@@ -935,6 +1028,9 @@ class MainWindow(QMainWindow):
         if self.state_manager.snapshot():
             self.state_manager.activate_source("offline", "local simulation")
         self.robot_panel.joint_controls.setEnabled(True)
+        self.robot_panel.joint_controls.set_live_controls(False, set())
+        self.robot_panel.zero_pose.setEnabled(True)
+        self.robot_panel.joints_label.setText("VIRTUAL JOINTS  /  no hardware commands")
         self.robot_panel.profile.setEnabled(True)
         if hasattr(self, "motion"):
             self.motion.backend_choice.blockSignals(True)
@@ -947,6 +1043,7 @@ class MainWindow(QMainWindow):
         self.attach_transport(OfflineTransport(self, state_provider=self.state_manager.snapshot))
         self.monitor.container.setText("Container: none")
         self.motion.busy_changed(self.motion.runner.busy)
+        self.busy_changed(self.runner.busy)
         self.update_title()
 
     def request_offline(self):
@@ -1010,6 +1107,8 @@ class MainWindow(QMainWindow):
         if self.closed:
             return
         self.monitor.render()
+        self.dispatch_live_ros_target()
+        self.update_joint_controls()
         state = self.state_manager.snapshot()
         if state:
             self.monitor.robot_state.render(
@@ -1078,7 +1177,7 @@ class MainWindow(QMainWindow):
         self.robot_panel.setEnabled(not busy)
         self.sensor_panel.setEnabled(not busy)
         self.start_action.setEnabled(not busy and not self.container_id)
-        self.stop_action.setEnabled(not busy and bool(self.container_id))
+        self.stop_action.setEnabled(not busy and (bool(self.container_id) or self.mode == "local"))
         self.offline_action.setEnabled(not busy)
         for control in (
             self.runtime.start,
@@ -1191,6 +1290,8 @@ class MainWindow(QMainWindow):
             self.start_ros()
 
     def start_ros(self, checked=False):
+        if self.mode == "local":
+            self.start_offline()
         if hasattr(self, "backend_manager") and self.backend_manager.profiles:
             try:
                 self.backend_workspace.start_selected()
@@ -1304,9 +1405,8 @@ class MainWindow(QMainWindow):
         self.runtime.dds_status.setText(
             f"ROS_DOMAIN_ID: {r.domain_id} · {r.middleware} · {r.network} · namespace {r.namespace or '/'}"
         )
-        self.robot_panel.joint_controls.setEnabled(
-            self.mode == "offline" and self.motion.backend.status != "playing"
-        )
+        if self.mode == "ros":
+            self.update_joint_controls()
         if self.ros_execution.plan:
             total = self.ros_execution.plan.duration
             self.motion.progress.setValue(
@@ -1359,6 +1459,11 @@ class MainWindow(QMainWindow):
                     self.activity("FAIL: ROS controller diagnostics " + status)
 
     def stop_ros(self, checked=False, after=None):
+        if self.mode == "local":
+            self.start_offline()
+            if after:
+                after()
+            return
         if hasattr(self, "backend_workspace") and self.backend_workspace.stop_active(after):
             return
         if self.runner.busy:
@@ -1658,6 +1763,11 @@ class MainWindow(QMainWindow):
             QTimer.singleShot(100, self, self.close)
             event.ignore()
             return
+        if not self.local_runtime.close_ready():
+            QTimer.singleShot(100, self, self.close)
+            event.ignore()
+            return
+        self.local_runtime.stop()
         self.save_workspace()
         self.closed = True
         self.simulation_header.timer.stop()

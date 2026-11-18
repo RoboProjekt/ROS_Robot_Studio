@@ -6,7 +6,7 @@ import os
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QProcess, Qt, QTimer
+from PySide6.QtCore import QProcess, Qt, QTimer, Signal
 from PySide6.QtSerialPort import QSerialPortInfo
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -79,6 +79,9 @@ def port_access_error(port):
 
 
 class USBJointDialog(QDialog):
+    feedback = Signal(dict)
+    availability_changed = Signal()
+
     def __init__(self, port, settings, parent=None, *, allow_jog=False):
         super().__init__(parent)
         self.setWindowTitle("SO-101 Follower · USB Joint Positions")
@@ -88,6 +91,9 @@ class USBJointDialog(QDialog):
         self.jog_failed = False
         self.manual_read = False
         self.calibration_verified = False
+        self.encoders = {}
+        self.target = None
+        self.target_start = None
         self.python = settings.get("lerobot_python") or lerobot_interpreter()
         self.process = QProcess(self)
         self.process.finished.connect(self.read_finished)
@@ -95,7 +101,7 @@ class USBJointDialog(QDialog):
         self.deadline = QTimer(self, singleShot=True, interval=12000)
         self.deadline.timeout.connect(self.read_timed_out)
         self.poll = QTimer(self, singleShot=True, interval=400)
-        self.poll.timeout.connect(lambda: self.read_positions(automatic=True))
+        self.poll.timeout.connect(self.poll_once)
         layout = QFormLayout(self)
         port_label = QLabel(port)
         port_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
@@ -125,6 +131,7 @@ class USBJointDialog(QDialog):
         if allow_jog:
             self.arm = QCheckBox("Arm is fixed and supported. Enable manual steps.")
             self.arm.toggled.connect(self.update_jog_controls)
+            self.arm.toggled.connect(self.arm_changed)
             layout.addRow(self.arm)
             self.joint = QComboBox()
             self.joint.addItems(so101_usb.JOINT_NAMES)
@@ -155,6 +162,31 @@ class USBJointDialog(QDialog):
     def schedule_poll(self):
         if self.isVisible():
             self.poll.start()
+
+    def arm_changed(self, armed):
+        if not armed:
+            self.target = None
+        self.availability_changed.emit()
+
+    def can_command(self):
+        return bool(
+            self.arm and self.arm.isChecked() and self.calibration_verified and not self.jog_failed
+        )
+
+    def request_target(self, joint, encoder):
+        if self.can_command():
+            self.target = (joint, encoder)
+
+    def poll_once(self):
+        if self.target and self.can_command():
+            joint, goal = self.target
+            start = self.encoders.get(joint)
+            if start is not None and abs(goal - start) > 2:
+                self.target_start = (self.target, start)
+                self.read_positions(target=self.target, automatic=True)
+                return
+            self.target = None
+        self.read_positions(automatic=True)
 
     def choose_interpreter(self):
         self.poll.stop()
@@ -189,10 +221,12 @@ class USBJointDialog(QDialog):
 
     def invalidate_reading(self):
         self.calibration_verified = False
+        self.target = None
         for value in self.positions.values():
             value.setText("—")
         self.status.setText("Waiting for current motor positions…")
         self.update_jog_controls()
+        self.availability_changed.emit()
 
     def update_jog_controls(self):
         if self.arm:
@@ -203,25 +237,27 @@ class USBJointDialog(QDialog):
                 control.setEnabled(ready and self.arm.isChecked() and not self.jog_failed)
 
     def step_joint(self, direction):
-        if self.arm and self.arm.isChecked() and self.calibration_verified and not self.jog_failed:
+        if self.can_command():
+            self.target = None
             self.read_positions(jog=(self.joint.currentText(), direction))
 
-    def read_positions(self, _checked=False, *, jog=None, automatic=False):
+    def read_positions(self, _checked=False, *, jog=None, target=None, automatic=False):
         if not self.read.isEnabled():
             return
         self.poll.stop()
-        self.manual_read = not automatic and jog is None
+        command = jog or target
+        self.manual_read = not automatic and command is None
         access_error = port_access_error(self.port)
         if access_error:
             self.finish_read(access_error)
             return
-        self.jog_active = jog is not None
+        self.jog_active = command is not None
         self.read.setEnabled(False)
-        if jog:
+        if command:
             for control in (self.interpreter, self.calibration, self.browse):
                 control.setEnabled(False)
         self.update_jog_controls()
-        if jog:
+        if command:
             self.motion_status.setText("Executing one motor step…")
         elif not automatic:
             self.status.setText("Reading motor positions…")
@@ -231,9 +267,9 @@ class USBJointDialog(QDialog):
         self.read_context = (self.python, selected)
         if selected:
             args.append(selected)
-        if jog:
-            joint, direction = jog
-            args.extend(("--joint", joint, "--direction", str(direction)))
+        if command:
+            joint, value = command
+            args.extend(("--joint", joint, "--target" if target else "--direction", str(value)))
         self.process.start(self.python, args)
 
     def process_error(self, error):
@@ -289,17 +325,35 @@ class USBJointDialog(QDialog):
                 if self.arm
                 else "LeRobot calibration matches the motors · read only"
             )
+            self.encoders = sample.get("encoders", {})
+            if self.target_start:
+                target, before = self.target_start
+                joint, goal = target
+                observed = self.encoders.get(joint)
+                if self.target == target and (
+                    observed is None or abs(goal - observed) >= abs(goal - before)
+                ):
+                    self.target = None
+                    self.motion_status.setText(
+                        "Target cancelled: the joint did not advance toward it."
+                    )
         elif self.calibration.currentData():
             result = "Calibration does not match the motors · showing raw counts"
         else:
             result = "Raw motor counts · read only"
         self.finish_read(result, calibrated=calibrated, valid_sample=True)
+        if calibrated:
+            self.feedback.emit(sample)
 
     def finish_read(self, text, *, calibrated=False, valid_sample=False):
         self.deadline.stop()
+        self.target_start = None
         if not valid_sample:
             for value in self.positions.values():
                 value.setText("—")
+        if not calibrated:
+            self.target = None
+            self.encoders = {}
         if self.jog_active and not calibrated:
             self.jog_failed = True
             self.motion_status.setText(
@@ -314,11 +368,13 @@ class USBJointDialog(QDialog):
         for control in (self.read, self.interpreter, self.calibration, self.browse):
             control.setEnabled(True)
         self.update_jog_controls()
+        self.availability_changed.emit()
         self.schedule_poll()
 
     def done(self, result):
         if self.jog_active:
             return
+        self.target = None
         self.poll.stop()
         self.deadline.stop()
         super().done(result)

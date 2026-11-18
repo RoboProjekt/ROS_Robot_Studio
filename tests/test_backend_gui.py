@@ -125,6 +125,107 @@ def test_monitor_resets_when_switching_backend_identity_of_same_type(window, qtb
     assert window.monitor.robot_state.state.ros_domain == 4
 
 
+def test_mujoco_slider_and_both_views_share_the_measured_state(window, qtbot):
+    pytest.importorskip("mujoco")
+    profile = window.backend_manager.add(new_profile("mujoco"))
+    window.backend_manager.select_profile(profile.id)
+    window.simulation_header.start_profile(profile.id)
+    controls = window.robot_panel.joint_controls
+    name = next(iter(controls.controls))
+    slider = controls.controls[name][0]
+    assert slider.isEnabled()
+    state = window.state_manager.snapshot
+    initial = state().positions[name]
+    slider.setValue(slider.value() + 1000)
+    qtbot.waitUntil(lambda: abs(state().positions[name] - initial) > 0.002)
+    assert state().backend == "mujoco"
+    assert controls.values[name] == state().positions[name]
+    assert window.monitor.robot_state.state.positions[name] == state().positions[name]
+    window.simulation_header.disconnect_selected()
+    assert state().backend == "offline"
+
+
+def test_ros_slider_uses_a_model_matched_trajectory_and_drops_old_targets(window, monkeypatch):
+    execution = window.ros_execution
+    monkeypatch.setattr(execution, "ready", lambda: True)
+    current = window.model.default_configuration()
+    monkeypatch.setattr(execution, "read_joint_positions", lambda: current)
+    execute = MagicMock()
+    monkeypatch.setattr(execution, "execute", execute)
+    window.mode = "ros"
+    lease = window.state_manager.activate_source("external_simulation", "test")
+    window.state_manager.update(lease, current)
+    name = next(iter(current))
+    window.live_joint_target(name, current[name] + 0.01)
+    assert window.state_manager.snapshot().positions[name] == current[name]
+    window.dispatch_live_ros_target()
+    plan = execute.call_args.args[0]
+    assert plan.valid and plan.chain.model is window.model
+    assert plan.steps[0].trajectory.end[name] == pytest.approx(current[name] + 0.01)
+
+    window.live_joint_target(name, current[name] + 0.02)
+    window.state_manager.activate_source("external_simulation", "new")
+    window.dispatch_live_ros_target()
+    execute.assert_called_once()
+    window.start_offline()
+
+
+def test_usb_measurement_preserves_angles_outside_urdf_limits_and_offline_recovers(window, qtbot):
+    from types import SimpleNamespace
+
+    from ros_robot_studio.backends.so101_usb import JOINT_NAMES
+    from ros_robot_studio.projects.store import PROJECTS_DIR, load_project
+    from ros_robot_studio.robots.urdf import parse_urdf
+
+    project = load_project(PROJECTS_DIR / "SO-101-Real.studio.yaml")
+    # Reuse a tiny local six-joint model, avoiding a catalog download.
+    from tempfile import TemporaryDirectory
+
+    with TemporaryDirectory() as temp:
+        from pathlib import Path
+
+        urdf = Path(temp) / "arm.urdf"
+        links = "".join(f'<link name="l{i}"/>' for i in range(7))
+        joints = "".join(
+            f'<joint name="{name}" type="revolute"><parent link="l{i}"/><child link="l{i + 1}"/>'
+            '<axis xyz="0 0 1"/><limit lower="-1" upper="1" effort="1" velocity="1"/></joint>'
+            for i, name in enumerate(JOINT_NAMES)
+        )
+        urdf.write_text(f'<robot name="arm">{links}{joints}</robot>')
+        model = parse_urdf(urdf)
+        window.project, window.model = project, model
+        window.project.robot.end_effector = "l6"
+        window.apply_project()
+        qtbot.waitUntil(lambda: not window.motion.runner.busy)
+        runtime = window.local_runtime
+        profile = window.backend_manager.profiles[project.active_backend]
+        runtime.enter(profile, "so101_usb", "USB test")
+        dialog = SimpleNamespace(target=None, can_command=lambda: False)
+        runtime.dialog = dialog
+        try:
+            runtime.usb_feedback(
+                dialog,
+                {
+                    "ranges": dict.fromkeys(JOINT_NAMES, (0, 4095)),
+                    "encoders": dict.fromkeys(JOINT_NAMES, 2048),
+                    "positions": dict.fromkeys(JOINT_NAMES, 90),
+                },
+            )
+            assert window.state_manager.snapshot().positions["shoulder_pan"] == pytest.approx(
+                1.57079632679
+            )
+            assert window.robot_panel.joint_controls.values["shoulder_pan"] == pytest.approx(
+                1.57079632679
+            )
+            assert window.monitor.robot_state.state.positions["shoulder_pan"] == pytest.approx(
+                1.57079632679
+            )
+        finally:
+            runtime.dialog = None
+            window.start_offline()
+        assert window.state_manager.snapshot().positions["shoulder_pan"] == 1
+
+
 def test_cancelled_close_preserves_unsaved_project_and_connected_backends(window, monkeypatch):
     from unittest.mock import Mock
 

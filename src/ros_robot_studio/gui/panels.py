@@ -92,13 +92,15 @@ class RobotPanel(QWidget):
         view_layout.addWidget(
             label("Collision checking not available – preview only", "warning", True)
         )
-        view_layout.addWidget(label("VIRTUAL JOINTS  /  no hardware commands", "eyebrow"))
+        self.joints_label = label("VIRTUAL JOINTS  /  no hardware commands", "eyebrow")
+        view_layout.addWidget(self.joints_label)
         self.joint_controls = JointControls()
         self.joint_controls.configuration_changed.connect(self.joints_edited)
         self.joint_controls.error.connect(lambda message: self.pose.setText(message))
         view_layout.addWidget(self.joint_controls)
         controls = QHBoxLayout()
-        controls.addWidget(button("Zero / default pose", self.joint_controls.reset_defaults))
+        self.zero_pose = button("Zero / default pose", self.joint_controls.reset_defaults)
+        controls.addWidget(self.zero_pose)
         controls.addWidget(button("Save pose with project", self.save_pose_requested.emit))
         self.follow_live = QCheckBox("Follow generic demo joints", self)
         self.follow_live.setToolTip(
@@ -375,7 +377,7 @@ class RobotPanel(QWidget):
             self.pose.setText("End effector: select a frame present in the URDF.")
             return
         values = self.joint_controls.values
-        xyzrpy = pose_rpy(model.transforms(values)[frame])
+        xyzrpy = pose_rpy(model.transforms(values, check_limits=not self.view.measured)[frame])
         x, y, z, roll, pitch, yaw = xyzrpy
         import math
 

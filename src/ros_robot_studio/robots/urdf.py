@@ -126,7 +126,9 @@ class RobotModel:
             name: max(lo, min(hi, 0.0)) for name, (lo, hi) in self.effective_joint_bounds.items()
         }
 
-    def configuration(self, values: dict[str, float] | None = None) -> dict[str, float]:
+    def configuration(
+        self, values: dict[str, float] | None = None, *, check_limits=True
+    ) -> dict[str, float]:
         """Validate SI values and evaluate mimic relationships, including chained mimics."""
         joints = {joint.name: joint for joint in self.joints}
         supplied = values or {}
@@ -153,9 +155,9 @@ class RobotModel:
             value = result.get(name, 0.0)
             if not math.isfinite(value):
                 raise ValueError(f"{name}: joint value must be finite")
-            if joint.lower is not None and value < joint.lower - 1e-8:
+            if check_limits and joint.lower is not None and value < joint.lower - 1e-8:
                 raise ValueError(f"{name}: below URDF limit {joint.lower:g}")
-            if joint.upper is not None and value > joint.upper + 1e-8:
+            if check_limits and joint.upper is not None and value > joint.upper + 1e-8:
                 raise ValueError(f"{name}: above URDF limit {joint.upper:g}")
             return value
 
@@ -168,9 +170,11 @@ class RobotModel:
     def joint_origins(self) -> dict[str, np.ndarray]:
         return {joint.name: origin_transform(joint.xyz, joint.rpy) for joint in self.joints}
 
-    def transforms(self, values: dict[str, float] | None = None) -> dict[str, np.ndarray]:
+    def transforms(
+        self, values: dict[str, float] | None = None, *, check_limits=True
+    ) -> dict[str, np.ndarray]:
         """Root-frame link poses: T_parent @ T_joint_origin @ T_joint_motion."""
-        resolved = self.configuration(values)
+        resolved = self.configuration(values, check_limits=check_limits)
         transforms = {self.root: np.eye(4)}
         children: dict[str, list[Joint]] = {}
         for joint in self.joints:
@@ -190,8 +194,13 @@ class RobotModel:
                 queue.append(joint.child)
         return transforms
 
-    def positions(self, values: dict[str, float] | None = None) -> dict[str, np.ndarray]:
-        return {name: matrix[:3, 3] for name, matrix in self.transforms(values).items()}
+    def positions(
+        self, values: dict[str, float] | None = None, *, check_limits=True
+    ) -> dict[str, np.ndarray]:
+        return {
+            name: matrix[:3, 3]
+            for name, matrix in self.transforms(values, check_limits=check_limits).items()
+        }
 
     def visual_transform(self, visual: Visual, transforms: dict[str, np.ndarray]) -> np.ndarray:
         """Mesh coordinates use their own origin and scale after the link pose."""

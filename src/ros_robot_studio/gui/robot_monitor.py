@@ -130,7 +130,10 @@ class RobotStatePanel(QWidget):
         if self.view.model is not model:
             self.view.set_model(model)
         if state.valid:
-            self.view.set_joints({n: state.positions[n] for n in model.default_configuration()})
+            self.view.set_joints(
+                {n: state.positions[n] for n in model.default_configuration()},
+                measured=state.backend == "so101_usb",
+            )
             self.view.set_end_effector(state.end_effector)
         self.state = state
         self.instance = state.instance

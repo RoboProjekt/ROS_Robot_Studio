@@ -115,7 +115,7 @@ class BackendProfileDialog(QDialog):
         self.headless.setChecked(local.get("headless", False))
         for title, entry, select_file in [
             ("Local Isaac installation", self.installation, False),
-            ("Existing USD scene (optional)", self.scene, True),
+            ("Existing simulation scene (optional)", self.scene, True),
             ("Generated scene directory (optional)", self.scene_directory, False),
         ]:
             row = QHBoxLayout()
@@ -190,9 +190,13 @@ class BackendProfileDialog(QDialog):
         self.type_changed(profile.backend_type, reset=False)
 
     def browse(self, entry, file):
+        scene_filter = {
+            "mujoco": "MuJoCo (*.xml *.mjcf)",
+            "gazebo": "Gazebo (*.sdf *.world)",
+        }.get(self.kind.currentText(), "USD (*.usd *.usda *.usdc)")
         path = (
             QFileDialog.getOpenFileName(
-                self, "Select USD scene", entry.text(), "USD (*.usd *.usda *.usdc)"
+                self, "Select simulation scene", entry.text(), scene_filter
             )[0]
             if file
             else QFileDialog.getExistingDirectory(self, "Select local directory", entry.text())
@@ -213,6 +217,9 @@ class BackendProfileDialog(QDialog):
             )
 
     def type_changed(self, kind, reset=True):
+        self.mapping.setHorizontalHeaderLabels(
+            ["URDF joint", "MuJoCo joint" if kind == "mujoco" else "ROS joint"]
+        )
         hardware = kind == "real_robot"
         prepared = kind in ("mujoco", "gazebo")
         self.read_only.setEnabled(not hardware and not prepared)

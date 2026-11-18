@@ -969,6 +969,9 @@ class MotionWorkspace(QObject):
             self.main.mark_dirty()
 
     def compile_task(self, play=False, single=None):
+        if play and self.main.mode == "local":
+            self.error("Use the live joint controls for this local runtime.")
+            return
         task = self.selected_task()
         if not task or not self.chain or self.runner.busy:
             return
@@ -1075,6 +1078,9 @@ class MotionWorkspace(QObject):
             self.backend.resume()
 
     def stop(self):
+        self.main.pending_live_target = None
+        if self.main.mode == "local" and self.main.local_runtime.dialog:
+            self.main.local_runtime.dialog.target = None
         if hasattr(self.main, "ros_execution") and self.main.mode == "ros":
             self.main.ros_execution.abort()
         self.cancel_work()
@@ -1196,7 +1202,7 @@ class MotionWorkspace(QObject):
         initial = self.current()
 
         def preview(plan):
-            if self.engine.signature != signature:
+            if self.main.mode == "local" or self.engine.signature != signature:
                 return
             self.stop()
             self.backend.connect(self.chain.model, initial, self.chain.gripper_joints)

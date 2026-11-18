@@ -47,6 +47,7 @@ class RobotView(QWidget):
         self.gl_layout.setContentsMargins(0, 0, 0, 0)
         self.model: RobotModel | None = None
         self.values = {}
+        self.measured = False
         self.yaw, self.pitch, self.zoom = -0.75, 0.42, 1.0
         self.last_pos = None
         self.setToolTip(
@@ -56,14 +57,16 @@ class RobotView(QWidget):
     def set_model(self, model):
         self.set_virtual_object(None)
         self.model = model
+        self.measured = False
         self.values = model.default_configuration()
         self._configure_scene()
         self.reset_camera()
         QTimer.singleShot(0, self.reset_camera)
         self.update()
 
-    def set_joints(self, values):
-        self.model.configuration(values)
+    def set_joints(self, values, *, measured=False):
+        self.model.configuration(values, check_limits=not measured)
+        self.measured = measured
         self.values = dict(values)
         self._update_mesh_transforms()
         self.update()
@@ -103,7 +106,7 @@ class RobotView(QWidget):
                 self.rect(), Qt.AlignmentFlag.AlignCenter, "Import a URDF to explore its structure"
             )
             return
-        positions = self.model.positions(self.values)
+        positions = self.model.positions(self.values, check_limits=not self.measured)
         span = self.camera_span
         center = self.camera_center
         scale = min(self.width(), self.height()) * 0.64 / span * self.zoom
@@ -249,7 +252,7 @@ class RobotView(QWidget):
     def _update_mesh_transforms(self):
         if not self.gl_view or not self.model:
             return
-        transforms = self.model.transforms(self.values)
+        transforms = self.model.transforms(self.values, check_limits=not self.measured)
         for item, visual in self.mesh_items:
             matrix = self.model.visual_transform(visual, transforms)
             item.setTransform(QMatrix4x4(*matrix.flatten().tolist()))
@@ -325,7 +328,7 @@ class RobotView(QWidget):
         self.pan_offset = QPointF()
         if not self.model:
             return
-        transforms = self.model.transforms(self.values)
+        transforms = self.model.transforms(self.values, check_limits=not self.measured)
         bounds = [np.array([matrix[:3, 3] for matrix in transforms.values()])]
         for index, visual in enumerate(self.model.visuals):
             geometry = self.model.meshes.get(visual_key(visual, index))

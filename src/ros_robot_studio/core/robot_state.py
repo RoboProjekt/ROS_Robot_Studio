@@ -153,15 +153,38 @@ class RobotStateManager:
             return StateLease(self.instance, self.epoch, self.state.backend)
 
     def activate_source(self, backend, source):
-        if backend not in ("offline", "ros_simulation", "external_simulation", "ros_read_only"):
-            raise ValueError("Hardware state sources are disabled")
+        if backend not in (
+            "offline",
+            "ros_simulation",
+            "external_simulation",
+            "ros_read_only",
+            "so101_usb",
+            "mujoco",
+        ):
+            raise ValueError("Unknown robot state source")
         with self.lock:
             self.epoch += 1
             self.last_source_time = None
             state = self.state
+            positions = dict(state.positions)
+            pose = state.pose
+            if backend == "offline" and state.backend == "so101_usb":
+                positions = {
+                    name: max(lo, min(hi, positions[name]))
+                    for name, (lo, hi) in self.model.effective_joint_bounds.items()
+                }
+                import numpy as np
+
+                transforms = self.model.transforms(positions)
+                pose = pose_rpy(
+                    np.linalg.inv(transforms[state.reference_frame])
+                    @ transforms[state.end_effector]
+                )
             self._publish(
                 replace(
                     state,
+                    positions=frozen(positions),
+                    pose=pose,
                     backend=backend,
                     backend_id="",
                     ros_domain=None,
@@ -284,7 +307,14 @@ class RobotStateManager:
                         raise ValueError("Invalid joint values")
             missing = independent - set(positions)
             valid = not missing
-            resolved = self.model.configuration(positions) if valid else dict(positions)
+            # Measured USB feedback can exceed catalog limits slightly. Keep
+            # the actual measurement while command validation stays strict.
+            check_limits = state.backend != "so101_usb"
+            resolved = (
+                self.model.configuration(positions, check_limits=check_limits)
+                if valid
+                else dict(positions)
+            )
             if valid:
                 for joint in self.model.joints:
                     if not joint.movable or not joint.mimic:
@@ -300,7 +330,7 @@ class RobotStateManager:
             if valid:
                 import numpy as np
 
-                transforms = self.model.transforms(positions)
+                transforms = self.model.transforms(positions, check_limits=check_limits)
                 pose = pose_rpy(
                     np.linalg.inv(transforms[state.reference_frame])
                     @ transforms[state.end_effector]
@@ -408,7 +438,8 @@ class RobotStateManager:
                 import numpy as np
 
                 transforms = self.model.transforms(
-                    {n: state.positions[n] for n in self.model.default_configuration()}
+                    {n: state.positions[n] for n in self.model.default_configuration()},
+                    check_limits=state.backend != "so101_usb",
                 )
                 pose = pose_rpy(np.linalg.inv(transforms[base]) @ transforms[end])
             self._publish(

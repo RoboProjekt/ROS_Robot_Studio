@@ -195,6 +195,8 @@ class BackendWorkspace(QObject):
                 main.start_offline()
             return
         session = self.manager.sessions[identity]
+        main.local_runtime.stop()
+        main.pending_live_target = main.manual_ros_plan = None
         profile = session.profile
         main.mode = "ros"
         main.container_id = session.container_id
@@ -240,6 +242,7 @@ class BackendWorkspace(QObject):
         )
         main.mark_dirty()
         main.busy_changed(main.runner.busy)
+        main.update_joint_controls()
         self.refresh_selector()
 
     def execution_invalidated(self, identity, reason):

@@ -1,7 +1,7 @@
 import json
 import sys
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
 import pytest
 
@@ -39,7 +39,10 @@ def test_serial_read_uses_matching_calibration_and_preserves_torque(monkeypatch,
         bus.is_calibrated = calibrated
         assert read_positions("/dev/ttyACM0", path)["calibrated"] is calibrated
         bus.connect.assert_called_once_with()
-        bus.sync_read.assert_called_once_with("Present_Position", normalize=calibrated, num_retry=1)
+        expected = [call("Present_Position", normalize=calibrated, num_retry=1)]
+        if calibrated:
+            expected.append(call("Present_Position", normalize=False, num_retry=1))
+        assert bus.sync_read.call_args_list == expected
         bus.disconnect.assert_called_once_with(disable_torque=False)
         bus.write.assert_not_called()
         bus.sync_write.assert_not_called()
@@ -174,6 +177,57 @@ def test_jog_releases_torque_on_failed_target_write():
     with pytest.raises(OSError, match="No acknowledgement"):
         jog_joint(bus, "wrist_roll", 1, SimpleNamespace(range_min=0, range_max=4095))
     assert bus.write.call_args_list[-2].args == ("Torque_Enable", "wrist_roll", 0)
+
+
+def test_usb_slider_target_is_bounded_to_one_step():
+    bus = Mock()
+    bus.read.side_effect = [0, 0, 100, 0, 100, 112, 0]
+    jog_joint(
+        bus, "shoulder_pan", 3900, SimpleNamespace(range_min=0, range_max=4095), absolute=True
+    )
+    commanded = [call.args for call in bus.write.call_args_list]
+    assert ("Goal_Position", "shoulder_pan", 112) in commanded
+    assert ("Torque_Enable", "shoulder_pan", 0) in commanded
+    assert all(args[1] == "shoulder_pan" for args in commanded)
+
+
+def test_usb_poll_continues_toward_latest_target_and_stops_when_disarmed(
+    qtbot, tmp_path, monkeypatch
+):
+    port = tmp_path / "ttyACM0"
+    port.touch()
+    helper = tmp_path / "helper.py"
+    encoder = tmp_path / "encoder"
+    encoder.write_text("100")
+    helper.write_text(
+        "import json, sys\nfrom pathlib import Path\n"
+        f"encoder = Path({str(encoder)!r})\n"
+        "position = int(encoder.read_text())\n"
+        "if '--target' in sys.argv:\n"
+        "    goal = int(sys.argv[-1])\n"
+        "    position += max(-12, min(12, goal-position))\n"
+        "    encoder.write_text(str(position))\n"
+        f"values = dict.fromkeys({JOINT_NAMES!r}, position)\n"
+        "print(json.dumps(dict(calibrated=True, positions=values, encoders=values)))\n"
+    )
+    monkeypatch.setattr("ros_robot_studio.backends.so101_usb.__file__", str(helper))
+    settings = Settings(tmp_path / "settings.json")
+    settings.set("lerobot_python", sys.executable)
+    dialog = USBJointDialog(str(port), settings, allow_jog=True)
+    qtbot.addWidget(dialog)
+    dialog.poll.setInterval(60)
+    dialog.show()
+    qtbot.waitUntil(dialog.arm.isEnabled)
+    dialog.request_target("shoulder_pan", 140)
+    assert dialog.target is None
+    dialog.arm.setChecked(True)
+    dialog.request_target("shoulder_pan", 140)
+    qtbot.waitUntil(lambda: dialog.encoders.get("shoulder_pan") == 140)
+    assert encoder.read_text() == "140"
+    dialog.request_target("shoulder_pan", 180)
+    dialog.arm.setChecked(False)
+    qtbot.wait(180)
+    assert encoder.read_text() == "140"
 
 
 @pytest.mark.parametrize(
