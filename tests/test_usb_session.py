@@ -41,6 +41,10 @@ class MotorBus:
         self.writes.append((register, joint, value))
         self.values[register][joint] = value
 
+    def sync_write(self, register, values, **_):
+        for joint, value in values.items():
+            self.write(register, joint, value)
+
 
 def test_motor_session_holds_targets_until_disarmed_and_validates_limits():
     bus = MotorBus()
@@ -150,10 +154,11 @@ def test_hand_recording_holds_measured_positions_and_replays_with_csv_timing(tmp
         motion.sample({"positions": dict.fromkeys(JOINT_NAMES, 0), "encoders": current}, now)
 
     motion.requested(
-        dict(operation="record", request_id=1, path=path, speed=120, torque=80), current
+        dict(operation="record", request_id=1, path=path, speed=120, torque=80, record_torque=10),
+        current,
     )
     assert motion.ack == 1 and motion.mode == "record"
-    assert set(bus.values["Torque_Limit"].values()) == {250}
+    assert set(bus.values["Torque_Limit"].values()) == {100}
     sample(10.0)
     current["shoulder_pan"] = 2049
     sample(10.1)
@@ -166,9 +171,9 @@ def test_hand_recording_holds_measured_positions_and_replays_with_csv_timing(tmp
     frames = load_frames(path, bus.calibration)
     assert [elapsed for elapsed, _ in frames] == [0, 0.1, 0.2, 0.3]
     assert [positions[0] for _, positions in frames] == [2048, 2049, 2098, 2098]
-    assert control.armed and set(bus.values["Torque_Limit"].values()) == {250}
+    assert control.armed and set(bus.values["Torque_Limit"].values()) == {800}
 
-    command = dict(operation="replay", request_id=3, path=path, speed=120, torque=25)
+    command = dict(operation="replay", request_id=3, path=path, speed=120, torque=75)
     motion.requested(command, current)
 
     def loaded():
@@ -177,6 +182,7 @@ def test_hand_recording_holds_measured_positions_and_replays_with_csv_timing(tmp
 
     qtbot.waitUntil(loaded)
     assert motion.mode == "replay" and bus.values["Goal_Position"]["shoulder_pan"] == 2048
+    assert set(bus.values["Torque_Limit"].values()) == {750}
     current["shoulder_pan"] = 2048
     sample(21.0)
     sample(21.15)
@@ -200,3 +206,46 @@ def test_hand_recording_holds_measured_positions_and_replays_with_csv_timing(tmp
     qtbot.waitUntil(rejected)
     assert motion.mode == "idle" and "original" in motion.message
     assert len(bus.writes) == writes
+
+
+@pytest.mark.parametrize("initially_armed", [False, True])
+def test_zero_torque_recording_keeps_motors_off(tmp_path, initially_armed):
+    bus = MotorBus()
+    control = USBControlSession(bus)
+    if initially_armed:
+        control.arm(speed=120, torque=80)
+    motion = USBMotion(control)
+    path = tmp_path / "Free motion.csv"
+    current = bus.values["Present_Position"]
+    motion.requested(
+        dict(operation="record", request_id=1, path=path, speed=120, torque=80, record_torque=0),
+        current,
+    )
+    assert motion.mode == "record" and not control.armed
+    assert set(bus.values["Torque_Enable"].values()) == {0}
+    writes = len(bus.writes)
+    motion.sample({"positions": current, "encoders": current}, 10)
+    current["shoulder_pan"] = 2200
+    motion.sample({"positions": current, "encoders": current}, 10.01)
+    motion.stop(current)
+    assert len(bus.writes) == writes and not control.armed and motion.mode == "idle"
+    assert load_frames(path, bus.calibration)[-1][1][0] == 2200
+
+
+def test_start_pose_grace_tracks_progress_then_reports_stalled_joint():
+    bus = MotorBus()
+    control = USBControlSession(bus)
+    control.arm(speed=120, torque=45)
+    motion = USBMotion(control)
+    motion.speed = 120
+    motion.frames = [(0.0, (2100, 2048, 2048, 2048, 2048, 2048))]
+    motion.started = None
+    current = bus.values["Present_Position"]
+    motion.set_replay_goal(motion.frames[0][1], current, 0, confirm=True)
+    current["shoulder_pan"] = 2078
+    motion.replay_sample(current, 5.9)
+    assert motion.mode == "replay" and motion.deadline > 11
+    motion.replay_sample(current, 12)
+    assert motion.mode == "idle" and control.armed
+    assert "shoulder_pan, 22 ticks off at 45% torque" in motion.message
+    assert bus.values["Goal_Position"]["shoulder_pan"] == 2078

@@ -38,15 +38,12 @@ def test_serial_read_uses_matching_calibration_and_preserves_torque(monkeypatch,
         bus.reset_mock()
         bus.is_calibrated = calibrated
         bus.calibration = {
-            name: SimpleNamespace(id=index, range_min=0, range_max=4095)
+            name: SimpleNamespace(id=index, drive_mode=0, range_min=0, range_max=4095)
             for index, name in enumerate(JOINT_NAMES, 1)
         }
         assert read_positions("/dev/ttyACM0", path)["calibrated"] is calibrated
         bus.connect.assert_called_once_with()
-        expected = [
-            call("Present_Position", normalize=calibrated, num_retry=1),
-            call("Present_Position", normalize=False, num_retry=1),
-        ]
+        expected = [call("Present_Position", normalize=False, num_retry=1)]
         assert bus.sync_read.call_args_list == expected
         bus.disconnect.assert_called_once_with(disable_torque=False)
         bus.write.assert_not_called()

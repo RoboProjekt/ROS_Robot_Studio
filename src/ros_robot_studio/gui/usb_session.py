@@ -46,6 +46,7 @@ class USBSessionDialog(USBPositionDialog):
         return (
             self.allow_motor_control
             and (self.calibration_verified or self.armed)
+            and (self.armed or (self.motion == "idle" and self.motion_pending is None))
             and not (self.failed or self.closing or self.restart or self.motor_control_pending)
             and self.process.state() == QProcess.ProcessState.Running
         )
@@ -59,6 +60,14 @@ class USBSessionDialog(USBPositionDialog):
             and self.motion_pending is None
             and not (self.closing or self.restart or self.failed)
             and self.process.state() == QProcess.ProcessState.Running
+        )
+
+    def can_record_without_torque(self):
+        return (
+            self.calibration_verified
+            and self.can_change_motor_control()
+            and not self.armed
+            and not self.motor_control_requested
         )
 
     def send(self, operation, **values):
@@ -85,16 +94,21 @@ class USBSessionDialog(USBPositionDialog):
         if self.can_command():
             self.send("target", joint=joint, position=encoder)
 
-    def request_motion(self, operation, path, speed, torque):
+    def request_motion(self, operation, path, speed, torque, *, record_torque):
         if operation == "stop_motion":
             if self.motion == "idle" or self.motion_pending is not None:
                 return
-        elif not self.can_command():
+        elif not self.can_command() and not (
+            operation == "record" and record_torque == 0 and self.can_record_without_torque()
+        ):
             return
         self.motion_request += 1
         self.motion_pending = self.motion_request
         self.motion_message = "Waiting for USB confirmation…"
-        self.send(operation, request_id=self.motion_request, path=path, speed=speed, torque=torque)
+        values = dict(request_id=self.motion_request, path=path, speed=speed, torque=torque)
+        if operation == "record":
+            values["record_torque"] = record_torque
+        self.send(operation, **values)
         self.notify()
 
     def poll_once(self):
@@ -147,6 +161,8 @@ class USBSessionDialog(USBPositionDialog):
             self.motor_control_requested
             or self.armed
             or self.motor_control_pending
+            or self.motion != "idle"
+            or self.motion_pending is not None
             or self.restart
             or self.closing
         )
@@ -183,9 +199,13 @@ class USBSessionDialog(USBPositionDialog):
             self.last_sample = time.monotonic()
             self.calibration_verified = calibrated
             self.armed = armed
-            if not armed or sample.get("motion_ack") == self.motion_pending:
-                self.motion_pending = None
             self.motion = sample.get("motion", "idle")
+            if sample.get("motion_ack") == self.motion_pending or (
+                self.motor_control_pending and not armed and self.motion == "idle"
+            ):
+                self.motion_pending = None
+            if self.motion == "record" and not armed:
+                self.motor_control_requested = False
             if self.motion_pending is None:
                 self.motion_message = sample.get("motion_message", "")
             if armed == self.motor_control_requested:

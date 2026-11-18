@@ -1,8 +1,17 @@
 """Record and replay hand-guided SO-101 motion from the Positions tab."""
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QComboBox, QGridLayout, QLineEdit, QPushButton, QWidget
+from PySide6.QtWidgets import (
+    QComboBox,
+    QGridLayout,
+    QHBoxLayout,
+    QLineEdit,
+    QPushButton,
+    QSlider,
+    QWidget,
+)
 
+from ros_robot_studio.backends.so101_replay import DEFAULT_HAND_TORQUE, HAND_TORQUE
 from ros_robot_studio.gui.widgets import label
 from ros_robot_studio.projects.store import PROJECTS_DIR
 
@@ -15,7 +24,7 @@ class USBMotionPanel(QWidget):
     def __init__(self):
         super().__init__()
         self.mode = "idle"
-        self.ready = self.pending = False
+        self.ready = self.passive_ready = self.pending = False
         self.runtime_state = None
         self.recorded_path = None
         self.title = QLineEdit(placeholderText="Recording title")
@@ -25,6 +34,21 @@ class USBMotionPanel(QWidget):
         self.record = QPushButton("Record")
         self.record.setToolTip("Guide the arm by hand with a torque limit of at most 25%.")
         self.record.clicked.connect(self.record_clicked)
+        self.record_torque = QSlider(Qt.Orientation.Horizontal)
+        self.record_torque.setRange(0, HAND_TORQUE)
+        self.record_torque.setValue(DEFAULT_HAND_TORQUE)
+        self.record_torque.setMaximumWidth(160)
+        self.record_torque.setAccessibleName("Recording torque")
+        self.record_torque.setToolTip("0% releases motor torque. Support the arm before recording.")
+        torque_label = label("Recording torque")
+        torque_label.setBuddy(self.record_torque)
+        torque_value = label(f"{DEFAULT_HAND_TORQUE} %")
+        self.record_torque.valueChanged.connect(lambda value: torque_value.setText(f"{value} %"))
+        self.record_torque.valueChanged.connect(self.update_buttons)
+        torque_row = QHBoxLayout()
+        for widget in (torque_label, self.record_torque, torque_value):
+            torque_row.addWidget(widget)
+        torque_row.addStretch()
         self.replays = QComboBox()
         self.replays.setAccessibleName("Recorded motion")
         self.replays.setPlaceholderText("Select a recording")
@@ -42,9 +66,10 @@ class USBMotionPanel(QWidget):
         grid.setColumnStretch(0, 1)
         grid.addWidget(self.title, 0, 0)
         grid.addWidget(self.record, 0, 1)
-        grid.addWidget(self.replays, 1, 0)
-        grid.addWidget(self.replay, 1, 1)
-        grid.addWidget(self.status, 2, 0, 1, 2)
+        grid.addLayout(torque_row, 1, 0, 1, 2)
+        grid.addWidget(self.replays, 2, 0)
+        grid.addWidget(self.replay, 2, 1)
+        grid.addWidget(self.status, 3, 0, 1, 2)
         self.hide()
 
     def refresh_files(self, selected=None):
@@ -55,8 +80,10 @@ class USBMotionPanel(QWidget):
                 self.replays.addItem(path.stem, str(path))
         self.replays.setCurrentIndex(self.replays.findData(selected))
 
-    def set_runtime(self, available, ready=False, mode="idle", pending=False, message=""):
-        state = (available, ready, mode, pending, message)
+    def set_runtime(
+        self, available, ready=False, mode="idle", pending=False, message="", *, passive_ready=False
+    ):
+        state = (available, ready, mode, pending, message, passive_ready)
         if state == self.runtime_state:
             return
         self.runtime_state = state
@@ -65,22 +92,28 @@ class USBMotionPanel(QWidget):
         if available and self.isHidden():
             self.refresh_files()
         self.mode, self.ready, self.pending = mode, ready, pending
+        self.passive_ready = passive_ready
         self.setVisible(available)
-        self.status.setText(message or ("" if ready else "Enable USB motor position control."))
+        self.status.setText(
+            message
+            or ("" if ready else "Enable USB motor control for powered recording or replay.")
+        )
         self.update_buttons()
 
     def update_buttons(self):
         idle = self.mode == "idle"
         editable = idle and not self.pending
         self.title.setEnabled(editable)
+        self.record_torque.setEnabled(editable)
         self.replays.setEnabled(editable)
         self.record.setText("Stop recording" if self.mode == "record" else "Record")
         self.replay.setText("Stop replay" if self.mode == "replay" else "Replay")
+        can_record = self.ready or (self.passive_ready and self.record_torque.value() == 0)
         self.record.setEnabled(
             not self.pending
             and (
                 self.mode == "record"
-                or (editable and self.ready and bool(self.title.text().strip()))
+                or (editable and can_record and bool(self.title.text().strip()))
             )
         )
         self.replay.setEnabled(

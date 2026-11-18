@@ -9,14 +9,17 @@ import time
 from pathlib import Path
 
 if __package__:
-    from .so101_replay import JOINT_NAMES, USBMotion
+    from .so101_replay import JOINT_NAMES, USBMotion, calibrated_positions
 else:
-    from so101_replay import JOINT_NAMES, USBMotion
+    from so101_replay import JOINT_NAMES, USBMotion, calibrated_positions
 
 JOG_COUNTS = 12
 JOG_SPEED = 24
 USB_SPEED_RANGE = (1, 240)
 USB_TORQUE_RANGE = (1, 100)
+MOTION_SAMPLE_INTERVAL = 0.010
+FEEDBACK_INTERVAL = 0.050
+CALIBRATION_CHECK_INTERVAL = 0.5
 
 
 def create_bus(port, calibration_path):
@@ -46,12 +49,12 @@ def create_bus(port, calibration_path):
     )
 
 
-def sample_bus(bus):
-    calibrated = bool(bus.calibration) and bus.is_calibrated
+def sample_bus(bus, calibrated):
+    encoders = bus.sync_read("Present_Position", normalize=False, num_retry=1)
     return {
         "calibrated": calibrated,
-        "positions": bus.sync_read("Present_Position", normalize=calibrated, num_retry=1),
-        "encoders": bus.sync_read("Present_Position", normalize=False, num_retry=1),
+        "positions": calibrated_positions(encoders, bus.calibration) if calibrated else encoders,
+        "encoders": encoders,
         "ranges": {
             name: (motor.range_min, motor.range_max) for name, motor in bus.calibration.items()
         }
@@ -74,7 +77,7 @@ def read_positions(port, calibration_path=None, jog=None, target=None):
             if joint not in bus.calibration:
                 raise ValueError("Select one calibrated SO-101 joint.")
             jog_joint(bus, joint, value, bus.calibration[joint], absolute=target is not None)
-        return sample_bus(bus)
+        return sample_bus(bus, calibrated)
     finally:
         bus.disconnect(disable_torque=False)
 
@@ -180,15 +183,21 @@ class USBControlSession:
         self.validate_target(name, value)
         self.bus.write("Goal_Position", name, value, normalize=False)
 
-    def target_positions(self, positions):
+    def target_positions(self, positions, *, confirm=False):
         for name, value in positions.items():
             self.validate_target(name, value)
-        for name, value in positions.items():
-            self.bus.write("Goal_Position", name, value, normalize=False)
+        if len(positions) > 1 and not confirm:
+            self.bus.sync_write("Goal_Position", positions, normalize=False)
+        else:
+            for name, value in positions.items():
+                self.bus.write("Goal_Position", name, value, normalize=False)
 
     def validate_target(self, name, value):
         if not self.armed:
             raise ValueError("Enable motor control before sending positions.")
+        self.validate_position(name, value)
+
+    def validate_position(self, name, value):
         if name not in JOINT_NAMES or isinstance(value, bool) or not isinstance(value, int):
             raise ValueError("Invalid joint position command.")
         limits = self.bus.calibration[name]
@@ -240,8 +249,11 @@ def stream_positions(port, calibration_path):
     motion = USBMotion(control)
     bus.connect()
     last_contact = time.monotonic()
+    calibrated = False
+    next_calibration_check = next_feedback = last_contact
+    last_state = None
     try:
-        while time.monotonic() - last_contact < 3:
+        while (cycle_start := time.monotonic()) - last_contact < 3:
             targets = {}
             limits = None
             motion_command = None
@@ -282,18 +294,28 @@ def stream_positions(port, calibration_path):
                 control.set_limits(*limits)
             for name, value in targets.items():
                 control.target(name, value)
-            sample = sample_bus(bus)
-            if control.armed and not sample["calibrated"]:
+            if cycle_start >= next_calibration_check or motion_command is not None:
+                calibrated = bool(bus.calibration) and bus.is_calibrated
+                next_calibration_check = cycle_start + CALIBRATION_CHECK_INTERVAL
+            sample = sample_bus(bus, calibrated)
+            if (control.armed or motion.active or motion_command is not None) and not calibrated:
                 raise ValueError("Motor calibration changed while control was enabled.")
             if motion_command:
                 motion.requested(motion_command, sample["encoders"])
             motion.sample(sample, time.monotonic())
-            sample["armed"] = control.armed
-            sample["motion"] = motion.mode
-            sample["motion_ack"] = motion.ack
-            sample["motion_message"] = motion.message
-            print(json.dumps(sample), flush=True)
-            time.sleep(0.05)
+            state = (calibrated, control.armed, motion.mode, motion.ack, motion.message)
+            if state != last_state or cycle_start >= next_feedback:
+                sample.update(
+                    armed=control.armed,
+                    motion=motion.mode,
+                    motion_ack=motion.ack,
+                    motion_message=motion.message,
+                )
+                print(json.dumps(sample), flush=True)
+                last_state = state
+                next_feedback = cycle_start + FEEDBACK_INTERVAL
+            interval = MOTION_SAMPLE_INTERVAL if motion.active else FEEDBACK_INTERVAL
+            time.sleep(max(0, cycle_start + interval - time.monotonic()))
     finally:
         try:
             control.release()

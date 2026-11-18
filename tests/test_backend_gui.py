@@ -323,17 +323,20 @@ def test_usb_motor_control_and_sliders_work_with_setup_open_or_hidden(
     window.motion.program_tabs.setCurrentIndex(0)
     assert motion.isVisible()
     motion.title.setText("Test run")
+    motion.record_torque.setValue(8)
     motion.record.click()
     qtbot.waitUntil(lambda: motion.record.text() == "Stop recording")
-    assert "record" in operations()
+    record = next(command for command in commands() if command["operation"] == "record")
+    assert record["record_torque"] == 8 and record["torque"] == 40
     assert not slider.isEnabled() and not controls.usb_limits.isEnabled()
-    assert controls.usb_torque.value() == 25
+    assert controls.usb_torque.value() == 40
     motion.record.click()
     qtbot.waitUntil(motion.replay.isEnabled)
     assert motion.replays.currentText() == "Test run"
     motion.replay.click()
     qtbot.waitUntil(lambda: motion.replay.text() == "Stop replay")
-    assert "replay" in operations()
+    replay = next(command for command in commands() if command["operation"] == "replay")
+    assert replay["speed"] == 80 and replay["torque"] == 40 and "record_torque" not in replay
     motion.replay.click()
     qtbot.waitUntil(slider.isEnabled)
     ping_count = operations().count("ping")
@@ -345,6 +348,15 @@ def test_usb_motor_control_and_sliders_work_with_setup_open_or_hidden(
     qtbot.waitUntil(toggle.isEnabled)
     assert not slider.isEnabled() and not dialog.armed
     assert operations().count("disarm") == 1
+    motion.title.setText("Passive run")
+    motion.record_torque.setValue(0)
+    assert motion.record.isEnabled()
+    motion.record.click()
+    qtbot.waitUntil(lambda: motion.record.text() == "Stop recording")
+    assert not toggle.isEnabled() and not dialog.armed
+    motion.record.click()
+    qtbot.waitUntil(toggle.isEnabled)
+    assert motion.replays.currentText() == "Passive run" and not toggle.isChecked()
     runtime.start_usb(profile, str(port), allow_jog=True)
     assert runtime.dialog is dialog and dialog.isVisible()
     qtbot.mouseClick(toggle, Qt.MouseButton.LeftButton, pos=QPoint(8, toggle.height() // 2))

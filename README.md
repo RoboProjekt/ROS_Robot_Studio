@@ -457,11 +457,12 @@ Du kannst beide Werte vor der Motorfreigabe einstellen. Bei aktiver Freigabe üb
 
 ### SO-101 von Hand führen, aufnehmen und wiedergeben
 
-1. Verbinde den kalibrierten SO-101 per USB und aktiviere die Motorfreigabe. Öffne **Robot Configuration → Positions & Tasks → Teach-in positions**.
-2. Gib unter **Recording title** den Dateinamen ein und klicke **Record**. Studio setzt für alle sechs Motoren eine Drehmomentgrenze von höchstens 25 %. Führe den abgestützten Arm langsam von Hand und halte Abstand zu Quetschstellen. Gemessene Positionsänderungen werden zu neuen Haltezielen. Auch ein Absacken unter Last verändert die Messwerte.
-3. Klicke **Stop recording**, um die CSV abzuschließen. Studio speichert die Datei unter `Replays/<Titel>.csv` neben `Projects/` und wählt sie im Dropdown aus. Die CSV enthält die verstrichene Zeit, die sechs Gelenkpositionen in Grad bzw. Prozent und die rohen Encoderwerte jeder Messung. Weitere Aufnahmen brauchen einen eigenen Titel. Die CSV-Dateien bleiben lokal.
-4. Wähle eine Aufnahme aus und klicke **Replay**, nachdem du den Bewegungsbereich freigegeben hast. Studio fährt zunächst zur aufgezeichneten Startpose. Es verwendet die CSV-Zeitstempel und verlängert Bewegungsintervalle, wenn **USB Speed** einen schnelleren Übergang begrenzt. Die eingestellte Drehmomentgrenze gilt auch bei der Wiedergabe. Die Aufnahme braucht die ursprüngliche Motorkalibrierung.
-5. **Stop replay** hält die aktuelle Pose. Nach vollständiger Wiedergabe hält der Arm die Endpose, nach einer Aufnahme die zuletzt gehaltene Pose bei höchstens 25 %. Stütze den Arm ab, bevor du die Motorfreigabe entfernst oder die USB-Verbindung trennst.
+1. Verbinde den kalibrierten SO-101 per USB und öffne **Robot Configuration → Positions & Tasks → Teach-in positions**.
+2. Wähle vor **Record** unter **Recording torque** eine Drehmomentgrenze zwischen 0 und 25 %. Der Standardwert ist 10 %. Aktiviere für eine Aufnahme mit Haltemoment die Motorfreigabe. Bei **0 %** sind die Motoren drehmomentfrei und Studio kann auch ohne Motorfreigabe aufnehmen. Stütze den Arm ab und halte Abstand zu Quetschstellen.
+3. Gib unter **Recording title** den Dateinamen ein und klicke **Record**. Bei aktivem Haltemoment übernimmt Studio gemessene Positionsänderungen beim Führen als neue Halteziele. Der USB-Prozess zielt dabei auf bis zu 100 Messungen pro Sekunde. Die tatsächliche Rate hängt vom Bus ab. Auch ein Absacken unter Last verändert die Messwerte.
+4. **Stop recording** schließt die CSV in `Replays/<Titel>.csv` ab und wählt sie im Dropdown aus. Die Datei enthält Zeit, fünf Gelenkwinkel, die Greiferstellung und die sechs Encoderpositionen aus jeder Messung. Nach einer Aufnahme mit Haltemoment hält der Arm die aktuelle Pose mit den normalen USB-Grenzen. Nach einer Aufnahme bei 0 % bleibt das Motordrehmoment ausgeschaltet.
+5. Aktiviere für die Wiedergabe die Motorfreigabe, wähle die CSV und klicke **Replay**, nachdem du den Bewegungsbereich freigegeben hast. Studio verwendet **USB Speed** und **USB Max torque** aus **Robot Configuration** bereits für die Fahrt zur Startpose. Es verlängert Übergänge, die mit der gewählten Geschwindigkeit länger dauern. Die Aufnahme braucht die ursprüngliche Motorkalibrierung.
+6. **Stop replay** hält die aktuelle Pose. Nach vollständiger Wiedergabe hält der Arm die Endpose. Bleibt ein Gelenk beim Anfahren der Start- oder Endpose stehen, meldet Studio das am weitesten abweichende Gelenk, seine Abweichung und seine wirksame Drehmomentgrenze.
 
 ## Lokale MuJoCo-Runtime
 

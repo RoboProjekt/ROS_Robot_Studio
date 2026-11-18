@@ -5,7 +5,6 @@ import math
 from PySide6.QtCore import QObject, QSignalBlocker, QTimer
 
 from ros_robot_studio.backends.local_mujoco import LocalMujoco
-from ros_robot_studio.backends.so101_replay import HAND_TORQUE
 from ros_robot_studio.backends.so101_usb import JOG_SPEED, JOINT_NAMES, USB_TORQUE_RANGE
 from ros_robot_studio.gui.usb_session import USBSessionDialog
 
@@ -96,7 +95,11 @@ class LocalJointRuntime(QObject):
     def request_usb_motion(self, operation, path):
         if self.dialog:
             self.dialog.request_motion(
-                operation, path, self.controls.usb_speed.value(), self.controls.usb_torque.value()
+                operation,
+                path,
+                self.controls.usb_speed.value(),
+                self.controls.usb_torque.value(),
+                record_torque=self.usb_motion.record_torque.value(),
             )
 
     def update_usb_motor_control(self):
@@ -112,16 +115,13 @@ class LocalJointRuntime(QObject):
         )
         self.controls.usb_limits.setVisible(available)
         if available:
-            if dialog.motion == "record":
-                self.controls.usb_torque.setValue(
-                    min(self.controls.usb_torque.value(), HAND_TORQUE)
-                )
             self.usb_motion.set_runtime(
                 available,
                 dialog.can_command(),
                 dialog.motion,
                 dialog.motion_pending is not None,
                 dialog.motion_message,
+                passive_ready=dialog.can_record_without_torque(),
             )
         else:
             self.usb_motion.set_runtime(False)
