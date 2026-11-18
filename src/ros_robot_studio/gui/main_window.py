@@ -930,8 +930,13 @@ class MainWindow(QMainWindow):
 
     def manual_joint_update(self, values):
         if self.mode != "offline":
-            self.robot_panel.joint_controls.set_configuration(self.independent_positions())
-            self.activity("Manual controls cannot change an active ROS state")
+            current = self.independent_positions()
+            for name, value in values.items():
+                if name in current and abs(value - current[name]) > 1e-6:
+                    self.live_joint_target(name, value)
+            self.robot_panel.joint_controls.set_configuration(
+                current, measured=self.state_manager.snapshot().backend == "so101_usb"
+            )
             return
         self.publish_offline(values, source="manual", status="idle")
 

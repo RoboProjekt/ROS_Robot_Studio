@@ -156,7 +156,10 @@ def test_ros_slider_uses_a_model_matched_trajectory_and_drops_old_targets(window
     lease = window.state_manager.activate_source("external_simulation", "test")
     window.state_manager.update(lease, current)
     name = next(iter(current))
-    window.live_joint_target(name, current[name] + 0.01)
+    window.update_joint_controls()
+    slider, numeric, _, _, factor = window.robot_panel.joint_controls.controls[name]
+    assert slider.isEnabled()
+    numeric.setValue((current[name] + 0.01) * factor)
     assert window.state_manager.snapshot().positions[name] == current[name]
     window.dispatch_live_ros_target()
     plan = execute.call_args.args[0]
@@ -200,7 +203,7 @@ def test_usb_measurement_preserves_angles_outside_urdf_limits_and_offline_recove
         runtime = window.local_runtime
         profile = window.backend_manager.profiles[project.active_backend]
         runtime.enter(profile, "so101_usb", "USB test")
-        dialog = SimpleNamespace(target=None, can_command=lambda: False)
+        dialog = SimpleNamespace(target=None, can_command=lambda: True, request_target=MagicMock())
         runtime.dialog = dialog
         try:
             runtime.usb_feedback(
@@ -218,6 +221,13 @@ def test_usb_measurement_preserves_angles_outside_urdf_limits_and_offline_recove
                 1.57079632679
             )
             assert window.monitor.robot_state.state.positions["shoulder_pan"] == pytest.approx(
+                1.57079632679
+            )
+            slider = window.robot_panel.joint_controls.controls["shoulder_pan"][0]
+            assert slider.isEnabled()
+            slider.setValue(5000)
+            dialog.request_target.assert_called_once_with("shoulder_pan", 2048)
+            assert window.state_manager.snapshot().positions["shoulder_pan"] == pytest.approx(
                 1.57079632679
             )
         finally:

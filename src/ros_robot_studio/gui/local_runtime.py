@@ -6,7 +6,7 @@ from PySide6.QtCore import QObject, QTimer
 
 from ros_robot_studio.backends.local_mujoco import LocalMujoco
 from ros_robot_studio.backends.so101_usb import JOINT_NAMES
-from ros_robot_studio.gui.usb_robot import USBJointDialog
+from ros_robot_studio.gui.usb_session import USBSessionDialog
 
 
 class LocalJointRuntime(QObject):
@@ -62,7 +62,7 @@ class LocalJointRuntime(QObject):
         ):
             raise ValueError("Load the catalog SO-101 Follower model before connecting USB.")
         self.enter(profile, "so101_usb", "SO-101 · USB")
-        dialog = USBJointDialog(port, self.main.settings, self.main, allow_jog=allow_jog)
+        dialog = USBSessionDialog(port, self.main.settings, self.main, allow_jog=allow_jog)
         self.dialog = dialog
         dialog.feedback.connect(lambda sample: self.usb_feedback(dialog, sample))
         dialog.availability_changed.connect(lambda: self.usb_availability(dialog))
@@ -71,17 +71,15 @@ class LocalJointRuntime(QObject):
 
     def usb_closed(self, dialog):
         if self.dialog is dialog:
+            self.dialog = None
             self.main.start_offline()
         if self.retiring_usb is dialog:
             self.retiring_usb = None
             if dialog.jog_failed:
-                self.main.transport_error(dialog.motion_status.text())
+                self.main.transport_error(dialog.status.text())
         dialog.deleteLater()
 
     def usb_availability(self, dialog):
-        if self.retiring_usb is dialog and not dialog.jog_active:
-            dialog.close()
-            return
         if self.dialog is dialog:
             if not dialog.calibration_verified:
                 self.invalidate(dialog.status.text())
@@ -180,16 +178,13 @@ class LocalJointRuntime(QObject):
         self.ranges = {}
         if dialog:
             dialog.target = None
-            dialog.poll.stop()
-            if dialog.jog_active:
-                self.retiring_usb = dialog
-            else:
-                dialog.close()
+            self.retiring_usb = dialog
+            dialog.close()
 
     def close_ready(self):
         if self.retiring_usb:
             return False
-        if self.dialog and self.dialog.jog_active:
-            self.dialog.target = None
+        if self.dialog:
+            self.stop()
             return False
         return True
