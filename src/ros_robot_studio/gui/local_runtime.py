@@ -5,6 +5,7 @@ import math
 from PySide6.QtCore import QObject, QSignalBlocker, QTimer
 
 from ros_robot_studio.backends.local_mujoco import LocalMujoco
+from ros_robot_studio.backends.so101_replay import HAND_TORQUE
 from ros_robot_studio.backends.so101_usb import JOG_SPEED, JOINT_NAMES, USB_TORQUE_RANGE
 from ros_robot_studio.gui.usb_session import USBSessionDialog
 
@@ -20,6 +21,8 @@ class LocalJointRuntime(QObject):
         self.timer = QTimer(self, interval=30)
         self.timer.timeout.connect(self.step_mujoco)
         self.controls = main.robot_panel.joint_controls
+        self.usb_motion = main.motion.usb_motion
+        self.usb_motion.requested.connect(self.request_usb_motion)
         self.motor_control = self.controls.usb_motor_control
         self.motor_control.toggled.connect(self.set_usb_motor_control)
         self.controls.usb_speed.valueChanged.connect(self.set_usb_limits)
@@ -90,6 +93,12 @@ class LocalJointRuntime(QObject):
                 self.controls.usb_speed.value(), self.controls.usb_torque.value()
             )
 
+    def request_usb_motion(self, operation, path):
+        if self.dialog:
+            self.dialog.request_motion(
+                operation, path, self.controls.usb_speed.value(), self.controls.usb_torque.value()
+            )
+
     def update_usb_motor_control(self):
         dialog = self.dialog
         available = dialog is not None and dialog.allow_motor_control
@@ -98,8 +107,24 @@ class LocalJointRuntime(QObject):
             self.motor_control.setChecked(available and dialog.motor_control_requested)
             self.motor_control.setEnabled(ready)
         self.motor_control.setVisible(available)
-        self.controls.usb_limits.setEnabled(ready)
+        self.controls.usb_limits.setEnabled(
+            ready and dialog.motion == "idle" and dialog.motion_pending is None
+        )
         self.controls.usb_limits.setVisible(available)
+        if available:
+            if dialog.motion == "record":
+                self.controls.usb_torque.setValue(
+                    min(self.controls.usb_torque.value(), HAND_TORQUE)
+                )
+            self.usb_motion.set_runtime(
+                available,
+                dialog.can_command(),
+                dialog.motion,
+                dialog.motion_pending is not None,
+                dialog.motion_message,
+            )
+        else:
+            self.usb_motion.set_runtime(False)
 
     def usb_closed(self, dialog):
         if self.dialog is dialog:

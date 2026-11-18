@@ -17,6 +17,9 @@ class USBSessionDialog(USBPositionDialog):
         self.setWindowModality(Qt.WindowModality.NonModal)
         self.allow_motor_control = allow_jog
         self.motor_control_requested = self.motor_control_pending = False
+        self.motion, self.motion_message = "idle", ""
+        self.motion_request = 0
+        self.motion_pending = None
         self.armed = self.calibration_verified = self.failed = False
         self.closing = self.restart = False
         self.buffer = bytearray()
@@ -52,6 +55,8 @@ class USBSessionDialog(USBPositionDialog):
             self.motor_control_requested
             and self.armed
             and self.calibration_verified
+            and self.motion == "idle"
+            and self.motion_pending is None
             and not (self.closing or self.restart or self.failed)
             and self.process.state() == QProcess.ProcessState.Running
         )
@@ -80,6 +85,18 @@ class USBSessionDialog(USBPositionDialog):
         if self.can_command():
             self.send("target", joint=joint, position=encoder)
 
+    def request_motion(self, operation, path, speed, torque):
+        if operation == "stop_motion":
+            if self.motion == "idle" or self.motion_pending is not None:
+                return
+        elif not self.can_command():
+            return
+        self.motion_request += 1
+        self.motion_pending = self.motion_request
+        self.motion_message = "Waiting for USB confirmation…"
+        self.send(operation, request_id=self.motion_request, path=path, speed=speed, torque=torque)
+        self.notify()
+
     def poll_once(self):
         if self.closing or self.restart:
             self.send("close")
@@ -87,6 +104,7 @@ class USBSessionDialog(USBPositionDialog):
         self.send("ping")
         if time.monotonic() - self.last_sample > 2:
             self.calibration_verified = self.motor_control_requested = False
+            self.motion_pending = None
             self.motor_control_pending = self.motor_control_pending or self.armed
             self.send("disarm")
             self.status.setText("USB feedback is stale. Waiting for the motors to release.")
@@ -165,6 +183,11 @@ class USBSessionDialog(USBPositionDialog):
             self.last_sample = time.monotonic()
             self.calibration_verified = calibrated
             self.armed = armed
+            if not armed or sample.get("motion_ack") == self.motion_pending:
+                self.motion_pending = None
+            self.motion = sample.get("motion", "idle")
+            if self.motion_pending is None:
+                self.motion_message = sample.get("motion_message", "")
             if armed == self.motor_control_requested:
                 self.motor_control_pending = False
             for name, value in values.items():
@@ -198,6 +221,8 @@ class USBSessionDialog(USBPositionDialog):
         self.poll.stop()
         self.armed = self.calibration_verified = False
         self.motor_control_requested = self.motor_control_pending = False
+        self.motion, self.motion_pending = "idle", None
+        self.motion_message = self.status.text()
         if self.closing:
             super().done(QDialog.DialogCode.Rejected)
         elif self.restart:

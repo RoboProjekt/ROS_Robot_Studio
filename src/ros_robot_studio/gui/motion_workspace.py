@@ -39,6 +39,7 @@ from ros_robot_studio.gui.motion_dialogs import (
     StepDialog,
     number,
 )
+from ros_robot_studio.gui.usb_motion_panel import USBMotionPanel
 from ros_robot_studio.gui.widgets import button, label
 from ros_robot_studio.gui.workers import TaskRunner
 from ros_robot_studio.kinematics.engine import UniversalKinematicsEngine
@@ -222,6 +223,8 @@ class MotionWorkspace(QObject):
             True,
         )
         body.addWidget(self.position_status)
+        self.usb_motion = USBMotionPanel()
+        body.addWidget(self.usb_motion)
         self.program_tabs.addTab(teach, "Teach-in positions")
         editor = QWidget()
         body = QVBoxLayout(editor)
@@ -1079,6 +1082,8 @@ class MotionWorkspace(QObject):
 
     def stop(self):
         self.main.pending_live_target = None
+        if self.main.mode == "local":
+            self.main.local_runtime.request_usb_motion("stop_motion", "")
         if hasattr(self.main, "ros_execution") and self.main.mode == "ros":
             self.main.ros_execution.abort()
         self.cancel_work()

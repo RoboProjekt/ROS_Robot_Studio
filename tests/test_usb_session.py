@@ -1,9 +1,11 @@
 import sys
+import time
 from types import SimpleNamespace
 
 import pytest
 from PySide6.QtCore import QProcess
 
+from ros_robot_studio.backends.so101_replay import USBMotion, load_frames
 from ros_robot_studio.backends.so101_usb import JOINT_NAMES, USBControlSession
 from ros_robot_studio.core.settings import Settings
 from ros_robot_studio.gui.usb_session import USBSessionDialog
@@ -11,7 +13,12 @@ from ros_robot_studio.gui.usb_session import USBSessionDialog
 
 class MotorBus:
     def __init__(self):
-        self.calibration = dict.fromkeys(JOINT_NAMES, SimpleNamespace(range_min=0, range_max=4095))
+        self.calibration = {
+            name: SimpleNamespace(
+                id=index, drive_mode=0, homing_offset=0, range_min=0, range_max=4095
+            )
+            for index, name in enumerate(JOINT_NAMES, 1)
+        }
         self.is_calibrated = True
         self.values = {
             "Present_Position": dict.fromkeys(JOINT_NAMES, 2048),
@@ -129,3 +136,67 @@ def test_usb_session_can_close_while_its_process_is_starting(qtbot, tmp_path, mo
     dialog.shutdown()
     qtbot.waitUntil(stopped.exists)
     qtbot.waitUntil(lambda: dialog.process.state() == QProcess.ProcessState.NotRunning)
+
+
+def test_hand_recording_holds_measured_positions_and_replays_with_csv_timing(tmp_path, qtbot):
+    bus = MotorBus()
+    control = USBControlSession(bus)
+    control.arm(speed=120, torque=80)
+    motion = USBMotion(control)
+    path = tmp_path / "Demonstration.csv"
+    current = bus.values["Present_Position"]
+
+    def sample(now):
+        motion.sample({"positions": dict.fromkeys(JOINT_NAMES, 0), "encoders": current}, now)
+
+    motion.requested(
+        dict(operation="record", request_id=1, path=path, speed=120, torque=80), current
+    )
+    assert motion.ack == 1 and motion.mode == "record"
+    assert set(bus.values["Torque_Limit"].values()) == {250}
+    sample(10.0)
+    current["shoulder_pan"] = 2049
+    sample(10.1)
+    assert bus.values["Goal_Position"]["shoulder_pan"] == 2048
+    current["shoulder_pan"] = 2098
+    sample(10.2)
+    sample(10.3)
+    assert bus.values["Goal_Position"]["shoulder_pan"] == 2098
+    motion.requested(dict(operation="stop_motion", request_id=2), current)
+    frames = load_frames(path, bus.calibration)
+    assert [elapsed for elapsed, _ in frames] == [0, 0.1, 0.2, 0.3]
+    assert [positions[0] for _, positions in frames] == [2048, 2049, 2098, 2098]
+    assert control.armed and set(bus.values["Torque_Limit"].values()) == {250}
+
+    command = dict(operation="replay", request_id=3, path=path, speed=120, torque=25)
+    motion.requested(command, current)
+
+    def loaded():
+        sample(20.0)
+        return motion.ack == 3
+
+    qtbot.waitUntil(loaded)
+    assert motion.mode == "replay" and bus.values["Goal_Position"]["shoulder_pan"] == 2048
+    current["shoulder_pan"] = 2048
+    sample(21.0)
+    sample(21.15)
+    assert bus.values["Goal_Position"]["shoulder_pan"] == 2049
+    sample(21.25)
+    assert bus.values["Goal_Position"]["shoulder_pan"] == 2049
+    sample(21.55)
+    assert bus.values["Goal_Position"]["shoulder_pan"] == 2098
+    current["shoulder_pan"] = 2098
+    sample(21.65)
+    assert motion.mode == "idle" and control.armed
+
+    bus.calibration["shoulder_pan"].homing_offset += 1
+    motion.requested(dict(command, request_id=4), current)
+    writes = len(bus.writes)
+
+    def rejected():
+        sample(time.monotonic())
+        return motion.ack == 4
+
+    qtbot.waitUntil(rejected)
+    assert motion.mode == "idle" and "original" in motion.message
+    assert len(bus.writes) == writes

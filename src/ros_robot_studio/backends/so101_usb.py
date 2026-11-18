@@ -8,14 +8,11 @@ import threading
 import time
 from pathlib import Path
 
-JOINT_NAMES = (
-    "shoulder_pan",
-    "shoulder_lift",
-    "elbow_flex",
-    "wrist_flex",
-    "wrist_roll",
-    "gripper",
-)
+if __package__:
+    from .so101_replay import JOINT_NAMES, USBMotion
+else:
+    from so101_replay import JOINT_NAMES, USBMotion
+
 JOG_COUNTS = 12
 JOG_SPEED = 24
 USB_SPEED_RANGE = (1, 240)
@@ -180,6 +177,16 @@ class USBControlSession:
             applied.update(changed)
 
     def target(self, name, value):
+        self.validate_target(name, value)
+        self.bus.write("Goal_Position", name, value, normalize=False)
+
+    def target_positions(self, positions):
+        for name, value in positions.items():
+            self.validate_target(name, value)
+        for name, value in positions.items():
+            self.bus.write("Goal_Position", name, value, normalize=False)
+
+    def validate_target(self, name, value):
         if not self.armed:
             raise ValueError("Enable motor control before sending positions.")
         if name not in JOINT_NAMES or isinstance(value, bool) or not isinstance(value, int):
@@ -187,7 +194,6 @@ class USBControlSession:
         limits = self.bus.calibration[name]
         if not max(0, limits.range_min) <= value <= min(4095, limits.range_max):
             raise ValueError(f"{name}: requested position is outside calibrated travel.")
-        self.bus.write("Goal_Position", name, value, normalize=False)
 
     def release(self):
         errors = []
@@ -231,12 +237,14 @@ def stream_positions(port, calibration_path):
     threading.Thread(target=receive, daemon=True).start()
     bus = create_bus(port, calibration_path)
     control = USBControlSession(bus)
+    motion = USBMotion(control)
     bus.connect()
     last_contact = time.monotonic()
     try:
         while time.monotonic() - last_contact < 3:
             targets = {}
             limits = None
+            motion_command = None
             for _ in range(256):
                 try:
                     command = commands.get_nowait()
@@ -247,17 +255,27 @@ def stream_positions(port, calibration_path):
                 if operation == "close":
                     return
                 if operation == "arm":
-                    control.arm(
-                        command.get("speed", JOG_SPEED), command.get("torque", USB_TORQUE_RANGE[1])
-                    )
+                    if not motion.active:
+                        control.arm(
+                            command.get("speed", JOG_SPEED),
+                            command.get("torque", USB_TORQUE_RANGE[1]),
+                        )
                 elif operation == "disarm":
                     control.release()
+                    motion.clear("USB motor control disabled.")
+                    targets.clear()
+                    limits = None
+                    motion_command = None
+                elif operation in ("record", "replay", "stop_motion"):
+                    motion_command = command
                     targets.clear()
                     limits = None
                 elif operation == "limits":
-                    limits = (command["speed"], command["torque"])
+                    if not motion.active and motion_command is None:
+                        limits = (command["speed"], command["torque"])
                 elif operation == "target":
-                    targets[command["joint"]] = command["position"]
+                    if not motion.active and motion_command is None:
+                        targets[command["joint"]] = command["position"]
                 elif operation != "ping":
                     raise ValueError("Unknown USB command")
             if limits is not None:
@@ -267,14 +285,23 @@ def stream_positions(port, calibration_path):
             sample = sample_bus(bus)
             if control.armed and not sample["calibrated"]:
                 raise ValueError("Motor calibration changed while control was enabled.")
+            if motion_command:
+                motion.requested(motion_command, sample["encoders"])
+            motion.sample(sample, time.monotonic())
             sample["armed"] = control.armed
+            sample["motion"] = motion.mode
+            sample["motion_ack"] = motion.ack
+            sample["motion_message"] = motion.message
             print(json.dumps(sample), flush=True)
             time.sleep(0.05)
     finally:
         try:
             control.release()
         finally:
-            bus.disconnect(disable_torque=False)
+            try:
+                motion.clear()
+            finally:
+                bus.disconnect(disable_torque=False)
 
 
 def jog_joint(bus, joint, value, calibration, *, absolute=False):

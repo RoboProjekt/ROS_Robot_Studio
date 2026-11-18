@@ -252,10 +252,11 @@ def test_usb_motor_control_and_sliders_work_with_setup_open_or_hidden(
         f"names = {JOINT_NAMES!r}\n"
         "calibrated = len(sys.argv) == 4\n"
         "angles = dict.fromkeys(names, 0)\nencoders = dict.fromkeys(names, 2048)\n"
-        "armed = False\n"
+        "armed = False\nmotion = 'idle'\nack = None\n"
         "def emit():\n"
         " print(json.dumps(dict(calibrated=calibrated, positions=angles, encoders=encoders, "
-        "ranges=dict.fromkeys(names, [0,4095]), armed=armed)), flush=True)\n"
+        "ranges=dict.fromkeys(names, [0,4095]), armed=armed, motion=motion, motion_ack=ack)), "
+        "flush=True)\n"
         "emit()\nfor line in sys.stdin:\n"
         f" with Path({str(log)!r}).open('a') as target: target.write(line)\n"
         " command=json.loads(line)\n"
@@ -263,18 +264,25 @@ def test_usb_motor_control_and_sliders_work_with_setup_open_or_hidden(
         " if command['operation']=='arm': armed=True\n"
         " if command['operation']=='disarm': armed=False\n"
         " if command['operation']=='target': encoders[command['joint']]=command['position']\n"
+        " if command['operation']=='record': Path(command['path']).touch()\n"
+        " if command['operation'] in ('record','replay','stop_motion'):\n"
+        "  motion = 'idle' if command['operation']=='stop_motion' else command['operation']\n"
+        "  ack = command['request_id']\n"
         " emit()\n"
     )
     monkeypatch.setattr("ros_robot_studio.backends.so101_usb.__file__", str(helper))
     monkeypatch.setattr("ros_robot_studio.gui.usb_robot.calibration_files", lambda: [])
+    monkeypatch.setattr("ros_robot_studio.gui.usb_motion_panel.REPLAYS_DIR", tmp_path / "Replays")
     profile = load_usb_test_project(window, tmp_path, qtbot)
     window.settings.set("lerobot_python", sys.executable)
     controls = window.robot_panel.joint_controls
+    motion = window.motion.usb_motion
     toggle = controls.usb_motor_control
     slider = controls.controls["shoulder_pan"][0]
     runtime = window.local_runtime
     assert toggle.isHidden()
     assert controls.usb_limits.isHidden()
+    assert motion.isHidden()
 
     runtime.start_usb(profile, str(port), allow_jog=True)
     dialog = runtime.dialog
@@ -311,6 +319,23 @@ def test_usb_motor_control_and_sliders_work_with_setup_open_or_hidden(
     qtbot.waitUntil(lambda: {"operation": "limits", "speed": 80, "torque": 35} in commands())
     controls.usb_torque.setValue(40)
     qtbot.waitUntil(lambda: {"operation": "limits", "speed": 80, "torque": 40} in commands())
+    window.robot_panel.detail_tabs.setCurrentWidget(window.motion.program_panel)
+    window.motion.program_tabs.setCurrentIndex(0)
+    assert motion.isVisible()
+    motion.title.setText("Test run")
+    motion.record.click()
+    qtbot.waitUntil(lambda: motion.record.text() == "Stop recording")
+    assert "record" in operations()
+    assert not slider.isEnabled() and not controls.usb_limits.isEnabled()
+    assert controls.usb_torque.value() == 25
+    motion.record.click()
+    qtbot.waitUntil(motion.replay.isEnabled)
+    assert motion.replays.currentText() == "Test run"
+    motion.replay.click()
+    qtbot.waitUntil(lambda: motion.replay.text() == "Stop replay")
+    assert "replay" in operations()
+    motion.replay.click()
+    qtbot.waitUntil(slider.isEnabled)
     ping_count = operations().count("ping")
     qtbot.waitUntil(lambda: operations().count("ping") > ping_count)
     slider.setValue(4500)
