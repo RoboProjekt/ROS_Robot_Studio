@@ -1,8 +1,8 @@
-import json
 import sys
 from types import SimpleNamespace
 
 import pytest
+from PySide6.QtCore import QProcess
 
 from ros_robot_studio.backends.so101_usb import JOINT_NAMES, USBControlSession
 from ros_robot_studio.core.settings import Settings
@@ -70,50 +70,6 @@ def test_partial_arm_failure_releases_every_motor_it_attempted_to_enable(monkeyp
     assert all(value == 0 for value in bus.values["Torque_Enable"].values())
 
 
-def test_usb_session_sends_targets_and_closes_gracefully(qtbot, tmp_path, monkeypatch):
-    port = tmp_path / "ttyACM0"
-    port.touch()
-    helper = tmp_path / "stream.py"
-    log = tmp_path / "commands.jsonl"
-    helper.write_text(
-        "import sys, json\nfrom pathlib import Path\n"
-        f"names = {JOINT_NAMES!r}\n"
-        "values = dict.fromkeys(names, 2048)\narmed = False\n"
-        "def emit():\n"
-        " print(json.dumps(dict(calibrated=True, positions=values, encoders=values, "
-        "ranges=dict.fromkeys(names, [0,4095]), armed=armed)), flush=True)\n"
-        "emit()\nfor line in sys.stdin:\n"
-        f" with Path({str(log)!r}).open('a') as target: target.write(line)\n"
-        " command=json.loads(line)\n"
-        " if command['operation']=='close': break\n"
-        " if command['operation']=='arm': armed=True\n"
-        " if command['operation']=='disarm': armed=False\n"
-        " if command['operation']=='target': values[command['joint']]=command['position']\n"
-        " emit()\n"
-    )
-    monkeypatch.setattr("ros_robot_studio.backends.so101_usb.__file__", str(helper))
-    settings = Settings(tmp_path / "settings.json")
-    settings.set("lerobot_python", sys.executable)
-    dialog = USBSessionDialog(str(port), settings, allow_jog=True)
-    qtbot.addWidget(dialog)
-    dialog.show()
-    qtbot.waitUntil(dialog.arm.isEnabled)
-    dialog.request_target("shoulder_pan", 2100)
-    assert not dialog.can_command()
-    dialog.arm.setChecked(True)
-    qtbot.waitUntil(dialog.can_command)
-    dialog.request_target("shoulder_pan", 2100)
-    qtbot.waitUntil(lambda: dialog.encoders.get("shoulder_pan") == 2100)
-    assert dialog.arm.isChecked() and dialog.armed
-    dialog.arm.setChecked(False)
-    qtbot.waitUntil(lambda: not dialog.armed)
-    dialog.close()
-    qtbot.waitUntil(lambda: not dialog.isVisible())
-    operations = [json.loads(line)["operation"] for line in log.read_text().splitlines()]
-    assert operations.count("target") == 1
-    assert operations[-1] == "close"
-
-
 def test_usb_session_can_close_while_its_process_is_starting(qtbot, tmp_path, monkeypatch):
     port = tmp_path / "ttyACM0"
     port.touch()
@@ -132,6 +88,6 @@ def test_usb_session_can_close_while_its_process_is_starting(qtbot, tmp_path, mo
     dialog = USBSessionDialog(str(port), settings)
     qtbot.addWidget(dialog)
     dialog.show()
-    dialog.close()
-    qtbot.waitUntil(lambda: not dialog.isVisible())
-    assert stopped.exists()
+    dialog.shutdown()
+    qtbot.waitUntil(stopped.exists)
+    qtbot.waitUntil(lambda: dialog.process.state() == QProcess.ProcessState.NotRunning)

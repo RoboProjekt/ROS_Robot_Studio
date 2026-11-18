@@ -429,22 +429,22 @@ sudo usermod -aG dialout "$USER"
 
    ![Runtime-Banner mit Real Robot und ausgewähltem USB-Adapter ttyACM0](docs/images/hardware/usb-runtime.png)
 
-2. **Read USB Joints…** öffnen. Kontrolliere unter **LeRobot Python**, dass der Interpreter deiner LeRobot-Umgebung ausgewählt ist. Studio findet eine übliche Miniforge-Installation mit dem Environment `lerobot` automatisch. Über die Schaltfläche mit dem Interpreterpfad kannst du einen anderen Python-Interpreter auswählen.
-3. Unter **LeRobot calibration** erscheint eine einzelne gefundene Follower-Datei automatisch. Studio sucht im LeRobot-Cache und berücksichtigt `HF_LEROBOT_CALIBRATION`. Mit **Choose calibration file…** kannst du die JSON-Datei aus einem anderen Ordner auswählen. Schließe LeLab oder andere Programme, die denselben seriellen Port verwenden. Solange das USB-Fenster geöffnet ist, aktualisiert Studio die Gelenkwerte automatisch. Mit **Read positions** kannst du zusätzlich sofort neu lesen.
-4. **LeRobot calibration matches the motors** bestätigt die Übereinstimmung der Datei mit der Motorkalibrierung. Studio zeigt fünf Armwinkel in Grad und den normierten Greiferwert in Prozent. Ohne passende Kalibrierung erscheinen rohe Motorzählwerte. Bei ausbleibender Antwort prüfe den gewählten Port, die Stromversorgung und die Motor-Einrichtung.
+2. **Read USB Joints…** öffnen. Studio verwendet den gespeicherten LeRobot-Python-Pfad, falls einer hinterlegt ist. Sonst findet es eine übliche Miniforge-Installation mit dem Environment `lerobot` automatisch. Bei einer anderen Conda-Installation Studio aus dem aktivierten `lerobot`-Environment starten.
+3. Unter **LeRobot calibration** erscheint eine einzelne gefundene Follower-Datei automatisch. Studio sucht im LeRobot-Cache und berücksichtigt `HF_LEROBOT_CALIBRATION`. Mit **Choose calibration file…** kannst du die JSON-Datei aus einem anderen Ordner auswählen. Schließe LeLab oder andere Programme, die denselben seriellen Port verwenden.
+4. **Live USB · calibrated · torque off** bestätigt eine passende Kalibrierung. Studio zeigt fünf Armwinkel in Grad und den normierten Greiferwert in Prozent. Ohne passende Kalibrierung erscheinen rohe Motorzählwerte. Bei ausbleibender Antwort prüfe den Port, die Stromversorgung und die Motor-Einrichtung.
 
-   ![USB-Auslesedialog mit erkannter SO101-Kalibrierung, fünf Winkeln und einem Greiferwert](docs/images/hardware/usb-joint-positions.png)
+   ![USB-Dialog mit ausgewählter SO-101-Kalibrierung und sechs gemessenen Gelenkpositionen](docs/images/hardware/usb-joint-positions.png)
 
-   *Beispielmessung an einem per USB angeschlossenen SO-101 Follower. Die Werte hängen von der aktuellen Armstellung ab.*
+5. **Close** blendet den USB-Dialog aus. Die Messwerte werden weiterhin in **Robot Configuration** und **Live Monitoring** aktualisiert, sobald die Kalibrierung passt. **Disconnect** im Runtime-Banner beendet die USB-Verbindung.
 
 ### Einzelne Gelenke am echten Arm bewegen
 
 1. **Project → Open…** wählen und `Projects/SO-101-Real.studio.yaml` öffnen. Das Projekt verwendet das SO-101-Referenzmodell aus der Offline-Vorlage und enthält keine Kamera oder Objekterkennung. Den USB-Port des Followers unter **Robot Connection** wählen und **USB Joint Control…** öffnen.
-2. Den Arm am Tisch befestigen und so abstützen, dass er sich auch bei ausgeschaltetem Drehmoment nicht absenkt. Den Bewegungsbereich freihalten und die Stromversorgung erreichbar halten. Andere Programme schließen, die den Port verwenden.
-3. Auf die live aktualisierten Werte und die Bestätigung der Kalibrierung warten. Dann das Kontrollkästchen **Arm is fixed and supported. Enable motor position control.** aktivieren. Im Gelenkmenü zum Beispiel `shoulder_pan` wählen und einmal **− Step** oder **+ Step** klicken.
-4. Nach dem Haken bestätigt **Live USB · motor position control active** die Motorfreigabe. Alle sechs Motoren übernehmen zuerst ihre gemessene Position und halten diese. **− Step** und **+ Step** setzen ein um 12 Encoder-Schritte versetztes Ziel am ausgewählten Gelenk. Die Motoren fahren ihre Ziele mit begrenzter Geschwindigkeit an und halten sie bis zum nächsten Befehl.
-5. Der Haken bleibt bis zum manuellen Entfernen oder Schließen des Fensters gesetzt. Durch Entfernen des Hakens oder **Disconnect** wird das Drehmoment abgeschaltet. Stütze den Arm davor ab. Die USB-Verbindung wird auch beim Schließen des Fensters kontrolliert beendet. Bei einer Meldung, dass das Abschalten nicht bestätigt werden konnte, den Arm abgestützt lassen und die Motorversorgung trennen.
-6. Lass das USB-Fenster geöffnet und ändere einen Slider oder Zahlenwert in **Robot Configuration**. Das neue Ziel wird unmittelbar an den ausgewählten Motor gesendet. Die 3D-Ansicht und **Live Monitoring** folgen den gemessenen Rückmeldungen. Bei Isaac Sim und MuJoCo sendet derselbe Regler sein Ziel an die aktive Simulation. Beide Hauptansichten zeigen die gemessenen LeRobot-Armwinkel. Den normierten Greiferwert bildet Studio für die 3D-Geometrie auf den URDF-Greiferbereich ab. Positionsziele müssen innerhalb der kalibrierten und der URDF-Grenzen liegen.
+2. Den Arm am Tisch befestigen und so abstützen, dass er sich auch bei ausgeschaltetem Drehmoment nicht absenkt. Den Bewegungsbereich freihalten und die Stromversorgung erreichbar halten.
+3. Im USB-Dialog die Kalibrierungsdatei prüfen und warten, bis die gemessenen Ausgangspositionen angezeigt werden. Der Dialog kann danach geschlossen oder neben dem Hauptfenster geöffnet bleiben.
+4. In **Robot Configuration** unter den Slidern das Kontrollkästchen **Arm is fixed and supported. Enable motor position control.** setzen. Sobald der Controller die Freigabe bestätigt, werden die Slider bedienbar. Die sechs Motoren übernehmen zuerst ihre gemessene Position und halten sie.
+5. Einen Slider oder Zahlenwert in **Robot Configuration** ändern. Studio sendet das Ziel direkt an den jeweiligen Motor. Die 3D-Ansicht und **Live Monitoring** folgen den gemessenen Werten. Ziele bleiben innerhalb der kalibrierten und der URDF-Grenzen. Bei Isaac Sim und MuJoCo steuern dieselben Regler die jeweils aktive Simulation.
+6. Die Freigabe bleibt beim Ausblenden des USB-Dialogs aktiv. Stütze den Arm ab, bevor du den Haken entfernst oder **Disconnect** klickst. Beides schaltet das Motordrehmoment ab. Wenn Studio meldet, dass das Abschalten nicht bestätigt werden konnte, lass den Arm abgestützt und trenne die Motorversorgung.
 
 ## Lokale MuJoCo-Runtime
 

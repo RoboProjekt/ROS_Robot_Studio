@@ -2,7 +2,7 @@
 
 import math
 
-from PySide6.QtCore import QObject, QTimer
+from PySide6.QtCore import QObject, QSignalBlocker, QTimer
 
 from ros_robot_studio.backends.local_mujoco import LocalMujoco
 from ros_robot_studio.backends.so101_usb import JOINT_NAMES
@@ -19,6 +19,8 @@ class LocalJointRuntime(QObject):
         self.error = ""
         self.timer = QTimer(self, interval=30)
         self.timer.timeout.connect(self.step_mujoco)
+        self.motor_control = main.robot_panel.joint_controls.usb_motor_control
+        self.motor_control.toggled.connect(self.set_usb_motor_control)
         main.backend_manager.changed.connect(self.check_selected_profile)
 
     def check_selected_profile(self):
@@ -52,7 +54,7 @@ class LocalJointRuntime(QObject):
 
     def start_usb(self, profile, port, allow_jog):
         if self.retiring_usb:
-            raise ValueError("Wait for the previous USB step to release torque.")
+            raise ValueError("Wait for the previous USB connection to release torque.")
         if self.dialog and self.profile.id == profile.id and self.dialog.port == port:
             self.dialog.show()
             self.dialog.raise_()
@@ -67,7 +69,21 @@ class LocalJointRuntime(QObject):
         dialog.feedback.connect(lambda sample: self.usb_feedback(dialog, sample))
         dialog.availability_changed.connect(lambda: self.usb_availability(dialog))
         dialog.finished.connect(lambda _: self.usb_closed(dialog))
+        self.update_usb_motor_control()
         dialog.show()
+
+    def set_usb_motor_control(self, enabled):
+        if self.dialog:
+            self.dialog.set_motor_control(enabled)
+        self.update_usb_motor_control()
+
+    def update_usb_motor_control(self):
+        dialog = self.dialog
+        available = dialog is not None and dialog.allow_motor_control
+        with QSignalBlocker(self.motor_control):
+            self.motor_control.setChecked(available and dialog.motor_control_requested)
+            self.motor_control.setEnabled(available and dialog.can_change_motor_control())
+        self.motor_control.setVisible(available)
 
     def usb_closed(self, dialog):
         if self.dialog is dialog:
@@ -75,12 +91,13 @@ class LocalJointRuntime(QObject):
             self.main.start_offline()
         if self.retiring_usb is dialog:
             self.retiring_usb = None
-            if dialog.jog_failed:
+            if dialog.failed:
                 self.main.transport_error(dialog.status.text())
         dialog.deleteLater()
 
     def usb_availability(self, dialog):
         if self.dialog is dialog:
+            self.update_usb_motor_control()
             if not dialog.calibration_verified:
                 self.invalidate(dialog.status.text())
             self.main.update_joint_controls()
@@ -106,7 +123,6 @@ class LocalJointRuntime(QObject):
             self.ranges = ranges
             self.publish(positions, source="SO-101 calibrated USB")
         except (ValueError, TypeError, KeyError) as exc:
-            dialog.target = None
             self.invalidate(str(exc))
 
     def start_mujoco(self, profile, scene):
@@ -176,10 +192,10 @@ class LocalJointRuntime(QObject):
         dialog = self.dialog
         self.profile = self.lease = self.dialog = self.mujoco = None
         self.ranges = {}
+        self.update_usb_motor_control()
         if dialog:
-            dialog.target = None
             self.retiring_usb = dialog
-            dialog.close()
+            dialog.shutdown()
 
     def close_ready(self):
         if self.retiring_usb:

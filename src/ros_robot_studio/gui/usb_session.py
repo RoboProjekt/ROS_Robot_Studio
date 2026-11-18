@@ -1,112 +1,139 @@
-"""A persistent LeRobot process for position feedback and slider targets."""
+"""A persistent LeRobot process with a modeless dialog for USB setup and readings."""
 
 import json
 import math
 import time
 
-from PySide6.QtCore import QProcess
+from PySide6.QtCore import QProcess, Qt, QTimer
+from PySide6.QtWidgets import QDialog, QDialogButtonBox, QFormLayout
 
 from ros_robot_studio.backends import so101_usb
-from ros_robot_studio.gui.usb_robot import USBJointDialog, port_access_error
+from ros_robot_studio.gui.usb_robot import USBPositionDialog, port_access_error
 
 
-class USBSessionDialog(USBJointDialog):
-    def __init__(self, *args, **kwargs):
-        self.armed = False
-        self.closing_result = None
-        self.restart = False
+class USBSessionDialog(USBPositionDialog):
+    def __init__(self, port, settings, parent=None, *, allow_jog=False):
+        super().__init__(port, settings, parent)
+        self.setWindowModality(Qt.WindowModality.NonModal)
+        self.allow_motor_control = allow_jog
+        self.motor_control_requested = self.motor_control_pending = False
+        self.armed = self.calibration_verified = self.failed = False
+        self.closing = self.restart = False
         self.buffer = bytearray()
         self.last_sample = time.monotonic()
-        super().__init__(*args, **kwargs)
+        self.process = QProcess(self)
+        self.process.started.connect(self.poll_once)
         self.process.readyReadStandardOutput.connect(self.receive_samples)
-        self.poll.setInterval(300)
-        if self.arm:
-            self.arm.setText("Arm is fixed and supported. Enable motor position control.")
+        self.process.finished.connect(self.read_finished)
+        self.process.errorOccurred.connect(self.process_error)
+        self.poll = QTimer(self, interval=300)
+        self.poll.timeout.connect(self.poll_once)
+        self.calibration.currentIndexChanged.connect(self.calibration_changed)
+        layout = QFormLayout(self)
+        self.add_position_rows(layout)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons.rejected.connect(self.reject)
+        layout.addRow(buttons)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.read_positions()
+
+    def can_change_motor_control(self):
+        return (
+            self.allow_motor_control
+            and (self.calibration_verified or self.armed)
+            and not (self.failed or self.closing or self.restart or self.motor_control_pending)
+            and self.process.state() == QProcess.ProcessState.Running
+        )
 
     def can_command(self):
-        return self.armed and super().can_command() and self.closing_result is None
+        return (
+            self.motor_control_requested
+            and self.armed
+            and self.calibration_verified
+            and not (self.closing or self.restart or self.failed)
+            and self.process.state() == QProcess.ProcessState.Running
+        )
 
     def send(self, operation, **values):
         if self.process.state() == QProcess.ProcessState.Running:
             message = json.dumps(dict(operation=operation, **values)) + "\n"
             self.process.write(message.encode())
 
-    def arm_changed(self, armed):
-        self.jog_active = self.process.state() == QProcess.ProcessState.Running
-        self.send("arm" if armed else "disarm")
-        self.update_jog_controls()
-        self.availability_changed.emit()
+    def set_motor_control(self, enabled):
+        if self.motor_control_requested == enabled or not self.can_change_motor_control():
+            return
+        self.motor_control_requested = enabled
+        self.motor_control_pending = True
+        self.send("arm" if enabled else "disarm")
+        self.notify()
 
     def request_target(self, joint, encoder):
         if self.can_command():
             self.send("target", joint=joint, position=encoder)
-            self.motion_status.setText(f"Position target sent · {joint}")
-
-    def step_joint(self, direction):
-        joint = self.joint.currentText()
-        if self.can_command() and joint in self.encoders:
-            ranges = self.ranges[joint]
-            target = max(
-                ranges[0], min(ranges[1], self.encoders[joint] + direction * so101_usb.JOG_COUNTS)
-            )
-            self.request_target(joint, target)
 
     def poll_once(self):
-        if self.closing_result is not None:
+        if self.closing or self.restart:
             self.send("close")
-            self.schedule_poll()
             return
         self.send("ping")
         if time.monotonic() - self.last_sample > 2:
-            self.calibration_verified = False
-            self.armed = False
+            self.calibration_verified = self.motor_control_requested = False
+            self.motor_control_pending = self.motor_control_pending or self.armed
             self.send("disarm")
             self.status.setText("USB feedback is stale. Waiting for the motors to release.")
-            self.availability_changed.emit()
-            self.update_jog_controls()
-        self.schedule_poll()
+            self.notify()
 
-    def read_positions(self, _checked=False, **_):
-        if self.process.state() != QProcess.ProcessState.NotRunning:
-            self.send("ping")
+    def read_positions(self):
+        if self.closing or self.process.state() != QProcess.ProcessState.NotRunning:
             return
         error = port_access_error(self.port)
         if error:
             self.status.setText(error)
+            self.notify()
             return
         self.buffer.clear()
-        self.calibration_verified = self.armed = False
-        self.jog_failed = False
-        self.closing_result = None
-        self.read_context = (self.python, self.calibration.currentData())
+        self.calibration_verified = self.failed = False
+        self.last_sample = time.monotonic()
         args = ["-u", "-B", so101_usb.__file__, self.port]
         if self.calibration.currentData():
             args.append(self.calibration.currentData())
         args.append("--stream")
-        self.read.setEnabled(False)
-        self.last_sample = time.monotonic()
-        self.process.start(self.python, args)
         self.status.setText("Connecting to the USB runtime…")
-        self.schedule_poll()
+        self.process.start(self.python, args)
+        self.poll.start()
+        self.notify()
 
-    def invalidate_reading(self):
-        super().invalidate_reading()
-        self.restart = True
-        self.send("close")
-        self.interpreter.setEnabled(False)
-        self.browse.setEnabled(False)
+    def calibration_changed(self):
+        self.calibration_verified = False
+        for value in self.positions.values():
+            value.setText("—")
+        if self.process.state() == QProcess.ProcessState.NotRunning:
+            self.read_positions()
+        else:
+            self.restart = True
+            self.send("close")
+            self.status.setText("Checking the selected calibration…")
+            self.notify()
 
-    def update_jog_controls(self):
-        super().update_jog_controls()
-        if self.arm:
-            ready = self.can_command()
-            self.lower.setEnabled(ready)
-            self.upper.setEnabled(ready)
-        for control in (self.interpreter, self.calibration, self.browse):
-            control.setEnabled(not self.armed and not self.jog_active)
+    def notify(self):
+        selectable = not (
+            self.motor_control_requested
+            or self.armed
+            or self.motor_control_pending
+            or self.restart
+            or self.closing
+        )
+        self.calibration.setEnabled(selectable)
+        self.browse.setEnabled(selectable)
+        self.availability_changed.emit()
 
     def receive_samples(self):
         self.buffer.extend(bytes(self.process.readAllStandardOutput()))
+        if self.restart or self.closing:
+            self.buffer.clear()
+            return
         while b"\n" in self.buffer:
             line, _, rest = self.buffer.partition(b"\n")
             self.buffer = bytearray(rest)
@@ -115,7 +142,6 @@ class USBSessionDialog(USBJointDialog):
                 calibrated = sample["calibrated"]
                 armed = sample["armed"]
                 values = {name: float(sample["positions"][name]) for name in self.positions}
-                encoders = {name: int(sample["encoders"][name]) for name in self.positions}
                 if (
                     not isinstance(calibrated, bool)
                     or not isinstance(armed, bool)
@@ -123,19 +149,17 @@ class USBSessionDialog(USBJointDialog):
                 ):
                     raise ValueError("Invalid USB sample")
             except (ValueError, TypeError, KeyError):
+                self.failed = True
+                self.calibration_verified = self.motor_control_requested = False
                 self.send("close")
                 self.status.setText("Invalid feedback. Closing the USB runtime.")
-                self.calibration_verified = False
-                self.availability_changed.emit()
+                self.notify()
                 return
             self.last_sample = time.monotonic()
             self.calibration_verified = calibrated
             self.armed = armed
-            self.jog_active = False
-            self.encoders = encoders
-            self.ranges = sample.get("ranges", {})
-            if self.read_context != (self.python, self.calibration.currentData()):
-                continue
+            if armed == self.motor_control_requested:
+                self.motor_control_pending = False
             for name, value in values.items():
                 unit = ("%" if name == "gripper" else "°") if calibrated else " counts"
                 self.positions[name].setText(f"{value:.2f}{unit}")
@@ -146,50 +170,42 @@ class USBSessionDialog(USBJointDialog):
                 if calibrated
                 else "Live USB · raw counts · matching calibration required"
             )
-            self.read.setEnabled(True)
-            self.update_jog_controls()
-            self.availability_changed.emit()
-            if self.closing_result is not None:
-                self.send("close")
+            self.notify()
             if calibrated:
                 self.feedback.emit(sample)
-        self.schedule_poll()
 
     def read_finished(self, code, status):
-        self.poll.stop()
-        self.armed = self.calibration_verified = self.jog_active = False
         error = bytes(self.process.readAllStandardError()).decode(errors="replace").strip()
-        self.jog_failed = bool(code or status != QProcess.ExitStatus.NormalExit)
-        self.status.setText(error or "USB runtime stopped · motor torque released")
-        self.read.setEnabled(True)
-        self.update_jog_controls()
-        self.availability_changed.emit()
-        if self.closing_result is not None:
-            result = self.closing_result
-            self.closing_result = None
-            super().done(result)
-        elif self.restart:
-            self.restart = False
-            self.read_positions()
+        self.failed = self.failed or bool(code or status != QProcess.ExitStatus.NormalExit)
+        if error or not self.failed:
+            self.status.setText(error or "USB runtime stopped · motor torque released")
+        self.finish_process()
 
     def process_error(self, error):
         if error == QProcess.ProcessError.FailedToStart:
-            self.poll.stop()
-            self.calibration_verified = self.armed = self.jog_active = False
-            self.read.setEnabled(True)
-            self.status.setText("Could not start LeRobot Python. Select its interpreter and retry.")
-            self.update_jog_controls()
-            self.availability_changed.emit()
-            if self.closing_result is not None:
-                result = self.closing_result
-                self.closing_result = None
-                super().done(result)
+            self.failed = True
+            self.status.setText(f"Could not start LeRobot Python ({self.python}).")
+            self.finish_process()
+
+    def finish_process(self):
+        self.poll.stop()
+        self.armed = self.calibration_verified = False
+        self.motor_control_requested = self.motor_control_pending = False
+        if self.closing:
+            super().done(QDialog.DialogCode.Rejected)
+        elif self.restart:
+            self.restart = False
+            self.read_positions()
+        else:
+            self.notify()
+
+    def shutdown(self):
+        self.closing = True
+        self.hide()
+        if self.process.state() == QProcess.ProcessState.NotRunning:
+            self.finish_process()
+        else:
+            self.send("close")
 
     def done(self, result):
-        if self.process.state() != QProcess.ProcessState.NotRunning:
-            self.closing_result = result
-            self.send("close")
-            self.status.setText("Closing USB connection and releasing motor torque…")
-            return
-        self.poll.stop()
-        super().done(result)
+        self.hide()

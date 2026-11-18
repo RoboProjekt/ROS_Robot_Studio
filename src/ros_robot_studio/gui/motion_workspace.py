@@ -1079,8 +1079,6 @@ class MotionWorkspace(QObject):
 
     def stop(self):
         self.main.pending_live_target = None
-        if self.main.mode == "local" and self.main.local_runtime.dialog:
-            self.main.local_runtime.dialog.target = None
         if hasattr(self.main, "ros_execution") and self.main.mode == "ros":
             self.main.ros_execution.abort()
         self.cancel_work()

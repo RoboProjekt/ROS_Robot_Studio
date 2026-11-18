@@ -4,6 +4,7 @@ import math
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QCheckBox,
     QDoubleSpinBox,
     QGridLayout,
     QLabel,
@@ -36,6 +37,11 @@ class JointControls(QWidget):
         self.scroll.setMaximumHeight(220)
         self.scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         layout.addWidget(self.scroll)
+        self.usb_motor_control = QCheckBox(
+            "Arm is fixed and supported. Enable motor position control."
+        )
+        self.usb_motor_control.hide()
+        layout.addWidget(self.usb_motor_control, alignment=Qt.AlignmentFlag.AlignLeft)
 
     def set_model(self, model: RobotModel, values=None):
         self.model = model

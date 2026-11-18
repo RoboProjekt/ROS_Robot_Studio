@@ -1,9 +1,14 @@
+import json
+import sys
 from unittest.mock import MagicMock
 
 import pytest
 from pydantic import ValidationError
+from PySide6.QtCore import QPoint, Qt
+from PySide6.QtWidgets import QCheckBox
 
 from ros_robot_studio.backends.profiles import new_profile
+from ros_robot_studio.backends.so101_usb import JOINT_NAMES
 from ros_robot_studio.core.models import Project
 from ros_robot_studio.core.settings import Settings
 from ros_robot_studio.gui.backend_connections import BackendProfileDialog
@@ -173,67 +178,143 @@ def test_ros_slider_uses_a_model_matched_trajectory_and_drops_old_targets(window
     window.start_offline()
 
 
-def test_usb_measurement_preserves_angles_outside_urdf_limits_and_offline_recovers(window, qtbot):
-    from types import SimpleNamespace
-
-    from ros_robot_studio.backends.so101_usb import JOINT_NAMES
+def load_usb_test_project(window, tmp_path, qtbot):
     from ros_robot_studio.projects.store import PROJECTS_DIR, load_project
     from ros_robot_studio.robots.urdf import parse_urdf
 
     project = load_project(PROJECTS_DIR / "SO-101-Real.studio.yaml")
-    # Reuse a tiny local six-joint model, avoiding a catalog download.
-    from tempfile import TemporaryDirectory
+    # Use a minimal six-joint URDF so the tests run without a catalog download.
+    urdf = tmp_path / "arm.urdf"
+    links = "".join(f'<link name="l{i}"/>' for i in range(7))
+    joints = "".join(
+        f'<joint name="{name}" type="revolute"><parent link="l{i}"/><child link="l{i + 1}"/>'
+        '<axis xyz="0 0 1"/><limit lower="-1" upper="1" effort="1" velocity="1"/></joint>'
+        for i, name in enumerate(JOINT_NAMES)
+    )
+    urdf.write_text(f'<robot name="arm">{links}{joints}</robot>')
+    window.project, window.model = project, parse_urdf(urdf)
+    project.robot.end_effector = "l6"
+    window.apply_project()
+    qtbot.waitUntil(lambda: not window.motion.runner.busy)
+    return window.backend_manager.profiles[project.active_backend]
 
-    with TemporaryDirectory() as temp:
-        from pathlib import Path
 
-        urdf = Path(temp) / "arm.urdf"
-        links = "".join(f'<link name="l{i}"/>' for i in range(7))
-        joints = "".join(
-            f'<joint name="{name}" type="revolute"><parent link="l{i}"/><child link="l{i + 1}"/>'
-            '<axis xyz="0 0 1"/><limit lower="-1" upper="1" effort="1" velocity="1"/></joint>'
-            for i, name in enumerate(JOINT_NAMES)
+def test_usb_measurement_preserves_angles_outside_urdf_limits_and_offline_recovers(
+    window, tmp_path, qtbot
+):
+    from types import SimpleNamespace
+
+    profile = load_usb_test_project(window, tmp_path, qtbot)
+    runtime = window.local_runtime
+    runtime.enter(profile, "so101_usb", "USB test")
+    dialog = SimpleNamespace(can_command=lambda: True, request_target=MagicMock())
+    runtime.dialog = dialog
+    try:
+        runtime.usb_feedback(
+            dialog,
+            {
+                "ranges": dict.fromkeys(JOINT_NAMES, (0, 4095)),
+                "encoders": dict.fromkeys(JOINT_NAMES, 2048),
+                "positions": dict.fromkeys(JOINT_NAMES, 90),
+            },
         )
-        urdf.write_text(f'<robot name="arm">{links}{joints}</robot>')
-        model = parse_urdf(urdf)
-        window.project, window.model = project, model
-        window.project.robot.end_effector = "l6"
-        window.apply_project()
-        qtbot.waitUntil(lambda: not window.motion.runner.busy)
-        runtime = window.local_runtime
-        profile = window.backend_manager.profiles[project.active_backend]
-        runtime.enter(profile, "so101_usb", "USB test")
-        dialog = SimpleNamespace(target=None, can_command=lambda: True, request_target=MagicMock())
-        runtime.dialog = dialog
-        try:
-            runtime.usb_feedback(
-                dialog,
-                {
-                    "ranges": dict.fromkeys(JOINT_NAMES, (0, 4095)),
-                    "encoders": dict.fromkeys(JOINT_NAMES, 2048),
-                    "positions": dict.fromkeys(JOINT_NAMES, 90),
-                },
-            )
-            assert window.state_manager.snapshot().positions["shoulder_pan"] == pytest.approx(
-                1.57079632679
-            )
-            assert window.robot_panel.joint_controls.values["shoulder_pan"] == pytest.approx(
-                1.57079632679
-            )
-            assert window.monitor.robot_state.state.positions["shoulder_pan"] == pytest.approx(
-                1.57079632679
-            )
-            slider = window.robot_panel.joint_controls.controls["shoulder_pan"][0]
-            assert slider.isEnabled()
-            slider.setValue(5000)
-            dialog.request_target.assert_called_once_with("shoulder_pan", 2048)
-            assert window.state_manager.snapshot().positions["shoulder_pan"] == pytest.approx(
-                1.57079632679
-            )
-        finally:
-            runtime.dialog = None
-            window.start_offline()
-        assert window.state_manager.snapshot().positions["shoulder_pan"] == 1
+        assert window.state_manager.snapshot().positions["shoulder_pan"] == pytest.approx(
+            1.57079632679
+        )
+        assert window.robot_panel.joint_controls.values["shoulder_pan"] == pytest.approx(
+            1.57079632679
+        )
+        assert window.monitor.robot_state.state.positions["shoulder_pan"] == pytest.approx(
+            1.57079632679
+        )
+        slider = window.robot_panel.joint_controls.controls["shoulder_pan"][0]
+        assert slider.isEnabled()
+        slider.setValue(5000)
+        dialog.request_target.assert_called_once_with("shoulder_pan", 2048)
+        assert window.state_manager.snapshot().positions["shoulder_pan"] == pytest.approx(
+            1.57079632679
+        )
+    finally:
+        runtime.dialog = None
+        window.start_offline()
+    assert window.state_manager.snapshot().positions["shoulder_pan"] == 1
+
+
+def test_usb_motor_control_and_sliders_work_with_setup_open_or_hidden(
+    window, qtbot, tmp_path, monkeypatch
+):
+    port = tmp_path / "ttyACM0"
+    port.touch()
+    helper = tmp_path / "stream.py"
+    log = tmp_path / "commands.jsonl"
+    helper.write_text(
+        "import sys, json\nfrom pathlib import Path\n"
+        f"names = {JOINT_NAMES!r}\n"
+        "calibrated = len(sys.argv) == 4\n"
+        "angles = dict.fromkeys(names, 0)\nencoders = dict.fromkeys(names, 2048)\n"
+        "armed = False\n"
+        "def emit():\n"
+        " print(json.dumps(dict(calibrated=calibrated, positions=angles, encoders=encoders, "
+        "ranges=dict.fromkeys(names, [0,4095]), armed=armed)), flush=True)\n"
+        "emit()\nfor line in sys.stdin:\n"
+        f" with Path({str(log)!r}).open('a') as target: target.write(line)\n"
+        " command=json.loads(line)\n"
+        " if command['operation']=='close': break\n"
+        " if command['operation']=='arm': armed=True\n"
+        " if command['operation']=='disarm': armed=False\n"
+        " if command['operation']=='target': encoders[command['joint']]=command['position']\n"
+        " emit()\n"
+    )
+    monkeypatch.setattr("ros_robot_studio.backends.so101_usb.__file__", str(helper))
+    monkeypatch.setattr("ros_robot_studio.gui.usb_robot.calibration_files", lambda: [])
+    profile = load_usb_test_project(window, tmp_path, qtbot)
+    window.settings.set("lerobot_python", sys.executable)
+    controls = window.robot_panel.joint_controls
+    toggle = controls.usb_motor_control
+    slider = controls.controls["shoulder_pan"][0]
+    runtime = window.local_runtime
+    assert toggle.isHidden()
+
+    runtime.start_usb(profile, str(port), allow_jog=True)
+    dialog = runtime.dialog
+    assert dialog.isVisible() and not dialog.isModal()
+    assert not dialog.findChildren(QCheckBox)
+    qtbot.waitUntil(lambda: dialog.positions["shoulder_pan"].text().endswith("counts"))
+    assert toggle.isVisible() and not toggle.isEnabled() and not slider.isEnabled()
+    dialog.add_calibration(tmp_path / "follower.json")
+    dialog.calibration.setCurrentIndex(1)
+    qtbot.waitUntil(toggle.isEnabled)
+    assert not slider.isEnabled()
+    assert dialog.positions["shoulder_pan"].text() == "0.00°"
+
+    def operations():
+        return [json.loads(line)["operation"] for line in log.read_text().splitlines()]
+
+    qtbot.mouseClick(toggle, Qt.MouseButton.LeftButton, pos=QPoint(8, toggle.height() // 2))
+    qtbot.waitUntil(slider.isEnabled)
+    assert toggle.isChecked() and not dialog.calibration.isEnabled()
+    slider.setValue(5500)
+    qtbot.waitUntil(lambda: operations().count("target") == 1)
+    dialog.close()
+    assert not dialog.isVisible()
+    assert toggle.isChecked() and slider.isEnabled()
+    ping_count = operations().count("ping")
+    qtbot.waitUntil(lambda: operations().count("ping") > ping_count)
+    slider.setValue(4500)
+    qtbot.waitUntil(lambda: operations().count("target") == 2)
+
+    qtbot.mouseClick(toggle, Qt.MouseButton.LeftButton, pos=QPoint(8, toggle.height() // 2))
+    qtbot.waitUntil(toggle.isEnabled)
+    assert not slider.isEnabled() and not dialog.armed
+    assert operations().count("disarm") == 1
+    runtime.start_usb(profile, str(port), allow_jog=True)
+    assert runtime.dialog is dialog and dialog.isVisible()
+    qtbot.mouseClick(toggle, Qt.MouseButton.LeftButton, pos=QPoint(8, toggle.height() // 2))
+    qtbot.waitUntil(slider.isEnabled)
+    window.simulation_header.disconnect_selected()
+    qtbot.waitUntil(lambda: runtime.retiring_usb is None)
+    assert operations()[-1] == "close"
+    assert window.mode == "offline" and toggle.isHidden() and not toggle.isChecked()
 
 
 def test_cancelled_close_preserves_unsaved_project_and_connected_backends(window, monkeypatch):

@@ -78,15 +78,58 @@ def port_access_error(port):
     return ""
 
 
-class USBJointDialog(QDialog):
+class USBPositionDialog(QDialog):
     feedback = Signal(dict)
     availability_changed = Signal()
 
-    def __init__(self, port, settings, parent=None, *, allow_jog=False):
+    def __init__(self, port, settings, parent=None):
         super().__init__(parent)
         self.setWindowTitle("SO-101 Follower · USB Joint Positions")
         self.port = port
         self.settings = settings
+        self.python = settings.get("lerobot_python") or lerobot_interpreter()
+        self.calibration = QComboBox()
+        self.calibration.addItem("No calibration · raw motor counts", "")
+        files = calibration_files()
+        for path in files:
+            self.add_calibration(path)
+        if len(files) == 1:
+            self.calibration.setCurrentIndex(1)
+        self.browse = QPushButton("Choose calibration file…")
+        self.browse.clicked.connect(self.choose_calibration)
+        self.status = QLabel(port_access_error(port) or "Serial access available · read only")
+        self.status.setTextFormat(Qt.TextFormat.PlainText)
+        self.status.setWordWrap(True)
+        self.positions = {name: QLabel("—") for name in so101_usb.JOINT_NAMES}
+
+    def add_position_rows(self, layout):
+        layout.addRow("LeRobot calibration", self.calibration)
+        layout.addRow(self.browse)
+        layout.addRow(self.status)
+        for name, value in self.positions.items():
+            layout.addRow(name, value)
+
+    def add_calibration(self, path):
+        self.calibration.addItem(Path(path).stem, str(path))
+        self.calibration.setItemData(
+            self.calibration.count() - 1, str(path), Qt.ItemDataRole.ToolTipRole
+        )
+
+    def choose_calibration(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select SO-101 calibration", "", "JSON (*.json)"
+        )
+        if path:
+            index = self.calibration.findData(path)
+            if index < 0:
+                self.add_calibration(path)
+                index = self.calibration.count() - 1
+            self.calibration.setCurrentIndex(index)
+
+
+class USBJointDialog(USBPositionDialog):
+    def __init__(self, port, settings, parent=None, *, allow_jog=False):
+        super().__init__(port, settings, parent)
         self.jog_active = False
         self.jog_failed = False
         self.manual_read = False
@@ -94,7 +137,6 @@ class USBJointDialog(QDialog):
         self.encoders = {}
         self.target = None
         self.target_start = None
-        self.python = settings.get("lerobot_python") or lerobot_interpreter()
         self.process = QProcess(self)
         self.process.finished.connect(self.read_finished)
         self.process.errorOccurred.connect(self.process_error)
@@ -109,24 +151,7 @@ class USBJointDialog(QDialog):
         self.interpreter = QPushButton(self.python)
         self.interpreter.clicked.connect(self.choose_interpreter)
         layout.addRow("LeRobot Python", self.interpreter)
-        self.calibration = QComboBox()
-        self.calibration.addItem("No calibration · raw motor counts", "")
-        files = calibration_files()
-        for path in files:
-            self.add_calibration(path)
-        if len(files) == 1:
-            self.calibration.setCurrentIndex(1)
-        layout.addRow("LeRobot calibration", self.calibration)
-        self.browse = QPushButton("Choose calibration file…")
-        self.browse.clicked.connect(self.choose_calibration)
-        layout.addRow(self.browse)
-        self.status = QLabel(port_access_error(port) or "Serial access available · read only")
-        self.status.setTextFormat(Qt.TextFormat.PlainText)
-        self.status.setWordWrap(True)
-        layout.addRow(self.status)
-        self.positions = {name: QLabel("—") for name in so101_usb.JOINT_NAMES}
-        for name, value in self.positions.items():
-            layout.addRow(name, value)
+        self.add_position_rows(layout)
         self.arm = None
         if allow_jog:
             self.arm = QCheckBox("Arm is fixed and supported. Enable manual steps.")
@@ -200,23 +225,9 @@ class USBJointDialog(QDialog):
             self.invalidate_reading()
         self.schedule_poll()
 
-    def add_calibration(self, path):
-        self.calibration.addItem(Path(path).stem, str(path))
-        self.calibration.setItemData(
-            self.calibration.count() - 1, str(path), Qt.ItemDataRole.ToolTipRole
-        )
-
     def choose_calibration(self):
         self.poll.stop()
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Select SO-101 calibration", "", "JSON (*.json)"
-        )
-        if path:
-            index = self.calibration.findData(path)
-            if index < 0:
-                self.add_calibration(path)
-                index = self.calibration.count() - 1
-            self.calibration.setCurrentIndex(index)
+        super().choose_calibration()
         self.schedule_poll()
 
     def invalidate_reading(self):
