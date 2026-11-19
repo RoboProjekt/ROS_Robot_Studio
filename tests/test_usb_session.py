@@ -186,11 +186,12 @@ def test_hand_recording_holds_measured_positions_and_replays_with_csv_timing(tmp
     current["shoulder_pan"] = 2048
     sample(21.0)
     sample(21.15)
-    assert bus.values["Goal_Position"]["shoulder_pan"] == 2049
+    assert motion.goal["shoulder_pan"] == 2049
     sample(21.25)
-    assert bus.values["Goal_Position"]["shoulder_pan"] == 2049
+    assert motion.goal["shoulder_pan"] == 2049
     sample(21.55)
-    assert bus.values["Goal_Position"]["shoulder_pan"] == 2098
+    assert motion.goal["shoulder_pan"] == 2098
+    assert 2098 <= bus.values["Goal_Position"]["shoulder_pan"] <= 2120
     current["shoulder_pan"] = 2098
     sample(21.65)
     assert motion.mode == "idle" and control.armed
@@ -253,7 +254,7 @@ def test_start_pose_grace_tracks_progress_then_reports_stalled_joint():
 
 @pytest.mark.parametrize("starting", [True, False])
 @pytest.mark.parametrize("recovers", [True, False])
-def test_replay_corrects_test2_elbow_error_with_single_bounded_adjustment(starting, recovers):
+def test_replay_pid_corrects_test2_elbow_error_or_stops_at_the_deadline(starting, recovers):
     bus = MotorBus()
     current = bus.values["Present_Position"]
     current["elbow_flex"] = 1052
@@ -265,20 +266,26 @@ def test_replay_corrects_test2_elbow_error_with_single_bounded_adjustment(starti
     motion.started = None if starting else 0.0
     motion.index = 1
     motion.set_replay_goal(motion.frames[0][1], current, 0.0, confirm=True)
-    motion.replay_sample(current, 6.0)
+    motion.replay_sample(current, 0.05)
     assert motion.mode == "replay" and motion.goal["elbow_flex"] == 1023
-    assert bus.values["Goal_Position"]["elbow_flex"] == 1012
+    first_target = bus.values["Goal_Position"]["elbow_flex"]
+    assert 1001 <= first_target < 1023
     assert set(bus.values["Torque_Limit"].values()) == {1000}
     assert set(bus.values["Goal_Speed"].values()) == {24}
+    for step in range(2, 122):
+        if recovers:
+            # Emulate a loaded joint that settles 29 ticks above its commanded position.
+            current["elbow_flex"] = bus.values["Goal_Position"]["elbow_flex"] + 29
+        motion.replay_sample(current, step * 0.05)
+        if motion.mode == "idle" or (starting and motion.started is not None):
+            break
     if recovers:
-        current["elbow_flex"] = 1045
-        motion.replay_sample(current, 6.1)
+        assert abs(current["elbow_flex"] - 1023) <= 22
         if starting:
-            assert motion.started == 6.1 and motion.message == "Replaying…"
+            assert motion.started is not None and motion.message == "Replaying…"
         else:
             assert motion.mode == "idle" and "Replay complete" in motion.message
     else:
-        motion.replay_sample(current, 12.5)
         assert motion.mode == "idle" and "2.55° (29 ticks)" in motion.message
         assert bus.values["Goal_Position"]["elbow_flex"] == 1052
 
@@ -295,6 +302,8 @@ def test_replay_does_not_correct_past_calibration_limit():
     motion.frames = [(0.0, (2048, 2048, 1023, 2048, 2048, 2048))]
     motion.started = None
     motion.set_replay_goal(motion.frames[0][1], current, 0.0)
+    motion.replay_sample(current, 0.5)
+    assert bus.values["Goal_Position"]["elbow_flex"] == 1023
     motion.replay_sample(current, 6.0)
     assert motion.mode == "idle"
     assert bus.values["Goal_Position"]["elbow_flex"] == 1052
@@ -303,3 +312,31 @@ def test_replay_does_not_correct_past_calibration_limit():
         for register, name, value in bus.writes
         if register == "Goal_Position" and name == "elbow_flex"
     )
+
+
+def test_replay_pid_compensates_the_measured_shoulder_offset_at_start():
+    bus = MotorBus()
+    current = bus.values["Present_Position"]
+    current["shoulder_lift"] = 3071
+    control = USBControlSession(bus)
+    control.arm(speed=60, torque=65)
+    motion = USBMotion(control)
+    motion.speed = 60
+    frame = (2048, 3017, 2048, 2048, 2048, 2048)
+    motion.frames = [(0.0, frame)]
+    motion.started = None
+    motion.index = 1
+    motion.set_replay_goal(frame, current, 0.0, confirm=True)
+    for step in range(1, 121):
+        motion.replay_sample(current, step * 0.05)
+        if motion.started is not None or motion.mode == "idle":
+            break
+        commanded = bus.values["Goal_Position"]["shoulder_lift"]
+        assert 3017 - 45 <= commanded <= 3017
+        # Reproduce an offset that leaves a 39-tick error with the old 22-tick limit.
+        current["shoulder_lift"] = commanded + 61
+
+    assert motion.started is not None
+    assert abs(current["shoulder_lift"] - 3017) <= 22
+    assert set(bus.values["Torque_Limit"].values()) == {650}
+    assert set(bus.values["Goal_Speed"].values()) == {60}

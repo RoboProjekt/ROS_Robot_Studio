@@ -21,8 +21,15 @@ DEFAULT_HAND_TORQUE = 10
 HAND_DEADBAND = 1
 DEGREES_PER_TICK = 360 / 4095
 REPLAY_TOLERANCE = int(2 / DEGREES_PER_TICK)
-REPLAY_POSE_TRIM = round(1 / DEGREES_PER_TICK)
 REPLAY_PROGRESS_GRACE = 6.0
+PID_CORRECTION_LIMIT = REPLAY_TOLERANCE
+PID_HOLD_CORRECTION_LIMIT = int(4 / DEGREES_PER_TICK)
+PID_ACTIVE_ERROR = round(5 / DEGREES_PER_TICK)
+PID_INTERVAL = 0.025
+PID_KP = 0.25
+PID_KI = 0.75
+PID_KD = 0.025
+PID_DERIVATIVE_FILTER = 0.08
 CSV_COLUMNS = (
     "time_s",
     *(f"{name}_deg" for name in JOINT_NAMES[:-1]),
@@ -133,6 +140,64 @@ def pace_frames(frames, speed):
         previous_time, previous_encoders = elapsed, encoders
 
 
+class ReplayPositionPID:
+    """Correct the existing servo setpoints using measured encoder positions."""
+
+    def __init__(self):
+        self.last_time = None
+        self.previous = {}
+        self.velocity = dict.fromkeys(JOINT_NAMES, 0.0)
+        self.integral = dict.fromkeys(JOINT_NAMES, 0.0)
+        self.sent = {}
+
+    def targets(self, goal, encoders, calibration, now, *, correction_limit, force=False):
+        if self.last_time is None:
+            self.last_time, self.previous = now, encoders.copy()
+            self.sent = goal.copy()
+            return goal.copy()
+
+        elapsed = now - self.last_time
+        if elapsed < PID_INTERVAL and not force:
+            return {}
+        # A delayed USB sample must not accumulate a large integral step.
+        dt = min(0.1, max(0.0, elapsed))
+        targets = {}
+        for name, reference in goal.items():
+            if elapsed > 0.0:
+                velocity = (encoders[name] - self.previous[name]) / elapsed
+                alpha = dt / (PID_DERIVATIVE_FILTER + dt)
+                self.velocity[name] += alpha * (velocity - self.velocity[name])
+            error = reference - encoders[name]
+            motor = calibration[name]
+            lower = max(-correction_limit, motor.range_min - reference, -reference)
+            upper = min(correction_limit, motor.range_max - reference, 4095 - reference)
+            if abs(error) > PID_ACTIVE_ERROR:
+                self.integral[name] = 0.0
+                correction = 0
+            else:
+                proportional_derivative = PID_KP * error - PID_KD * self.velocity[name]
+                self.integral[name] = min(upper, max(lower, self.integral[name]))
+                integral = self.integral[name] + PID_KI * error * dt
+                integral = min(upper, max(lower, integral))
+                proposed = proportional_derivative + integral
+                # Integrate at saturation only when the error draws the output back in.
+                if (
+                    lower <= proposed <= upper
+                    or (proposed > upper and error < 0)
+                    or (proposed < lower and error > 0)
+                ):
+                    self.integral[name] = integral
+                correction = round(
+                    min(upper, max(lower, proportional_derivative + self.integral[name]))
+                )
+            target = reference + correction
+            if force or self.sent.get(name) != target:
+                targets[name] = target
+        self.last_time, self.previous = now, encoders.copy()
+        self.sent.update(targets)
+        return targets
+
+
 class USBMotion:
     def __init__(self, control):
         self.control = control
@@ -140,6 +205,7 @@ class USBMotion:
         self.recording_torque = None
         self.live_limits = None
         self.frames = None
+        self.pid = ReplayPositionPID()
         self.loading = None
         self.message = ""
         self.ack = None
@@ -234,10 +300,21 @@ class USBMotion:
 
     def set_replay_goal(self, frame, encoders, now, *, confirm=False):
         self.goal = dict(zip(JOINT_NAMES, frame, strict=True))
-        self.control.target_positions(self.goal, confirm=confirm)
+        self.track_goal(encoders, now, force=confirm)
         self.closest = self.distance(encoders)
         self.deadline = now + self.pose_timeout(self.closest)
-        self.pose_trimmed = False
+
+    def track_goal(self, encoders, now, *, force=False):
+        holding = self.started is None or self.index == len(self.frames)
+        targets = self.pid.targets(
+            self.goal,
+            encoders,
+            self.control.bus.calibration,
+            now,
+            correction_limit=PID_HOLD_CORRECTION_LIMIT if holding else PID_CORRECTION_LIMIT,
+            force=force,
+        )
+        self.control.target_positions(targets, confirm=force)
 
     def pose_timeout(self, distance):
         return max(REPLAY_PROGRESS_GRACE, 3 + 2 * distance / self.speed)
@@ -253,8 +330,6 @@ class USBMotion:
             self.closest = distance
             self.deadline = max(self.deadline, now + REPLAY_PROGRESS_GRACE)
         elif now >= self.deadline:
-            if self.trim_pose(encoders, distance, now, label):
-                return False
             joint = max(JOINT_NAMES, key=lambda name: abs(self.goal[name] - encoders[name]))
             torque = self.control.applied_limits["Torque_Limit"][joint] / 10
             self.stop(
@@ -264,28 +339,6 @@ class USBMotion:
                 f"at {torque:g}% torque. Holding current position.",
             )
         return False
-
-    def trim_pose(self, encoders, distance, now, label):
-        if self.pose_trimmed or distance > REPLAY_TOLERANCE + REPLAY_POSE_TRIM:
-            return False
-        targets = {}
-        for name, goal in self.goal.items():
-            error = goal - encoders[name]
-            if abs(error) <= REPLAY_TOLERANCE:
-                continue
-            limits = self.control.bus.calibration[name]
-            trim = REPLAY_POSE_TRIM if error > 0 else -REPLAY_POSE_TRIM
-            target = min(4095, limits.range_max, max(0, limits.range_min, goal + trim))
-            if target == goal:
-                return False
-            targets[name] = target
-        # Keep the recorded pose as the acceptance reference.
-        self.control.target_positions(targets, confirm=True)
-        travel = max(abs(target - encoders[name]) for name, target in targets.items())
-        self.deadline = now + self.pose_timeout(travel)
-        self.pose_trimmed = True
-        self.message = f"{label} pose: correcting small joint error…"
-        return True
 
     def sample(self, sample, now):
         encoders = sample["encoders"]
@@ -311,6 +364,8 @@ class USBMotion:
             if self.pose_reached(encoders, now, "Start"):
                 self.started = now
                 self.message = "Replaying…"
+            elif self.frames:
+                self.track_goal(encoders, now)
             return
 
         frame = None
@@ -319,6 +374,8 @@ class USBMotion:
             self.index += 1
         if frame is not None:
             self.set_replay_goal(frame, encoders, now, confirm=self.index == len(self.frames))
+        else:
+            self.track_goal(encoders, now)
         if self.index == len(self.frames):
             if self.pose_reached(encoders, now, "Final"):
                 self.clear("Replay complete. Holding the final pose.")
@@ -340,6 +397,7 @@ class USBMotion:
             self.loading[-1].set()
             self.loading = None
         self.frames = None
+        self.pid = ReplayPositionPID()
         self.recording_torque = self.live_limits = None
         recording, self.recording = self.recording, None
         self.message = message
