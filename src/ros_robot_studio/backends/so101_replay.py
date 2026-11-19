@@ -19,8 +19,9 @@ JOINT_NAMES = (
 HAND_TORQUE = 25
 DEFAULT_HAND_TORQUE = 10
 HAND_DEADBAND = 1
-REPLAY_START_TOLERANCE = 20
-REPLAY_TOLERANCE = 12
+DEGREES_PER_TICK = 360 / 4095
+REPLAY_TOLERANCE = int(2 / DEGREES_PER_TICK)
+REPLAY_POSE_TRIM = round(1 / DEGREES_PER_TICK)
 REPLAY_PROGRESS_GRACE = 6.0
 CSV_COLUMNS = (
     "time_s",
@@ -44,7 +45,7 @@ def calibrated_positions(encoders, calibration):
     for name in JOINT_NAMES[:-1]:
         limits = calibration[name]
         midpoint = (limits.range_min + limits.range_max) / 2
-        positions[name] = (encoders[name] - midpoint) * 360 / 4095
+        positions[name] = (encoders[name] - midpoint) * DEGREES_PER_TICK
     gripper = calibration["gripper"]
     bounded = min(gripper.range_max, max(gripper.range_min, encoders["gripper"]))
     opening = 100 * (bounded - gripper.range_min) / (gripper.range_max - gripper.range_min)
@@ -235,27 +236,56 @@ class USBMotion:
         self.goal = dict(zip(JOINT_NAMES, frame, strict=True))
         self.control.target_positions(self.goal, confirm=confirm)
         self.closest = self.distance(encoders)
-        self.deadline = now + max(REPLAY_PROGRESS_GRACE, 3 + 2 * self.closest / self.speed)
+        self.deadline = now + self.pose_timeout(self.closest)
+        self.pose_trimmed = False
+
+    def pose_timeout(self, distance):
+        return max(REPLAY_PROGRESS_GRACE, 3 + 2 * distance / self.speed)
 
     def distance(self, encoders):
         return max(abs(self.goal[name] - encoders[name]) for name in JOINT_NAMES)
 
-    def pose_reached(self, encoders, now, tolerance, label):
+    def pose_reached(self, encoders, now, label):
         distance = self.distance(encoders)
-        if distance <= tolerance:
+        if distance <= REPLAY_TOLERANCE:
             return True
         if distance <= self.closest - 2:
             self.closest = distance
             self.deadline = max(self.deadline, now + REPLAY_PROGRESS_GRACE)
         elif now >= self.deadline:
+            if self.trim_pose(encoders, distance, now, label):
+                return False
             joint = max(JOINT_NAMES, key=lambda name: abs(self.goal[name] - encoders[name]))
             torque = self.control.applied_limits["Torque_Limit"][joint] / 10
             self.stop(
                 encoders,
-                f"{label} pose was not reached: {joint}, {distance} ticks off "
+                f"{label} pose was not reached: {joint}, {distance * DEGREES_PER_TICK:.2f}° "
+                f"({distance} ticks) off "
                 f"at {torque:g}% torque. Holding current position.",
             )
         return False
+
+    def trim_pose(self, encoders, distance, now, label):
+        if self.pose_trimmed or distance > REPLAY_TOLERANCE + REPLAY_POSE_TRIM:
+            return False
+        targets = {}
+        for name, goal in self.goal.items():
+            error = goal - encoders[name]
+            if abs(error) <= REPLAY_TOLERANCE:
+                continue
+            limits = self.control.bus.calibration[name]
+            trim = REPLAY_POSE_TRIM if error > 0 else -REPLAY_POSE_TRIM
+            target = min(4095, limits.range_max, max(0, limits.range_min, goal + trim))
+            if target == goal:
+                return False
+            targets[name] = target
+        # Keep the recorded pose as the acceptance reference.
+        self.control.target_positions(targets, confirm=True)
+        travel = max(abs(target - encoders[name]) for name, target in targets.items())
+        self.deadline = now + self.pose_timeout(travel)
+        self.pose_trimmed = True
+        self.message = f"{label} pose: correcting small joint error…"
+        return True
 
     def sample(self, sample, now):
         encoders = sample["encoders"]
@@ -278,7 +308,7 @@ class USBMotion:
 
     def replay_sample(self, encoders, now):
         if self.started is None:
-            if self.pose_reached(encoders, now, REPLAY_START_TOLERANCE, "Start"):
+            if self.pose_reached(encoders, now, "Start"):
                 self.started = now
                 self.message = "Replaying…"
             return
@@ -290,7 +320,7 @@ class USBMotion:
         if frame is not None:
             self.set_replay_goal(frame, encoders, now, confirm=self.index == len(self.frames))
         if self.index == len(self.frames):
-            if self.pose_reached(encoders, now, REPLAY_TOLERANCE, "Final"):
+            if self.pose_reached(encoders, now, "Final"):
                 self.clear("Replay complete. Holding the final pose.")
 
     def stop(self, encoders, message=None):

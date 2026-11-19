@@ -238,14 +238,68 @@ def test_start_pose_grace_tracks_progress_then_reports_stalled_joint():
     control.arm(speed=120, torque=45)
     motion = USBMotion(control)
     motion.speed = 120
-    motion.frames = [(0.0, (2100, 2048, 2048, 2048, 2048, 2048))]
+    motion.frames = [(0.0, (2150, 2048, 2048, 2048, 2048, 2048))]
     motion.started = None
     current = bus.values["Present_Position"]
     motion.set_replay_goal(motion.frames[0][1], current, 0, confirm=True)
-    current["shoulder_pan"] = 2078
+    current["shoulder_pan"] = 2098
     motion.replay_sample(current, 5.9)
     assert motion.mode == "replay" and motion.deadline > 11
     motion.replay_sample(current, 12)
     assert motion.mode == "idle" and control.armed
-    assert "shoulder_pan, 22 ticks off at 45% torque" in motion.message
-    assert bus.values["Goal_Position"]["shoulder_pan"] == 2078
+    assert "shoulder_pan, 4.57° (52 ticks) off at 45% torque" in motion.message
+    assert bus.values["Goal_Position"]["shoulder_pan"] == 2098
+
+
+@pytest.mark.parametrize("starting", [True, False])
+@pytest.mark.parametrize("recovers", [True, False])
+def test_replay_corrects_test2_elbow_error_with_single_bounded_adjustment(starting, recovers):
+    bus = MotorBus()
+    current = bus.values["Present_Position"]
+    current["elbow_flex"] = 1052
+    control = USBControlSession(bus)
+    control.arm(speed=24, torque=100)
+    motion = USBMotion(control)
+    motion.speed = 24
+    motion.frames = [(0.0, (2048, 2048, 1023, 2048, 2048, 2048))]
+    motion.started = None if starting else 0.0
+    motion.index = 1
+    motion.set_replay_goal(motion.frames[0][1], current, 0.0, confirm=True)
+    motion.replay_sample(current, 6.0)
+    assert motion.mode == "replay" and motion.goal["elbow_flex"] == 1023
+    assert bus.values["Goal_Position"]["elbow_flex"] == 1012
+    assert set(bus.values["Torque_Limit"].values()) == {1000}
+    assert set(bus.values["Goal_Speed"].values()) == {24}
+    if recovers:
+        current["elbow_flex"] = 1045
+        motion.replay_sample(current, 6.1)
+        if starting:
+            assert motion.started == 6.1 and motion.message == "Replaying…"
+        else:
+            assert motion.mode == "idle" and "Replay complete" in motion.message
+    else:
+        motion.replay_sample(current, 12.5)
+        assert motion.mode == "idle" and "2.55° (29 ticks)" in motion.message
+        assert bus.values["Goal_Position"]["elbow_flex"] == 1052
+
+
+def test_replay_does_not_correct_past_calibration_limit():
+    bus = MotorBus()
+    bus.calibration["elbow_flex"].range_min = 1023
+    current = bus.values["Present_Position"]
+    current["elbow_flex"] = 1052
+    control = USBControlSession(bus)
+    control.arm()
+    motion = USBMotion(control)
+    motion.speed = 24
+    motion.frames = [(0.0, (2048, 2048, 1023, 2048, 2048, 2048))]
+    motion.started = None
+    motion.set_replay_goal(motion.frames[0][1], current, 0.0)
+    motion.replay_sample(current, 6.0)
+    assert motion.mode == "idle"
+    assert bus.values["Goal_Position"]["elbow_flex"] == 1052
+    assert all(
+        value >= 1023
+        for register, name, value in bus.writes
+        if register == "Goal_Position" and name == "elbow_flex"
+    )
