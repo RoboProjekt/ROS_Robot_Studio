@@ -326,6 +326,10 @@ Bei einer aktiven Isaac-Simulation folgen **Robot Configuration** und **Live Mon
 
 ### Stereo, Qwen und MoveIt
 
+Ein separat ausführbarer, tatsächlich trainierter Stereo-Tiefenschätzer mit Isaac-Datengenerator,
+OpenCV-Vergleich, ONNX-Export und optionalem Studio-Adapter ist in der
+[Stereo-Trainingsdokumentation](docs/STEREO_DEPTH_TRAINING.md) beschrieben. Die Messwerte gelten für Simulation.
+
 Der neue Reiter **Camera & Vision → Stereo & Planning** koppelt zwei ROS-Kameras mit einer Arbeitsszene, lokalem Ollama und MoveIt Plan Only. Isaac Sim kann dazu auf einem separaten Rechner laufen. [Einrichtung und Abnahme](docs/ISAAC_SIM_RGB_CAMERA.md#stereo-und-qwen-mit-einem-separaten-isaac-rechner)
 
 ### 14. RGB-Kamera zur USD hinzufügen

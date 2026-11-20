@@ -137,12 +137,7 @@ class OpenCVStereo:
             cv.remap(f.rgb, *mapping, cv.INTER_LINEAR)
             for f, mapping in zip((left, right), maps, strict=True)
         )
-        disparity = (
-            self.matcher.compute(
-                cv.cvtColor(lrgb, cv.COLOR_RGB2GRAY), cv.cvtColor(rrgb, cv.COLOR_RGB2GRAY)
-            ).astype(np.float32)
-            / 16
-        )
+        disparity = self.compute_disparity(lrgb, rrgb)
         points = cv.reprojectImageTo3D(disparity, q)
         valid = (disparity > 0) & np.isfinite(points).all(axis=2)
         valid &= (points[..., 2] >= 0.2) & (points[..., 2] <= 1.2)
@@ -150,6 +145,15 @@ class OpenCVStereo:
         transform = left_tf.copy()
         transform[:3, :3] = left_tf[:3, :3] @ r1.T
         return lrgb, rrgb, disparity, points, transform
+
+    def compute_disparity(self, left, right):
+        return (
+            self.matcher.compute(
+                self.cv.cvtColor(left, self.cv.COLOR_RGB2GRAY),
+                self.cv.cvtColor(right, self.cv.COLOR_RGB2GRAY),
+            ).astype(np.float32)
+            / 16
+        )
 
 
 def identify(rgb, points, to_base):

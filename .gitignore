@@ -47,3 +47,10 @@ Thumbs.db
 *.mp4
 *.webm
 *.safetensors
+
+# Stereo training artifacts and locally installed optional environments
+/stereo-data/
+/checkpoints/
+/training-runs/
+*.pth
+*.ckpt

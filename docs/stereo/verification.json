@@ -1,0 +1,3872 @@
+{
+  "date": "2026-11-20",
+  "git": {
+    "remote": "git@github.com:RoboProjekt/ROS_Robot_Studio.git",
+    "upstream": "origin/main",
+    "before_pull": "b3887e6fdba6734f97aa23dffadd43046d629f06",
+    "base": "902e7f82cb718463be8649134982786c77662089",
+    "branch": "stereo-depth-training"
+  },
+  "hardware": {
+    "cpu": "AMD Ryzen 7 5800X",
+    "ram_gib": 32,
+    "gpu": "NVIDIA GeForce RTX 4070 Ti",
+    "gpu_memory_mib": 12282,
+    "driver": "580.178.04",
+    "os": "Ubuntu 22.04",
+    "kernel": "6.8.0-149-generic",
+    "python": "3.10.12",
+    "isaac": "5.1.0-rc.19+release.26219.9c81211b.gl"
+  },
+  "environment": {
+    "triton": "3.2.0",
+    "coloredlogs": "15.0.1",
+    "pytest": "8.3.5",
+    "nvidia-nvtx-cu12": "12.4.127",
+    "fsspec": "2026.9.0",
+    "networkx": "3.4.2",
+    "sympy": "1.13.1",
+    "opencv-contrib-python-headless": "4.12.0.88",
+    "nvidia-nccl-cu12": "2.21.5",
+    "numpy": "2.2.6",
+    "onnxruntime": "1.22.1",
+    "nvidia-cusparselt-cu12": "0.6.2",
+    "torch": "2.6.0+cu124",
+    "PyYAML": "6.0.2",
+    "nvidia-cuda-cupti-cu12": "12.4.127",
+    "packaging": "26.3",
+    "Jinja2": "3.1.6",
+    "onnx": "1.17.0",
+    "pyparsing": "3.3.3",
+    "tomli": "2.5.0",
+    "exceptiongroup": "1.3.2",
+    "nvidia-cufft-cu12": "11.2.1.3",
+    "iniconfig": "2.3.1",
+    "contourpy": "1.3.2",
+    "tzdata": "2026.6",
+    "fonttools": "4.65.0",
+    "cycler": "0.12.1",
+    "nvidia-cublas-cu12": "12.4.5.8",
+    "pluggy": "1.7.0",
+    "nvidia-nvjitlink-cu12": "12.4.127",
+    "flatbuffers": "25.12.19",
+    "humanfriendly": "10.0",
+    "nvidia-cuda-nvrtc-cu12": "12.4.127",
+    "matplotlib": "3.10.3",
+    "MarkupSafe": "3.0.3",
+    "protobuf": "7.36.2",
+    "nvidia-cusolver-cu12": "11.6.1.9",
+    "nvidia-cudnn-cu12": "9.1.0.70",
+    "pillow": "12.3.0",
+    "filelock": "4.1.0",
+    "typing_extensions": "4.16.0",
+    "nvidia-curand-cu12": "10.3.5.147",
+    "mpmath": "1.3.0",
+    "nvidia-cusparse-cu12": "12.3.1.170",
+    "kiwisolver": "1.5.1",
+    "nvidia-cuda-runtime-cu12": "12.4.127",
+    "python-dateutil": "3.0.0",
+    "six": "1.17.0"
+  },
+  "audit": {
+    "pairs": 1326,
+    "scenes": 591,
+    "splits": {
+      "train": 720,
+      "validation": 120,
+      "test": 180,
+      "unseen": 90,
+      "asynchronous": 216
+    },
+    "manifest_sha256": "484ea5d560b328ac86cce97cfa9afac2c14d80f6149205d0f4187fa950232df9",
+    "max_table_plane_error_mm": 0.0009505407637709976,
+    "matched_asynchronous_scenes": 36,
+    "projection": {
+      "left": {
+        "count": 1976,
+        "median_px": 0.14969728941354163,
+        "p95_px": 0.3629298666885093,
+        "max_px": 3.539304623414437,
+        "preview_max_px": 0.513136646913446
+      },
+      "right": {
+        "count": 1985,
+        "median_px": 0.15510416246653655,
+        "p95_px": 0.364732394226189,
+        "max_px": 3.569297720459259,
+        "preview_max_px": 2.2834256023292867
+      }
+    }
+  },
+  "overfit": {
+    "device": "cuda",
+    "parameters": 11210,
+    "train_samples": 4,
+    "validation_samples": 4,
+    "epochs": 180,
+    "best_validation_epe_px": 0.811873197555542,
+    "elapsed_s": 6.784898605000308,
+    "session_elapsed_s": 6.784898965000139,
+    "torch_version": "2.6.0+cu124",
+    "gpu": "NVIDIA GeForce RTX 4070 Ti",
+    "peak_allocated_mb": 184.37060546875,
+    "peak_reserved_mb": 348.0
+  },
+  "training": {
+    "device": "cuda",
+    "parameters": 11210,
+    "train_samples": 720,
+    "validation_samples": 120,
+    "epochs": 80,
+    "best_validation_epe_px": 0.4966498891512553,
+    "elapsed_s": 240.16273225299983,
+    "session_elapsed_s": 61.92372825500024,
+    "torch_version": "2.6.0+cu124",
+    "gpu": "NVIDIA GeForce RTX 4070 Ti",
+    "peak_allocated_mb": 381.72021484375,
+    "peak_reserved_mb": 598.0
+  },
+  "model": {
+    "schema_version": 1,
+    "architecture": "CompactStereo",
+    "license": "Apache-2.0",
+    "pytorch_dependency_license": "BSD-3-Clause",
+    "checkpoint": "checkpoints/so101-compact-stereo/best.pt",
+    "checkpoint_sha256": "792fa8af6fac4ca6b5a85f5867d4e1c5ca321697ed7faccb750b50f6b3423709",
+    "onnx": "checkpoints/so101-compact-stereo/compact-stereo.onnx",
+    "onnx_sha256": "dbd66fbbb75fcdf72232cc2219ab90b2db6fe354a9ad98d193002ad46cd7e086",
+    "dataset_fingerprint": "ce07ab20b86a433cb6b1b77c558413b78f0ca62f468a25eb77c2d6719a29f7f8",
+    "seed": 101,
+    "selected_epoch_1based": 76,
+    "selected_validation_epe_px": 0.4966498891512553,
+    "parameters": 11210,
+    "opset": 17,
+    "input_shape": [
+      1,
+      3,
+      192,
+      320
+    ],
+    "input_dtype": "float32",
+    "channels": "RGB",
+    "normalization": "divide uint8 by 255; range 0..1",
+    "preprocessing": "rectify using pair-specific calibration; resize to training shape",
+    "padding": "internal convolution zero padding; no external padding",
+    "output": "left rectified disparity in pixels at the input resolution",
+    "output_to_original": "bilinear resize and multiply disparity by original_width / model_width",
+    "confidence": "maximum coarse disparity softmax probability, not calibrated accuracy",
+    "minimum_confidence": 0.08,
+    "max_disparity_px": 128,
+    "geometry": "use original-resolution calibrated Q including principal-point shift",
+    "runtime_differences": [
+      6.866455078125e-05,
+      2.8014183044433594e-06
+    ],
+    "paths_relative_to": "repository_root",
+    "purpose": "simulation-only SO-101 stereo prototype",
+    "maximum_exposure_skew_ns": 25000000
+  },
+  "benchmarks": {
+    "validation": {
+      "split": "validation",
+      "overall": {
+        "sgbm": {
+          "samples": 120,
+          "valid_pixels": 3196351,
+          "reference_pixels": 4544390,
+          "valid_pixel_fraction": 0.7033619473680736,
+          "depth_median_mm": 3.5268664360046387,
+          "depth_p95_mm": 22.076248168945312,
+          "common_valid_pixels": 3195997,
+          "common_depth_median_mm": 3.527224063873291,
+          "common_depth_p95_mm": 22.075294494628906,
+          "foreground_median_mm": 4.792749881744385,
+          "foreground_p95_mm": 37.453399658203125,
+          "valid_objects": 328,
+          "object_opportunities": 360,
+          "object_valid_fraction": 0.9111111111111111,
+          "object_median_mm": 10.322951614441685,
+          "object_p95_mm": 27.93531492800669,
+          "rejected": {
+            "reference object not visible in left image": 2,
+            "insufficient valid stereo support": 30
+          },
+          "timing_median_ms": {
+            "rectification_ms": 0.4306395001094643,
+            "estimator_ms": 18.23718200012081,
+            "postprocess_ms": 3.552365499899679
+          }
+        },
+        "learned": {
+          "samples": 120,
+          "valid_pixels": 4543911,
+          "reference_pixels": 4544390,
+          "valid_pixel_fraction": 0.9998945953142226,
+          "depth_median_mm": 2.2856295108795166,
+          "depth_p95_mm": 15.799999237060547,
+          "common_valid_pixels": 3195997,
+          "common_depth_median_mm": 2.2963881492614746,
+          "common_depth_p95_mm": 14.965787887573242,
+          "foreground_median_mm": 3.8206429481506348,
+          "foreground_p95_mm": 23.070585250854492,
+          "valid_objects": 350,
+          "object_opportunities": 360,
+          "object_valid_fraction": 0.9722222222222222,
+          "object_median_mm": 3.8197761483813357,
+          "object_p95_mm": 15.558045527609522,
+          "rejected": {
+            "depth spread exceeds 35 mm": 8,
+            "reference object not visible in left image": 2
+          },
+          "timing_median_ms": {
+            "rectification_ms": 0.4306395001094643,
+            "estimator_ms": 4.391386499946748,
+            "postprocess_ms": 2.88390150012674
+          }
+        }
+      },
+      "groups": {
+        "distance_m": {
+          "0.3": {
+            "sgbm": {
+              "samples": 42,
+              "valid_pixels": 1098139,
+              "reference_pixels": 1748634,
+              "valid_pixel_fraction": 0.627998197450124,
+              "depth_median_mm": 2.341330051422119,
+              "depth_p95_mm": 20.515960693359375,
+              "common_valid_pixels": 1097785,
+              "common_depth_median_mm": 2.3415684700012207,
+              "common_depth_p95_mm": 20.513534545898438,
+              "foreground_median_mm": 3.2086520195007324,
+              "foreground_p95_mm": 35.180442810058594,
+              "valid_objects": 106,
+              "object_opportunities": 126,
+              "object_valid_fraction": 0.8412698412698413,
+              "object_median_mm": 11.161725077490857,
+              "object_p95_mm": 28.71801463424216,
+              "rejected": {
+                "reference object not visible in left image": 2,
+                "insufficient valid stereo support": 18
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4310949998398428,
+                "estimator_ms": 18.31637650002449,
+                "postprocess_ms": 3.6874564998470305
+              }
+            },
+            "learned": {
+              "samples": 42,
+              "valid_pixels": 1748159,
+              "reference_pixels": 1748634,
+              "valid_pixel_fraction": 0.9997283593936753,
+              "depth_median_mm": 1.7576813697814941,
+              "depth_p95_mm": 15.66633129119873,
+              "common_valid_pixels": 1097785,
+              "common_depth_median_mm": 1.6247928142547607,
+              "common_depth_p95_mm": 12.779184341430664,
+              "foreground_median_mm": 2.9254555702209473,
+              "foreground_p95_mm": 21.07128143310547,
+              "valid_objects": 118,
+              "object_opportunities": 126,
+              "object_valid_fraction": 0.9365079365079365,
+              "object_median_mm": 3.182718174843278,
+              "object_p95_mm": 15.071277382620943,
+              "rejected": {
+                "depth spread exceeds 35 mm": 6,
+                "reference object not visible in left image": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4310949998398428,
+                "estimator_ms": 4.458327999827816,
+                "postprocess_ms": 2.9954024998914974
+              }
+            }
+          },
+          "0.45": {
+            "sgbm": {
+              "samples": 42,
+              "valid_pixels": 1135024,
+              "reference_pixels": 1586276,
+              "valid_pixel_fraction": 0.7155274365873278,
+              "depth_median_mm": 3.673851490020752,
+              "depth_p95_mm": 21.154399871826172,
+              "common_valid_pixels": 1135024,
+              "common_depth_median_mm": 3.673851490020752,
+              "common_depth_p95_mm": 21.154399871826172,
+              "foreground_median_mm": 5.450621128082275,
+              "foreground_p95_mm": 35.397315979003906,
+              "valid_objects": 114,
+              "object_opportunities": 126,
+              "object_valid_fraction": 0.9047619047619048,
+              "object_median_mm": 10.218939240835702,
+              "object_p95_mm": 26.44534682297603,
+              "rejected": {
+                "insufficient valid stereo support": 12
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.43271299978187017,
+                "estimator_ms": 18.236745499962126,
+                "postprocess_ms": 3.5526010001376562
+              }
+            },
+            "learned": {
+              "samples": 42,
+              "valid_pixels": 1586276,
+              "reference_pixels": 1586276,
+              "valid_pixel_fraction": 1.0,
+              "depth_median_mm": 2.3200511932373047,
+              "depth_p95_mm": 13.962306022644043,
+              "common_valid_pixels": 1135024,
+              "common_depth_median_mm": 2.348944664001465,
+              "common_depth_p95_mm": 13.632352828979492,
+              "foreground_median_mm": 4.3390092849731445,
+              "foreground_p95_mm": 20.533567428588867,
+              "valid_objects": 124,
+              "object_opportunities": 126,
+              "object_valid_fraction": 0.9841269841269841,
+              "object_median_mm": 2.915927903255832,
+              "object_p95_mm": 15.061858565399918,
+              "rejected": {
+                "depth spread exceeds 35 mm": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.43271299978187017,
+                "estimator_ms": 4.461895000076765,
+                "postprocess_ms": 2.8895325001485617
+              }
+            }
+          },
+          "0.6": {
+            "sgbm": {
+              "samples": 36,
+              "valid_pixels": 963188,
+              "reference_pixels": 1209480,
+              "valid_pixel_fraction": 0.796365380163376,
+              "depth_median_mm": 5.0713419914245605,
+              "depth_p95_mm": 24.266183853149414,
+              "common_valid_pixels": 963188,
+              "common_depth_median_mm": 5.0713419914245605,
+              "common_depth_p95_mm": 24.266183853149414,
+              "foreground_median_mm": 8.96438980102539,
+              "foreground_p95_mm": 46.966590881347656,
+              "valid_objects": 108,
+              "object_opportunities": 108,
+              "object_valid_fraction": 1.0,
+              "object_median_mm": 8.803285906339063,
+              "object_p95_mm": 25.101669405938498,
+              "rejected": {},
+              "timing_median_ms": {
+                "rectification_ms": 0.4273735000879242,
+                "estimator_ms": 18.11251600020114,
+                "postprocess_ms": 3.446289999601504
+              }
+            },
+            "learned": {
+              "samples": 36,
+              "valid_pixels": 1209476,
+              "reference_pixels": 1209480,
+              "valid_pixel_fraction": 0.9999966927935973,
+              "depth_median_mm": 3.2188892364501953,
+              "depth_p95_mm": 17.90286636352539,
+              "common_valid_pixels": 963188,
+              "common_depth_median_mm": 3.2939910888671875,
+              "common_depth_p95_mm": 17.984479904174805,
+              "foreground_median_mm": 7.658243179321289,
+              "foreground_p95_mm": 31.9951171875,
+              "valid_objects": 108,
+              "object_opportunities": 108,
+              "object_valid_fraction": 1.0,
+              "object_median_mm": 6.1174037244718305,
+              "object_p95_mm": 16.632783257999225,
+              "rejected": {},
+              "timing_median_ms": {
+                "rectification_ms": 0.4273735000879242,
+                "estimator_ms": 4.347563999999693,
+                "postprocess_ms": 2.8165644998807693
+              }
+            }
+          }
+        },
+        "baseline_m": {
+          "0.06": {
+            "sgbm": {
+              "samples": 40,
+              "valid_pixels": 1109610,
+              "reference_pixels": 1583040,
+              "valid_pixel_fraction": 0.7009361734384475,
+              "depth_median_mm": 4.244089126586914,
+              "depth_p95_mm": 24.593114852905273,
+              "common_valid_pixels": 1109285,
+              "common_depth_median_mm": 4.245102405548096,
+              "common_depth_p95_mm": 24.598777770996094,
+              "foreground_median_mm": 5.204498767852783,
+              "foreground_p95_mm": 38.494773864746094,
+              "valid_objects": 106,
+              "object_opportunities": 120,
+              "object_valid_fraction": 0.8833333333333333,
+              "object_median_mm": 10.474640815915773,
+              "object_p95_mm": 30.867557024925514,
+              "rejected": {
+                "insufficient valid stereo support": 14
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4282644999875629,
+                "estimator_ms": 18.150372500258527,
+                "postprocess_ms": 3.505597499952273
+              }
+            },
+            "learned": {
+              "samples": 40,
+              "valid_pixels": 1582639,
+              "reference_pixels": 1583040,
+              "valid_pixel_fraction": 0.9997466899130786,
+              "depth_median_mm": 2.803295850753784,
+              "depth_p95_mm": 18.238201141357422,
+              "common_valid_pixels": 1109285,
+              "common_depth_median_mm": 2.9019713401794434,
+              "common_depth_p95_mm": 18.094568252563477,
+              "foreground_median_mm": 4.444211959838867,
+              "foreground_p95_mm": 24.41883087158203,
+              "valid_objects": 118,
+              "object_opportunities": 120,
+              "object_valid_fraction": 0.9833333333333333,
+              "object_median_mm": 4.64180607753361,
+              "object_p95_mm": 18.716539761743324,
+              "rejected": {
+                "depth spread exceeds 35 mm": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4282644999875629,
+                "estimator_ms": 4.391386499946748,
+                "postprocess_ms": 2.8510295001069608
+              }
+            }
+          },
+          "0.08": {
+            "sgbm": {
+              "samples": 40,
+              "valid_pixels": 1065175,
+              "reference_pixels": 1507686,
+              "valid_pixel_fraction": 0.70649657819997,
+              "depth_median_mm": 3.486543893814087,
+              "depth_p95_mm": 21.40665054321289,
+              "common_valid_pixels": 1065175,
+              "common_depth_median_mm": 3.486543893814087,
+              "common_depth_p95_mm": 21.40665054321289,
+              "foreground_median_mm": 4.682362079620361,
+              "foreground_p95_mm": 36.83643341064453,
+              "valid_objects": 112,
+              "object_opportunities": 120,
+              "object_valid_fraction": 0.9333333333333333,
+              "object_median_mm": 8.994072680366537,
+              "object_p95_mm": 27.67756894255598,
+              "rejected": {
+                "reference object not visible in left image": 2,
+                "insufficient valid stereo support": 6
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4308144998503849,
+                "estimator_ms": 18.232156500062047,
+                "postprocess_ms": 3.553428000259373
+              }
+            },
+            "learned": {
+              "samples": 40,
+              "valid_pixels": 1507647,
+              "reference_pixels": 1507686,
+              "valid_pixel_fraction": 0.9999741325448402,
+              "depth_median_mm": 2.166628837585449,
+              "depth_p95_mm": 14.286994934082031,
+              "common_valid_pixels": 1065175,
+              "common_depth_median_mm": 2.203226089477539,
+              "common_depth_p95_mm": 13.833258628845215,
+              "foreground_median_mm": 3.5453736782073975,
+              "foreground_p95_mm": 23.351789474487305,
+              "valid_objects": 116,
+              "object_opportunities": 120,
+              "object_valid_fraction": 0.9666666666666667,
+              "object_median_mm": 3.7368970452467662,
+              "object_p95_mm": 13.524795073053504,
+              "rejected": {
+                "reference object not visible in left image": 2,
+                "depth spread exceeds 35 mm": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4308144998503849,
+                "estimator_ms": 4.461895000076765,
+                "postprocess_ms": 2.891561500291573
+              }
+            }
+          },
+          "0.1": {
+            "sgbm": {
+              "samples": 40,
+              "valid_pixels": 1021566,
+              "reference_pixels": 1453664,
+              "valid_pixel_fraction": 0.7027524930107645,
+              "depth_median_mm": 2.8997063636779785,
+              "depth_p95_mm": 19.234210968017578,
+              "common_valid_pixels": 1021537,
+              "common_depth_median_mm": 2.899646759033203,
+              "common_depth_p95_mm": 19.229455947875977,
+              "foreground_median_mm": 4.487097263336182,
+              "foreground_p95_mm": 36.90782165527344,
+              "valid_objects": 110,
+              "object_opportunities": 120,
+              "object_valid_fraction": 0.9166666666666666,
+              "object_median_mm": 10.778599812115896,
+              "object_p95_mm": 23.310820193956964,
+              "rejected": {
+                "insufficient valid stereo support": 10
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.43194099998800084,
+                "estimator_ms": 18.296668999937538,
+                "postprocess_ms": 3.5817810000935424
+              }
+            },
+            "learned": {
+              "samples": 40,
+              "valid_pixels": 1453625,
+              "reference_pixels": 1453664,
+              "valid_pixel_fraction": 0.9999731712417725,
+              "depth_median_mm": 1.9471347332000732,
+              "depth_p95_mm": 14.170705795288086,
+              "common_valid_pixels": 1021537,
+              "common_depth_median_mm": 1.8813014030456543,
+              "common_depth_p95_mm": 12.130975723266602,
+              "foreground_median_mm": 3.547146797180176,
+              "foreground_p95_mm": 20.978717803955078,
+              "valid_objects": 116,
+              "object_opportunities": 120,
+              "object_valid_fraction": 0.9666666666666667,
+              "object_median_mm": 3.1493045852758366,
+              "object_p95_mm": 12.33176587268654,
+              "rejected": {
+                "depth spread exceeds 35 mm": 4
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.43194099998800084,
+                "estimator_ms": 4.384689000062281,
+                "postprocess_ms": 2.9068549997646187
+              }
+            }
+          }
+        },
+        "blur_sigma": {
+          "0.0": {
+            "sgbm": {
+              "samples": 60,
+              "valid_pixels": 1610581,
+              "reference_pixels": 2272195,
+              "valid_pixel_fraction": 0.7088216460295002,
+              "depth_median_mm": 3.1583309173583984,
+              "depth_p95_mm": 19.859939575195312,
+              "common_valid_pixels": 1610510,
+              "common_depth_median_mm": 3.1583011150360107,
+              "common_depth_p95_mm": 19.856422424316406,
+              "foreground_median_mm": 4.352152347564697,
+              "foreground_p95_mm": 36.824317932128906,
+              "valid_objects": 164,
+              "object_opportunities": 180,
+              "object_valid_fraction": 0.9111111111111111,
+              "object_median_mm": 10.222074490486204,
+              "object_p95_mm": 26.83437570411548,
+              "rejected": {
+                "reference object not visible in left image": 1,
+                "insufficient valid stereo support": 15
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4293214997233008,
+                "estimator_ms": 18.234556500146937,
+                "postprocess_ms": 3.5485834998780774
+              }
+            },
+            "learned": {
+              "samples": 60,
+              "valid_pixels": 2272014,
+              "reference_pixels": 2272195,
+              "valid_pixel_fraction": 0.9999203413439427,
+              "depth_median_mm": 2.077341079711914,
+              "depth_p95_mm": 14.432601928710938,
+              "common_valid_pixels": 1610510,
+              "common_depth_median_mm": 2.0900368690490723,
+              "common_depth_p95_mm": 13.745964050292969,
+              "foreground_median_mm": 3.5292208194732666,
+              "foreground_p95_mm": 21.43484115600586,
+              "valid_objects": 175,
+              "object_opportunities": 180,
+              "object_valid_fraction": 0.9722222222222222,
+              "object_median_mm": 3.394511559709687,
+              "object_p95_mm": 14.981587195917463,
+              "rejected": {
+                "depth spread exceeds 35 mm": 4,
+                "reference object not visible in left image": 1
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4293214997233008,
+                "estimator_ms": 4.4479780001438485,
+                "postprocess_ms": 2.8739729998505936
+              }
+            }
+          },
+          "0.8": {
+            "sgbm": {
+              "samples": 27,
+              "valid_pixels": 699166,
+              "reference_pixels": 993694,
+              "valid_pixel_fraction": 0.7036029200136058,
+              "depth_median_mm": 4.009991645812988,
+              "depth_p95_mm": 24.43195915222168,
+              "common_valid_pixels": 698883,
+              "common_depth_median_mm": 4.0125250816345215,
+              "common_depth_p95_mm": 24.43665313720703,
+              "foreground_median_mm": 4.7776103019714355,
+              "foreground_p95_mm": 37.026283264160156,
+              "valid_objects": 77,
+              "object_opportunities": 81,
+              "object_valid_fraction": 0.9506172839506173,
+              "object_median_mm": 9.294230069299742,
+              "object_p95_mm": 25.94939148227121,
+              "rejected": {
+                "insufficient valid stereo support": 4
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.42749900012495345,
+                "estimator_ms": 18.247305999921082,
+                "postprocess_ms": 3.5812400001304923
+              }
+            },
+            "learned": {
+              "samples": 27,
+              "valid_pixels": 993396,
+              "reference_pixels": 993694,
+              "valid_pixel_fraction": 0.9997001088866392,
+              "depth_median_mm": 2.6057510375976562,
+              "depth_p95_mm": 17.64179801940918,
+              "common_valid_pixels": 698883,
+              "common_depth_median_mm": 2.619326114654541,
+              "common_depth_p95_mm": 16.475318908691406,
+              "foreground_median_mm": 4.177868366241455,
+              "foreground_p95_mm": 24.074779510498047,
+              "valid_objects": 79,
+              "object_opportunities": 81,
+              "object_valid_fraction": 0.9753086419753086,
+              "object_median_mm": 4.362924958519525,
+              "object_p95_mm": 14.045199509937756,
+              "rejected": {
+                "depth spread exceeds 35 mm": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.42749900012495345,
+                "estimator_ms": 4.284079000171914,
+                "postprocess_ms": 2.906784999595402
+              }
+            }
+          },
+          "1.6": {
+            "sgbm": {
+              "samples": 33,
+              "valid_pixels": 886604,
+              "reference_pixels": 1278501,
+              "valid_pixel_fraction": 0.6934714951337543,
+              "depth_median_mm": 3.9076805114746094,
+              "depth_p95_mm": 23.756649017333984,
+              "common_valid_pixels": 886604,
+              "common_depth_median_mm": 3.9076805114746094,
+              "common_depth_p95_mm": 23.756649017333984,
+              "foreground_median_mm": 5.580931663513184,
+              "foreground_p95_mm": 38.59636688232422,
+              "valid_objects": 87,
+              "object_opportunities": 99,
+              "object_valid_fraction": 0.8787878787878788,
+              "object_median_mm": 11.359206221020171,
+              "object_p95_mm": 28.72801777443259,
+              "rejected": {
+                "reference object not visible in left image": 1,
+                "insufficient valid stereo support": 11
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4325879999669269,
+                "estimator_ms": 18.28029799980868,
+                "postprocess_ms": 3.5287710002194217
+              }
+            },
+            "learned": {
+              "samples": 33,
+              "valid_pixels": 1278501,
+              "reference_pixels": 1278501,
+              "valid_pixel_fraction": 1.0,
+              "depth_median_mm": 2.4350881576538086,
+              "depth_p95_mm": 16.659080505371094,
+              "common_valid_pixels": 886604,
+              "common_depth_median_mm": 2.442479133605957,
+              "common_depth_p95_mm": 15.858668327331543,
+              "foreground_median_mm": 4.134029388427734,
+              "foreground_p95_mm": 24.765186309814453,
+              "valid_objects": 96,
+              "object_opportunities": 99,
+              "object_valid_fraction": 0.9696969696969697,
+              "object_median_mm": 4.354933669558071,
+              "object_p95_mm": 17.797254165299663,
+              "rejected": {
+                "depth spread exceeds 35 mm": 2,
+                "reference object not visible in left image": 1
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4325879999669269,
+                "estimator_ms": 4.484236999815039,
+                "postprocess_ms": 2.886627999941993
+              }
+            }
+          }
+        },
+        "occluded": {
+          "False": {
+            "sgbm": {
+              "samples": 54,
+              "valid_pixels": 1422778,
+              "reference_pixels": 2025698,
+              "valid_pixel_fraction": 0.7023643208415075,
+              "depth_median_mm": 3.660917282104492,
+              "depth_p95_mm": 22.508859634399414,
+              "common_valid_pixels": 1422424,
+              "common_depth_median_mm": 3.662288188934326,
+              "common_depth_p95_mm": 22.507726669311523,
+              "foreground_median_mm": 4.036188125610352,
+              "foreground_p95_mm": 35.851898193359375,
+              "valid_objects": 148,
+              "object_opportunities": 162,
+              "object_valid_fraction": 0.9135802469135802,
+              "object_median_mm": 9.864239017255908,
+              "object_p95_mm": 25.66014450152441,
+              "rejected": {
+                "insufficient valid stereo support": 14
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.42638550007723097,
+                "estimator_ms": 18.222498499881112,
+                "postprocess_ms": 3.5871415000201523
+              }
+            },
+            "learned": {
+              "samples": 54,
+              "valid_pixels": 2025223,
+              "reference_pixels": 2025698,
+              "valid_pixel_fraction": 0.9997655129244339,
+              "depth_median_mm": 2.3976266384124756,
+              "depth_p95_mm": 16.651966094970703,
+              "common_valid_pixels": 1422424,
+              "common_depth_median_mm": 2.4309158325195312,
+              "common_depth_p95_mm": 15.816315650939941,
+              "foreground_median_mm": 3.6125259399414062,
+              "foreground_p95_mm": 21.86018180847168,
+              "valid_objects": 160,
+              "object_opportunities": 162,
+              "object_valid_fraction": 0.9876543209876543,
+              "object_median_mm": 3.7375474034297316,
+              "object_p95_mm": 12.466020543664275,
+              "rejected": {
+                "depth spread exceeds 35 mm": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.42638550007723097,
+                "estimator_ms": 4.361901000038415,
+                "postprocess_ms": 2.9312064998521237
+              }
+            }
+          },
+          "True": {
+            "sgbm": {
+              "samples": 66,
+              "valid_pixels": 1773573,
+              "reference_pixels": 2518692,
+              "valid_pixel_fraction": 0.70416430432939,
+              "depth_median_mm": 3.414273262023926,
+              "depth_p95_mm": 21.722213745117188,
+              "common_valid_pixels": 1773573,
+              "common_depth_median_mm": 3.414273262023926,
+              "common_depth_p95_mm": 21.722213745117188,
+              "foreground_median_mm": 5.924731254577637,
+              "foreground_p95_mm": 39.30382537841797,
+              "valid_objects": 180,
+              "object_opportunities": 198,
+              "object_valid_fraction": 0.9090909090909091,
+              "object_median_mm": 10.460499970308096,
+              "object_p95_mm": 29.229011227677386,
+              "rejected": {
+                "reference object not visible in left image": 2,
+                "insufficient valid stereo support": 16
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.433078999776626,
+                "estimator_ms": 18.28808300001583,
+                "postprocess_ms": 3.519413500043811
+              }
+            },
+            "learned": {
+              "samples": 66,
+              "valid_pixels": 2518688,
+              "reference_pixels": 2518692,
+              "valid_pixel_fraction": 0.9999984118740998,
+              "depth_median_mm": 2.199918031692505,
+              "depth_p95_mm": 15.113115310668945,
+              "common_valid_pixels": 1773573,
+              "common_depth_median_mm": 2.1956264972686768,
+              "common_depth_p95_mm": 14.25775146484375,
+              "foreground_median_mm": 4.076496124267578,
+              "foreground_p95_mm": 24.4215087890625,
+              "valid_objects": 190,
+              "object_opportunities": 198,
+              "object_valid_fraction": 0.9595959595959596,
+              "object_median_mm": 3.957155868190487,
+              "object_p95_mm": 17.43397627127197,
+              "rejected": {
+                "depth spread exceeds 35 mm": 6,
+                "reference object not visible in left image": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.433078999776626,
+                "estimator_ms": 4.45151000030819,
+                "postprocess_ms": 2.865411999664502
+              }
+            }
+          }
+        },
+        "textured_cube": {
+          "False": {
+            "sgbm": {
+              "samples": 30,
+              "valid_pixels": 810645,
+              "reference_pixels": 1140086,
+              "valid_pixel_fraction": 0.7110384655192679,
+              "depth_median_mm": 3.60754132270813,
+              "depth_p95_mm": 21.35954475402832,
+              "common_valid_pixels": 810645,
+              "common_depth_median_mm": 3.60754132270813,
+              "common_depth_p95_mm": 21.35954475402832,
+              "foreground_median_mm": 5.400866508483887,
+              "foreground_p95_mm": 40.74358367919922,
+              "valid_objects": 80,
+              "object_opportunities": 90,
+              "object_valid_fraction": 0.8888888888888888,
+              "object_median_mm": 11.845358071715772,
+              "object_p95_mm": 26.456078880319406,
+              "rejected": {
+                "insufficient valid stereo support": 10
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.43225200010965636,
+                "estimator_ms": 18.296850000069753,
+                "postprocess_ms": 3.561437499911335
+              }
+            },
+            "learned": {
+              "samples": 30,
+              "valid_pixels": 1140047,
+              "reference_pixels": 1140086,
+              "valid_pixel_fraction": 0.9999657920542836,
+              "depth_median_mm": 2.2701621055603027,
+              "depth_p95_mm": 15.149407386779785,
+              "common_valid_pixels": 810645,
+              "common_depth_median_mm": 2.2915899753570557,
+              "common_depth_p95_mm": 14.482477188110352,
+              "foreground_median_mm": 4.704326629638672,
+              "foreground_p95_mm": 25.765567779541016,
+              "valid_objects": 84,
+              "object_opportunities": 90,
+              "object_valid_fraction": 0.9333333333333333,
+              "object_median_mm": 5.175580635354797,
+              "object_p95_mm": 14.983689425267588,
+              "rejected": {
+                "depth spread exceeds 35 mm": 6
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.43225200010965636,
+                "estimator_ms": 4.4261720001941285,
+                "postprocess_ms": 2.8895325001485617
+              }
+            }
+          },
+          "True": {
+            "sgbm": {
+              "samples": 90,
+              "valid_pixels": 2385706,
+              "reference_pixels": 3404304,
+              "valid_pixel_fraction": 0.7007911161870385,
+              "depth_median_mm": 3.4998059272766113,
+              "depth_p95_mm": 22.340744018554688,
+              "common_valid_pixels": 2385352,
+              "common_depth_median_mm": 3.5002827644348145,
+              "common_depth_p95_mm": 22.337913513183594,
+              "foreground_median_mm": 4.613369941711426,
+              "foreground_p95_mm": 36.76222610473633,
+              "valid_objects": 248,
+              "object_opportunities": 270,
+              "object_valid_fraction": 0.9185185185185185,
+              "object_median_mm": 9.83065040932598,
+              "object_p95_mm": 28.45594803975872,
+              "rejected": {
+                "reference object not visible in left image": 2,
+                "insufficient valid stereo support": 20
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.430509000125312,
+                "estimator_ms": 18.232156500062047,
+                "postprocess_ms": 3.5460279998460464
+              }
+            },
+            "learned": {
+              "samples": 90,
+              "valid_pixels": 3403864,
+              "reference_pixels": 3404304,
+              "valid_pixel_fraction": 0.9998707518482486,
+              "depth_median_mm": 2.2909343242645264,
+              "depth_p95_mm": 16.023784637451172,
+              "common_valid_pixels": 2385352,
+              "common_depth_median_mm": 2.2980122566223145,
+              "common_depth_p95_mm": 15.136808395385742,
+              "foreground_median_mm": 3.5944581031799316,
+              "foreground_p95_mm": 22.1055850982666,
+              "valid_objects": 266,
+              "object_opportunities": 270,
+              "object_valid_fraction": 0.9851851851851852,
+              "object_median_mm": 3.577134535442876,
+              "object_p95_mm": 16.010253733898146,
+              "rejected": {
+                "reference object not visible in left image": 2,
+                "depth spread exceeds 35 mm": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.430509000125312,
+                "estimator_ms": 4.390234499851431,
+                "postprocess_ms": 2.881797499867389
+              }
+            }
+          }
+        },
+        "time_offset_ms": {
+          "0": {
+            "sgbm": {
+              "samples": 120,
+              "valid_pixels": 3196351,
+              "reference_pixels": 4544390,
+              "valid_pixel_fraction": 0.7033619473680736,
+              "depth_median_mm": 3.5268664360046387,
+              "depth_p95_mm": 22.076248168945312,
+              "common_valid_pixels": 3195997,
+              "common_depth_median_mm": 3.527224063873291,
+              "common_depth_p95_mm": 22.075294494628906,
+              "foreground_median_mm": 4.792749881744385,
+              "foreground_p95_mm": 37.453399658203125,
+              "valid_objects": 328,
+              "object_opportunities": 360,
+              "object_valid_fraction": 0.9111111111111111,
+              "object_median_mm": 10.322951614441685,
+              "object_p95_mm": 27.93531492800669,
+              "rejected": {
+                "reference object not visible in left image": 2,
+                "insufficient valid stereo support": 30
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4306395001094643,
+                "estimator_ms": 18.23718200012081,
+                "postprocess_ms": 3.552365499899679
+              }
+            },
+            "learned": {
+              "samples": 120,
+              "valid_pixels": 4543911,
+              "reference_pixels": 4544390,
+              "valid_pixel_fraction": 0.9998945953142226,
+              "depth_median_mm": 2.2856295108795166,
+              "depth_p95_mm": 15.799999237060547,
+              "common_valid_pixels": 3195997,
+              "common_depth_median_mm": 2.2963881492614746,
+              "common_depth_p95_mm": 14.965787887573242,
+              "foreground_median_mm": 3.8206429481506348,
+              "foreground_p95_mm": 23.070585250854492,
+              "valid_objects": 350,
+              "object_opportunities": 360,
+              "object_valid_fraction": 0.9722222222222222,
+              "object_median_mm": 3.8197761483813357,
+              "object_p95_mm": 15.558045527609522,
+              "rejected": {
+                "depth spread exceeds 35 mm": 8,
+                "reference object not visible in left image": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4306395001094643,
+                "estimator_ms": 4.391386499946748,
+                "postprocess_ms": 2.88390150012674
+              }
+            }
+          }
+        }
+      },
+      "object_classes": {
+        "red_cube": {
+          "sgbm": {
+            "valid": 98,
+            "opportunities": 120,
+            "median_mm": 7.075118561070097,
+            "p95_mm": 26.523611679790186
+          },
+          "learned": {
+            "valid": 112,
+            "opportunities": 120,
+            "median_mm": 4.090340136816218,
+            "p95_mm": 15.525281545298478
+          }
+        },
+        "blue_bowl": {
+          "sgbm": {
+            "valid": 116,
+            "opportunities": 120,
+            "median_mm": 16.21026702956685,
+            "p95_mm": 31.363502979138815
+          },
+          "learned": {
+            "valid": 120,
+            "opportunities": 120,
+            "median_mm": 4.943776104604138,
+            "p95_mm": 17.424246224589297
+          }
+        },
+        "reference": {
+          "sgbm": {
+            "valid": 114,
+            "opportunities": 120,
+            "median_mm": 7.350276506006971,
+            "p95_mm": 18.70001202322738
+          },
+          "learned": {
+            "valid": 118,
+            "opportunities": 120,
+            "median_mm": 2.546783464783804,
+            "p95_mm": 12.366267892307595
+          }
+        }
+      },
+      "marker_triangulation": {
+        "valid": 336,
+        "median_mm": 1.4072170428725594,
+        "p95_mm": 8.058090903431253
+      },
+      "model_checkpoint": "checkpoints/so101-compact-stereo/best.pt",
+      "model_peak_allocated_mb": 31.4482421875,
+      "model_peak_reserved_mb": 42.0,
+      "model_process_gpu_mb_at_end": 270.0
+    },
+    "test": {
+      "split": "test",
+      "overall": {
+        "sgbm": {
+          "samples": 180,
+          "valid_pixels": 4799823,
+          "reference_pixels": 6749362,
+          "valid_pixel_fraction": 0.711152105932383,
+          "depth_median_mm": 3.598511219024658,
+          "depth_p95_mm": 22.68362045288086,
+          "common_valid_pixels": 4799633,
+          "common_depth_median_mm": 3.598332405090332,
+          "common_depth_p95_mm": 22.68052101135254,
+          "foreground_median_mm": 4.568502426147461,
+          "foreground_p95_mm": 36.4065055847168,
+          "valid_objects": 499,
+          "object_opportunities": 540,
+          "object_valid_fraction": 0.924074074074074,
+          "object_median_mm": 10.178104912770992,
+          "object_p95_mm": 30.598134526297155,
+          "rejected": {
+            "insufficient valid stereo support": 40,
+            "depth spread exceeds 35 mm": 1
+          },
+          "timing_median_ms": {
+            "rectification_ms": 0.41280050004388613,
+            "estimator_ms": 18.123972000012145,
+            "postprocess_ms": 3.4806899998329754
+          }
+        },
+        "learned": {
+          "samples": 180,
+          "valid_pixels": 6748307,
+          "reference_pixels": 6749362,
+          "valid_pixel_fraction": 0.9998436889294129,
+          "depth_median_mm": 2.2909045219421387,
+          "depth_p95_mm": 15.51932144165039,
+          "common_valid_pixels": 4799633,
+          "common_depth_median_mm": 2.3083388805389404,
+          "common_depth_p95_mm": 14.95543098449707,
+          "foreground_median_mm": 3.8220882415771484,
+          "foreground_p95_mm": 22.80855941772461,
+          "valid_objects": 530,
+          "object_opportunities": 540,
+          "object_valid_fraction": 0.9814814814814815,
+          "object_median_mm": 4.122925595418453,
+          "object_p95_mm": 17.41338772668664,
+          "rejected": {
+            "depth spread exceeds 35 mm": 8,
+            "insufficient valid stereo support": 2
+          },
+          "timing_median_ms": {
+            "rectification_ms": 0.41280050004388613,
+            "estimator_ms": 4.280502000028719,
+            "postprocess_ms": 2.8646050000133982
+          }
+        }
+      },
+      "groups": {
+        "distance_m": {
+          "0.3": {
+            "sgbm": {
+              "samples": 60,
+              "valid_pixels": 1575608,
+              "reference_pixels": 2459396,
+              "valid_pixel_fraction": 0.6406483543113838,
+              "depth_median_mm": 2.3029446601867676,
+              "depth_p95_mm": 19.60763931274414,
+              "common_valid_pixels": 1575461,
+              "common_depth_median_mm": 2.3028552532196045,
+              "common_depth_p95_mm": 19.60647201538086,
+              "foreground_median_mm": 2.9837489128112793,
+              "foreground_p95_mm": 33.95035934448242,
+              "valid_objects": 151,
+              "object_opportunities": 180,
+              "object_valid_fraction": 0.8388888888888889,
+              "object_median_mm": 10.123538532689864,
+              "object_p95_mm": 33.04527071533769,
+              "rejected": {
+                "insufficient valid stereo support": 28,
+                "depth spread exceeds 35 mm": 1
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4111025000383961,
+                "estimator_ms": 18.22954149997713,
+                "postprocess_ms": 3.6717659997975716
+              }
+            },
+            "learned": {
+              "samples": 60,
+              "valid_pixels": 2458483,
+              "reference_pixels": 2459396,
+              "valid_pixel_fraction": 0.9996287706412469,
+              "depth_median_mm": 1.7220675945281982,
+              "depth_p95_mm": 12.962087631225586,
+              "common_valid_pixels": 1575461,
+              "common_depth_median_mm": 1.626431941986084,
+              "common_depth_p95_mm": 11.22683334350586,
+              "foreground_median_mm": 2.744346857070923,
+              "foreground_p95_mm": 19.470050811767578,
+              "valid_objects": 170,
+              "object_opportunities": 180,
+              "object_valid_fraction": 0.9444444444444444,
+              "object_median_mm": 3.095226599234805,
+              "object_p95_mm": 11.59688463869932,
+              "rejected": {
+                "depth spread exceeds 35 mm": 8,
+                "insufficient valid stereo support": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4111025000383961,
+                "estimator_ms": 4.261655999926006,
+                "postprocess_ms": 2.9652255002474703
+              }
+            }
+          },
+          "0.45": {
+            "sgbm": {
+              "samples": 60,
+              "valid_pixels": 1625399,
+              "reference_pixels": 2274482,
+              "valid_pixel_fraction": 0.7146238132462688,
+              "depth_median_mm": 3.7006139755249023,
+              "depth_p95_mm": 21.017038345336914,
+              "common_valid_pixels": 1625399,
+              "common_depth_median_mm": 3.7006139755249023,
+              "common_depth_p95_mm": 21.017038345336914,
+              "foreground_median_mm": 5.672812461853027,
+              "foreground_p95_mm": 37.11335372924805,
+              "valid_objects": 170,
+              "object_opportunities": 180,
+              "object_valid_fraction": 0.9444444444444444,
+              "object_median_mm": 10.183379045030025,
+              "object_p95_mm": 29.606188460826633,
+              "rejected": {
+                "insufficient valid stereo support": 10
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4142630000387726,
+                "estimator_ms": 18.11478500007979,
+                "postprocess_ms": 3.4738570002446068
+              }
+            },
+            "learned": {
+              "samples": 60,
+              "valid_pixels": 2274481,
+              "reference_pixels": 2274482,
+              "valid_pixel_fraction": 0.9999995603394531,
+              "depth_median_mm": 2.2683143615722656,
+              "depth_p95_mm": 14.051079750061035,
+              "common_valid_pixels": 1625399,
+              "common_depth_median_mm": 2.265751361846924,
+              "common_depth_p95_mm": 13.422016143798828,
+              "foreground_median_mm": 4.878506183624268,
+              "foreground_p95_mm": 22.204334259033203,
+              "valid_objects": 180,
+              "object_opportunities": 180,
+              "object_valid_fraction": 1.0,
+              "object_median_mm": 3.8137068342318523,
+              "object_p95_mm": 17.230698628423294,
+              "rejected": {},
+              "timing_median_ms": {
+                "rectification_ms": 0.4142630000387726,
+                "estimator_ms": 4.27280250005424,
+                "postprocess_ms": 2.850899500117521
+              }
+            }
+          },
+          "0.6": {
+            "sgbm": {
+              "samples": 60,
+              "valid_pixels": 1598816,
+              "reference_pixels": 2015484,
+              "valid_pixel_fraction": 0.7932665305207087,
+              "depth_median_mm": 5.156397819519043,
+              "depth_p95_mm": 25.975345611572266,
+              "common_valid_pixels": 1598773,
+              "common_depth_median_mm": 5.156040191650391,
+              "common_depth_p95_mm": 25.97233009338379,
+              "foreground_median_mm": 8.582562446594238,
+              "foreground_p95_mm": 41.560726165771484,
+              "valid_objects": 178,
+              "object_opportunities": 180,
+              "object_valid_fraction": 0.9888888888888889,
+              "object_median_mm": 10.192054370250151,
+              "object_p95_mm": 29.796902709180646,
+              "rejected": {
+                "insufficient valid stereo support": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.41400300005989266,
+                "estimator_ms": 18.03596550007569,
+                "postprocess_ms": 3.4290419998797006
+              }
+            },
+            "learned": {
+              "samples": 60,
+              "valid_pixels": 2015343,
+              "reference_pixels": 2015484,
+              "valid_pixel_fraction": 0.9999300416177951,
+              "depth_median_mm": 3.2653212547302246,
+              "depth_p95_mm": 19.229507446289062,
+              "common_valid_pixels": 1598773,
+              "common_depth_median_mm": 3.322720527648926,
+              "common_depth_p95_mm": 19.08751678466797,
+              "foreground_median_mm": 7.795065879821777,
+              "foreground_p95_mm": 30.59274673461914,
+              "valid_objects": 180,
+              "object_opportunities": 180,
+              "object_valid_fraction": 1.0,
+              "object_median_mm": 5.9304524726350145,
+              "object_p95_mm": 22.504903045272368,
+              "rejected": {},
+              "timing_median_ms": {
+                "rectification_ms": 0.41400300005989266,
+                "estimator_ms": 4.283593000081964,
+                "postprocess_ms": 2.824945000156731
+              }
+            }
+          }
+        },
+        "baseline_m": {
+          "0.06": {
+            "sgbm": {
+              "samples": 60,
+              "valid_pixels": 1657778,
+              "reference_pixels": 2355642,
+              "valid_pixel_fraction": 0.703747853026903,
+              "depth_median_mm": 4.387199878692627,
+              "depth_p95_mm": 25.696746826171875,
+              "common_valid_pixels": 1657710,
+              "common_depth_median_mm": 4.387229919433594,
+              "common_depth_p95_mm": 25.69669532775879,
+              "foreground_median_mm": 5.1850080490112305,
+              "foreground_p95_mm": 38.57465744018555,
+              "valid_objects": 164,
+              "object_opportunities": 180,
+              "object_valid_fraction": 0.9111111111111111,
+              "object_median_mm": 9.500141437342618,
+              "object_p95_mm": 33.82282740905354,
+              "rejected": {
+                "insufficient valid stereo support": 16
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.41278000003330817,
+                "estimator_ms": 18.078335999916817,
+                "postprocess_ms": 3.461343000026318
+              }
+            },
+            "learned": {
+              "samples": 60,
+              "valid_pixels": 2355072,
+              "reference_pixels": 2355642,
+              "valid_pixel_fraction": 0.9997580277478496,
+              "depth_median_mm": 2.776592969894409,
+              "depth_p95_mm": 17.92754364013672,
+              "common_valid_pixels": 1657710,
+              "common_depth_median_mm": 2.8778016567230225,
+              "common_depth_p95_mm": 17.642230987548828,
+              "foreground_median_mm": 4.3852925300598145,
+              "foreground_p95_mm": 24.048873901367188,
+              "valid_objects": 178,
+              "object_opportunities": 180,
+              "object_valid_fraction": 0.9888888888888889,
+              "object_median_mm": 4.652574191273681,
+              "object_p95_mm": 18.253321662838065,
+              "rejected": {
+                "depth spread exceeds 35 mm": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.41278000003330817,
+                "estimator_ms": 4.262402499989548,
+                "postprocess_ms": 2.8374744999837276
+              }
+            }
+          },
+          "0.08": {
+            "sgbm": {
+              "samples": 60,
+              "valid_pixels": 1598854,
+              "reference_pixels": 2234496,
+              "valid_pixel_fraction": 0.7155322721544366,
+              "depth_median_mm": 3.5840868949890137,
+              "depth_p95_mm": 22.53329849243164,
+              "common_valid_pixels": 1598732,
+              "common_depth_median_mm": 3.5840721130371094,
+              "common_depth_p95_mm": 22.531211853027344,
+              "foreground_median_mm": 4.697948455810547,
+              "foreground_p95_mm": 37.653892517089844,
+              "valid_objects": 168,
+              "object_opportunities": 180,
+              "object_valid_fraction": 0.9333333333333333,
+              "object_median_mm": 9.785516302740833,
+              "object_p95_mm": 29.85872848589744,
+              "rejected": {
+                "insufficient valid stereo support": 12
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4131915002290043,
+                "estimator_ms": 18.169493000186776,
+                "postprocess_ms": 3.465742000116734
+              }
+            },
+            "learned": {
+              "samples": 60,
+              "valid_pixels": 2234019,
+              "reference_pixels": 2234496,
+              "valid_pixel_fraction": 0.9997865290427909,
+              "depth_median_mm": 2.2303760051727295,
+              "depth_p95_mm": 15.216708183288574,
+              "common_valid_pixels": 1598732,
+              "common_depth_median_mm": 2.237647771835327,
+              "common_depth_p95_mm": 14.545585632324219,
+              "foreground_median_mm": 3.8639755249023438,
+              "foreground_p95_mm": 22.998125076293945,
+              "valid_objects": 180,
+              "object_opportunities": 180,
+              "object_valid_fraction": 1.0,
+              "object_median_mm": 4.060785765830495,
+              "object_p95_mm": 17.392104462473156,
+              "rejected": {},
+              "timing_median_ms": {
+                "rectification_ms": 0.4131915002290043,
+                "estimator_ms": 4.282445500166432,
+                "postprocess_ms": 2.8675965002094017
+              }
+            }
+          },
+          "0.1": {
+            "sgbm": {
+              "samples": 60,
+              "valid_pixels": 1543191,
+              "reference_pixels": 2159224,
+              "valid_pixel_fraction": 0.7146970393067139,
+              "depth_median_mm": 2.9334723949432373,
+              "depth_p95_mm": 19.021928787231445,
+              "common_valid_pixels": 1543191,
+              "common_depth_median_mm": 2.9334723949432373,
+              "common_depth_p95_mm": 19.021928787231445,
+              "foreground_median_mm": 3.9488673210144043,
+              "foreground_p95_mm": 32.6331787109375,
+              "valid_objects": 167,
+              "object_opportunities": 180,
+              "object_valid_fraction": 0.9277777777777778,
+              "object_median_mm": 10.966928114664205,
+              "object_p95_mm": 28.97952766771177,
+              "rejected": {
+                "insufficient valid stereo support": 12,
+                "depth spread exceeds 35 mm": 1
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4119890002129978,
+                "estimator_ms": 18.152566000026127,
+                "postprocess_ms": 3.550667499894189
+              }
+            },
+            "learned": {
+              "samples": 60,
+              "valid_pixels": 2159216,
+              "reference_pixels": 2159224,
+              "valid_pixel_fraction": 0.9999962949652282,
+              "depth_median_mm": 1.932680606842041,
+              "depth_p95_mm": 12.784421920776367,
+              "common_valid_pixels": 1543191,
+              "common_depth_median_mm": 1.9057989120483398,
+              "common_depth_p95_mm": 12.065649032592773,
+              "foreground_median_mm": 3.365471839904785,
+              "foreground_p95_mm": 21.067415237426758,
+              "valid_objects": 172,
+              "object_opportunities": 180,
+              "object_valid_fraction": 0.9555555555555556,
+              "object_median_mm": 4.015473696619822,
+              "object_p95_mm": 15.684722026284689,
+              "rejected": {
+                "depth spread exceeds 35 mm": 6,
+                "insufficient valid stereo support": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4119890002129978,
+                "estimator_ms": 4.287530500050707,
+                "postprocess_ms": 2.877204000014899
+              }
+            }
+          }
+        },
+        "blur_sigma": {
+          "0.0": {
+            "sgbm": {
+              "samples": 90,
+              "valid_pixels": 2412426,
+              "reference_pixels": 3374681,
+              "valid_pixel_fraction": 0.714860456440179,
+              "depth_median_mm": 3.262042999267578,
+              "depth_p95_mm": 20.373762130737305,
+              "common_valid_pixels": 2412339,
+              "common_depth_median_mm": 3.2619833946228027,
+              "common_depth_p95_mm": 20.373523712158203,
+              "foreground_median_mm": 4.1289777755737305,
+              "foreground_p95_mm": 34.96809387207031,
+              "valid_objects": 249,
+              "object_opportunities": 270,
+              "object_valid_fraction": 0.9222222222222223,
+              "object_median_mm": 10.046692439996947,
+              "object_p95_mm": 29.146719895950607,
+              "rejected": {
+                "insufficient valid stereo support": 20,
+                "depth spread exceeds 35 mm": 1
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.41211899997506407,
+                "estimator_ms": 18.122674000096595,
+                "postprocess_ms": 3.4844624999550433
+              }
+            },
+            "learned": {
+              "samples": 90,
+              "valid_pixels": 3373986,
+              "reference_pixels": 3374681,
+              "valid_pixel_fraction": 0.9997940546084207,
+              "depth_median_mm": 2.104640007019043,
+              "depth_p95_mm": 14.244974136352539,
+              "common_valid_pixels": 2412339,
+              "common_depth_median_mm": 2.129852771759033,
+              "common_depth_p95_mm": 13.715744018554688,
+              "foreground_median_mm": 3.4748687744140625,
+              "foreground_p95_mm": 21.127113342285156,
+              "valid_objects": 265,
+              "object_opportunities": 270,
+              "object_valid_fraction": 0.9814814814814815,
+              "object_median_mm": 3.3382417668856474,
+              "object_p95_mm": 15.434738795450244,
+              "rejected": {
+                "depth spread exceeds 35 mm": 4,
+                "insufficient valid stereo support": 1
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.41211899997506407,
+                "estimator_ms": 4.279850500097382,
+                "postprocess_ms": 2.8646099999605212
+              }
+            }
+          },
+          "0.8": {
+            "sgbm": {
+              "samples": 43,
+              "valid_pixels": 1144649,
+              "reference_pixels": 1582691,
+              "valid_pixel_fraction": 0.7232296133610414,
+              "depth_median_mm": 4.20612096786499,
+              "depth_p95_mm": 24.93610954284668,
+              "common_valid_pixels": 1144649,
+              "common_depth_median_mm": 4.20612096786499,
+              "common_depth_p95_mm": 24.93610954284668,
+              "foreground_median_mm": 5.09113073348999,
+              "foreground_p95_mm": 36.85454559326172,
+              "valid_objects": 118,
+              "object_opportunities": 129,
+              "object_valid_fraction": 0.9147286821705426,
+              "object_median_mm": 10.83860064517204,
+              "object_p95_mm": 29.54552173558244,
+              "rejected": {
+                "insufficient valid stereo support": 11
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4147039999224944,
+                "estimator_ms": 18.11715899975752,
+                "postprocess_ms": 3.4671650000746013
+              }
+            },
+            "learned": {
+              "samples": 43,
+              "valid_pixels": 1582681,
+              "reference_pixels": 1582691,
+              "valid_pixel_fraction": 0.9999936816472704,
+              "depth_median_mm": 2.6169121265411377,
+              "depth_p95_mm": 17.395793914794922,
+              "common_valid_pixels": 1144649,
+              "common_depth_median_mm": 2.675652503967285,
+              "common_depth_p95_mm": 16.818195343017578,
+              "foreground_median_mm": 4.244804382324219,
+              "foreground_p95_mm": 25.346738815307617,
+              "valid_objects": 127,
+              "object_opportunities": 129,
+              "object_valid_fraction": 0.9844961240310077,
+              "object_median_mm": 4.5192021815522585,
+              "object_p95_mm": 20.859509046191487,
+              "rejected": {
+                "insufficient valid stereo support": 1,
+                "depth spread exceeds 35 mm": 1
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4147039999224944,
+                "estimator_ms": 4.311981999762793,
+                "postprocess_ms": 2.850337999916519
+              }
+            }
+          },
+          "1.6": {
+            "sgbm": {
+              "samples": 47,
+              "valid_pixels": 1242748,
+              "reference_pixels": 1791990,
+              "valid_pixel_fraction": 0.6935016378439611,
+              "depth_median_mm": 3.7939250469207764,
+              "depth_p95_mm": 24.774206161499023,
+              "common_valid_pixels": 1242645,
+              "common_depth_median_mm": 3.793776035308838,
+              "common_depth_p95_mm": 24.76775360107422,
+              "foreground_median_mm": 5.01328706741333,
+              "foreground_p95_mm": 38.17502975463867,
+              "valid_objects": 132,
+              "object_opportunities": 141,
+              "object_valid_fraction": 0.9361702127659575,
+              "object_median_mm": 10.07985296761026,
+              "object_p95_mm": 33.30210374347501,
+              "rejected": {
+                "insufficient valid stereo support": 9
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4127699999116885,
+                "estimator_ms": 18.15708399999494,
+                "postprocess_ms": 3.4948269999404147
+              }
+            },
+            "learned": {
+              "samples": 47,
+              "valid_pixels": 1791640,
+              "reference_pixels": 1791990,
+              "valid_pixel_fraction": 0.9998046864100805,
+              "depth_median_mm": 2.384573221206665,
+              "depth_p95_mm": 16.181230545043945,
+              "common_valid_pixels": 1242645,
+              "common_depth_median_mm": 2.3512840270996094,
+              "common_depth_p95_mm": 15.572503089904785,
+              "foreground_median_mm": 4.158362865447998,
+              "foreground_p95_mm": 23.750879287719727,
+              "valid_objects": 138,
+              "object_opportunities": 141,
+              "object_valid_fraction": 0.9787234042553191,
+              "object_median_mm": 4.741034854306712,
+              "object_p95_mm": 17.389200043627444,
+              "rejected": {
+                "depth spread exceeds 35 mm": 3
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4127699999116885,
+                "estimator_ms": 4.257548999703431,
+                "postprocess_ms": 2.889102000153798
+              }
+            }
+          }
+        },
+        "occluded": {
+          "False": {
+            "sgbm": {
+              "samples": 90,
+              "valid_pixels": 2407127,
+              "reference_pixels": 3367862,
+              "valid_pixel_fraction": 0.714734451708532,
+              "depth_median_mm": 3.597140312194824,
+              "depth_p95_mm": 22.480905532836914,
+              "common_valid_pixels": 2407078,
+              "common_depth_median_mm": 3.597080707550049,
+              "common_depth_p95_mm": 22.477149963378906,
+              "foreground_median_mm": 3.928586959838867,
+              "foreground_p95_mm": 35.95650100708008,
+              "valid_objects": 250,
+              "object_opportunities": 270,
+              "object_valid_fraction": 0.9259259259259259,
+              "object_median_mm": 9.903116236089701,
+              "object_p95_mm": 32.10314824057796,
+              "rejected": {
+                "insufficient valid stereo support": 20
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.41388250019736006,
+                "estimator_ms": 18.11370799987344,
+                "postprocess_ms": 3.5179855001388205
+              }
+            },
+            "learned": {
+              "samples": 90,
+              "valid_pixels": 3367701,
+              "reference_pixels": 3367862,
+              "valid_pixel_fraction": 0.9999521951908956,
+              "depth_median_mm": 2.284824848175049,
+              "depth_p95_mm": 15.223979949951172,
+              "common_valid_pixels": 2407078,
+              "common_depth_median_mm": 2.300858497619629,
+              "common_depth_p95_mm": 14.606595039367676,
+              "foreground_median_mm": 3.7205517292022705,
+              "foreground_p95_mm": 22.807762145996094,
+              "valid_objects": 270,
+              "object_opportunities": 270,
+              "object_valid_fraction": 1.0,
+              "object_median_mm": 4.712961911949064,
+              "object_p95_mm": 16.288527669562054,
+              "rejected": {},
+              "timing_median_ms": {
+                "rectification_ms": 0.41388250019736006,
+                "estimator_ms": 4.314520999969318,
+                "postprocess_ms": 2.8973164999115397
+              }
+            }
+          },
+          "True": {
+            "sgbm": {
+              "samples": 90,
+              "valid_pixels": 2392696,
+              "reference_pixels": 3381500,
+              "valid_pixel_fraction": 0.7075842081916309,
+              "depth_median_mm": 3.5999865531921387,
+              "depth_p95_mm": 22.87435531616211,
+              "common_valid_pixels": 2392555,
+              "common_depth_median_mm": 3.59991192817688,
+              "common_depth_p95_mm": 22.874065399169922,
+              "foreground_median_mm": 5.6568684577941895,
+              "foreground_p95_mm": 36.917598724365234,
+              "valid_objects": 249,
+              "object_opportunities": 270,
+              "object_valid_fraction": 0.9222222222222223,
+              "object_median_mm": 10.276195372729326,
+              "object_p95_mm": 28.964261633518923,
+              "rejected": {
+                "insufficient valid stereo support": 20,
+                "depth spread exceeds 35 mm": 1
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.41251499987993157,
+                "estimator_ms": 18.134195999891745,
+                "postprocess_ms": 3.4624699999312725
+              }
+            },
+            "learned": {
+              "samples": 90,
+              "valid_pixels": 3380606,
+              "reference_pixels": 3381500,
+              "valid_pixel_fraction": 0.9997356202868549,
+              "depth_median_mm": 2.296924591064453,
+              "depth_p95_mm": 15.822916984558105,
+              "common_valid_pixels": 2392555,
+              "common_depth_median_mm": 2.3161470890045166,
+              "common_depth_p95_mm": 15.301183700561523,
+              "foreground_median_mm": 3.9486141204833984,
+              "foreground_p95_mm": 22.81198501586914,
+              "valid_objects": 260,
+              "object_opportunities": 270,
+              "object_valid_fraction": 0.9629629629629629,
+              "object_median_mm": 3.82566251274862,
+              "object_p95_mm": 18.478308464196722,
+              "rejected": {
+                "depth spread exceeds 35 mm": 8,
+                "insufficient valid stereo support": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.41251499987993157,
+                "estimator_ms": 4.259156499983874,
+                "postprocess_ms": 2.8442560001167294
+              }
+            }
+          }
+        },
+        "textured_cube": {
+          "False": {
+            "sgbm": {
+              "samples": 46,
+              "valid_pixels": 1219292,
+              "reference_pixels": 1714864,
+              "valid_pixel_fraction": 0.7110138180053929,
+              "depth_median_mm": 3.779470920562744,
+              "depth_p95_mm": 23.339569091796875,
+              "common_valid_pixels": 1219235,
+              "common_depth_median_mm": 3.779292106628418,
+              "common_depth_p95_mm": 23.32735824584961,
+              "foreground_median_mm": 5.378484725952148,
+              "foreground_p95_mm": 37.06735610961914,
+              "valid_objects": 130,
+              "object_opportunities": 138,
+              "object_valid_fraction": 0.9420289855072463,
+              "object_median_mm": 11.861300824924836,
+              "object_p95_mm": 32.86109322571504,
+              "rejected": {
+                "insufficient valid stereo support": 8
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4134670000439655,
+                "estimator_ms": 18.12024500031839,
+                "postprocess_ms": 3.4766620001391857
+              }
+            },
+            "learned": {
+              "samples": 46,
+              "valid_pixels": 1714565,
+              "reference_pixels": 1714864,
+              "valid_pixel_fraction": 0.9998256421500481,
+              "depth_median_mm": 2.3262500762939453,
+              "depth_p95_mm": 15.826925277709961,
+              "common_valid_pixels": 1219235,
+              "common_depth_median_mm": 2.3031234741210938,
+              "common_depth_p95_mm": 15.276938438415527,
+              "foreground_median_mm": 3.9977431297302246,
+              "foreground_p95_mm": 21.041139602661133,
+              "valid_objects": 134,
+              "object_opportunities": 138,
+              "object_valid_fraction": 0.9710144927536232,
+              "object_median_mm": 4.128423459032106,
+              "object_p95_mm": 15.548896762539377,
+              "rejected": {
+                "depth spread exceeds 35 mm": 2,
+                "insufficient valid stereo support": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4134670000439655,
+                "estimator_ms": 4.250008999861166,
+                "postprocess_ms": 2.857115499864449
+              }
+            }
+          },
+          "True": {
+            "sgbm": {
+              "samples": 134,
+              "valid_pixels": 3580531,
+              "reference_pixels": 5034498,
+              "valid_pixel_fraction": 0.7111992099311589,
+              "depth_median_mm": 3.5337209701538086,
+              "depth_p95_mm": 22.470415115356445,
+              "common_valid_pixels": 3580398,
+              "common_depth_median_mm": 3.533661365509033,
+              "common_depth_p95_mm": 22.46886444091797,
+              "foreground_median_mm": 4.333913326263428,
+              "foreground_p95_mm": 36.10317611694336,
+              "valid_objects": 369,
+              "object_opportunities": 402,
+              "object_valid_fraction": 0.917910447761194,
+              "object_median_mm": 10.046692439996947,
+              "object_p95_mm": 29.50789463627834,
+              "rejected": {
+                "insufficient valid stereo support": 32,
+                "depth spread exceeds 35 mm": 1
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4127100000914652,
+                "estimator_ms": 18.123972000012145,
+                "postprocess_ms": 3.4851185000661644
+              }
+            },
+            "learned": {
+              "samples": 134,
+              "valid_pixels": 5033742,
+              "reference_pixels": 5034498,
+              "valid_pixel_fraction": 0.9998498360710443,
+              "depth_median_mm": 2.2791028022766113,
+              "depth_p95_mm": 15.410005569458008,
+              "common_valid_pixels": 3580398,
+              "common_depth_median_mm": 2.3100972175598145,
+              "common_depth_p95_mm": 14.838933944702148,
+              "foreground_median_mm": 3.76737117767334,
+              "foreground_p95_mm": 23.425090789794922,
+              "valid_objects": 396,
+              "object_opportunities": 402,
+              "object_valid_fraction": 0.9850746268656716,
+              "object_median_mm": 4.122925595418453,
+              "object_p95_mm": 17.493121387512755,
+              "rejected": {
+                "depth spread exceeds 35 mm": 6
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4127100000914652,
+                "estimator_ms": 4.2816590000711585,
+                "postprocess_ms": 2.8665790000559355
+              }
+            }
+          }
+        },
+        "time_offset_ms": {
+          "0": {
+            "sgbm": {
+              "samples": 180,
+              "valid_pixels": 4799823,
+              "reference_pixels": 6749362,
+              "valid_pixel_fraction": 0.711152105932383,
+              "depth_median_mm": 3.598511219024658,
+              "depth_p95_mm": 22.68362045288086,
+              "common_valid_pixels": 4799633,
+              "common_depth_median_mm": 3.598332405090332,
+              "common_depth_p95_mm": 22.68052101135254,
+              "foreground_median_mm": 4.568502426147461,
+              "foreground_p95_mm": 36.4065055847168,
+              "valid_objects": 499,
+              "object_opportunities": 540,
+              "object_valid_fraction": 0.924074074074074,
+              "object_median_mm": 10.178104912770992,
+              "object_p95_mm": 30.598134526297155,
+              "rejected": {
+                "insufficient valid stereo support": 40,
+                "depth spread exceeds 35 mm": 1
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.41280050004388613,
+                "estimator_ms": 18.123972000012145,
+                "postprocess_ms": 3.4806899998329754
+              }
+            },
+            "learned": {
+              "samples": 180,
+              "valid_pixels": 6748307,
+              "reference_pixels": 6749362,
+              "valid_pixel_fraction": 0.9998436889294129,
+              "depth_median_mm": 2.2909045219421387,
+              "depth_p95_mm": 15.51932144165039,
+              "common_valid_pixels": 4799633,
+              "common_depth_median_mm": 2.3083388805389404,
+              "common_depth_p95_mm": 14.95543098449707,
+              "foreground_median_mm": 3.8220882415771484,
+              "foreground_p95_mm": 22.80855941772461,
+              "valid_objects": 530,
+              "object_opportunities": 540,
+              "object_valid_fraction": 0.9814814814814815,
+              "object_median_mm": 4.122925595418453,
+              "object_p95_mm": 17.41338772668664,
+              "rejected": {
+                "depth spread exceeds 35 mm": 8,
+                "insufficient valid stereo support": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.41280050004388613,
+                "estimator_ms": 4.280502000028719,
+                "postprocess_ms": 2.8646050000133982
+              }
+            }
+          }
+        }
+      },
+      "object_classes": {
+        "red_cube": {
+          "sgbm": {
+            "valid": 163,
+            "opportunities": 180,
+            "median_mm": 5.554397515907576,
+            "p95_mm": 24.87403137102151
+          },
+          "learned": {
+            "valid": 172,
+            "opportunities": 180,
+            "median_mm": 3.8353394156334306,
+            "p95_mm": 14.786689996706368
+          }
+        },
+        "blue_bowl": {
+          "sgbm": {
+            "valid": 172,
+            "opportunities": 180,
+            "median_mm": 18.107095459474976,
+            "p95_mm": 36.50670933814079
+          },
+          "learned": {
+            "valid": 178,
+            "opportunities": 180,
+            "median_mm": 5.0703853444034666,
+            "p95_mm": 23.08673842165471
+          }
+        },
+        "reference": {
+          "sgbm": {
+            "valid": 164,
+            "opportunities": 180,
+            "median_mm": 8.356664285233109,
+            "p95_mm": 21.319648234546186
+          },
+          "learned": {
+            "valid": 180,
+            "opportunities": 180,
+            "median_mm": 3.741808061868875,
+            "p95_mm": 11.30717847372362
+          }
+        }
+      },
+      "marker_triangulation": {
+        "valid": 516,
+        "median_mm": 1.6377610529724342,
+        "p95_mm": 7.639054607153512
+      },
+      "model_checkpoint": "checkpoints/so101-compact-stereo/best.pt",
+      "model_peak_allocated_mb": 31.4482421875,
+      "model_peak_reserved_mb": 42.0,
+      "model_process_gpu_mb_at_end": 270.0
+    },
+    "unseen": {
+      "split": "unseen",
+      "overall": {
+        "sgbm": {
+          "samples": 90,
+          "valid_pixels": 2196186,
+          "reference_pixels": 2926310,
+          "valid_pixel_fraction": 0.7504967006229688,
+          "depth_median_mm": 2.6862473487854004,
+          "depth_p95_mm": 17.91034698486328,
+          "common_valid_pixels": 2196186,
+          "common_depth_median_mm": 2.6862473487854004,
+          "common_depth_p95_mm": 17.91034698486328,
+          "foreground_median_mm": 4.838049411773682,
+          "foreground_p95_mm": 38.94717788696289,
+          "valid_objects": 263,
+          "object_opportunities": 270,
+          "object_valid_fraction": 0.9740740740740741,
+          "object_median_mm": 10.854604026866772,
+          "object_p95_mm": 29.676531226957824,
+          "rejected": {
+            "insufficient valid stereo support": 2,
+            "depth spread exceeds 35 mm": 3,
+            "reference object not visible in left image": 2
+          },
+          "timing_median_ms": {
+            "rectification_ms": 0.42559949974929623,
+            "estimator_ms": 18.217533499864658,
+            "postprocess_ms": 3.602535500021986
+          }
+        },
+        "learned": {
+          "samples": 90,
+          "valid_pixels": 2926292,
+          "reference_pixels": 2926310,
+          "valid_pixel_fraction": 0.9999938489086939,
+          "depth_median_mm": 1.7441511154174805,
+          "depth_p95_mm": 12.899324417114258,
+          "common_valid_pixels": 2196186,
+          "common_depth_median_mm": 1.7191171646118164,
+          "common_depth_p95_mm": 11.753976821899414,
+          "foreground_median_mm": 3.9901435375213623,
+          "foreground_p95_mm": 24.503923416137695,
+          "valid_objects": 264,
+          "object_opportunities": 270,
+          "object_valid_fraction": 0.9777777777777777,
+          "object_median_mm": 4.154376368693925,
+          "object_p95_mm": 18.322077974292032,
+          "rejected": {
+            "depth spread exceeds 35 mm": 4,
+            "reference object not visible in left image": 2
+          },
+          "timing_median_ms": {
+            "rectification_ms": 0.42559949974929623,
+            "estimator_ms": 4.446274999963862,
+            "postprocess_ms": 2.9050919999917824
+          }
+        }
+      },
+      "groups": {
+        "distance_m": {
+          "0.33": {
+            "sgbm": {
+              "samples": 46,
+              "valid_pixels": 1095080,
+              "reference_pixels": 1593376,
+              "valid_pixel_fraction": 0.6872702990380174,
+              "depth_median_mm": 1.8693208694458008,
+              "depth_p95_mm": 15.554025650024414,
+              "common_valid_pixels": 1095080,
+              "common_depth_median_mm": 1.8693208694458008,
+              "common_depth_p95_mm": 15.554025650024414,
+              "foreground_median_mm": 3.800123929977417,
+              "foreground_p95_mm": 37.429222106933594,
+              "valid_objects": 131,
+              "object_opportunities": 138,
+              "object_valid_fraction": 0.9492753623188406,
+              "object_median_mm": 11.486485821574496,
+              "object_p95_mm": 34.81100069953747,
+              "rejected": {
+                "insufficient valid stereo support": 2,
+                "depth spread exceeds 35 mm": 3,
+                "reference object not visible in left image": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.424497500034704,
+                "estimator_ms": 18.282145000057426,
+                "postprocess_ms": 3.6604095000711823
+              }
+            },
+            "learned": {
+              "samples": 46,
+              "valid_pixels": 1593370,
+              "reference_pixels": 1593376,
+              "valid_pixel_fraction": 0.9999962344104593,
+              "depth_median_mm": 1.4714300632476807,
+              "depth_p95_mm": 13.47181224822998,
+              "common_valid_pixels": 1095080,
+              "common_depth_median_mm": 1.3597309589385986,
+              "common_depth_p95_mm": 11.442605972290039,
+              "foreground_median_mm": 3.281503915786743,
+              "foreground_p95_mm": 21.9355411529541,
+              "valid_objects": 132,
+              "object_opportunities": 138,
+              "object_valid_fraction": 0.9565217391304348,
+              "object_median_mm": 2.9391738717405635,
+              "object_p95_mm": 17.662842230625532,
+              "rejected": {
+                "depth spread exceeds 35 mm": 4,
+                "reference object not visible in left image": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.424497500034704,
+                "estimator_ms": 4.446274999963862,
+                "postprocess_ms": 2.944496500049354
+              }
+            }
+          },
+          "0.57": {
+            "sgbm": {
+              "samples": 44,
+              "valid_pixels": 1101106,
+              "reference_pixels": 1332934,
+              "valid_pixel_fraction": 0.8260769100345553,
+              "depth_median_mm": 3.6935806274414062,
+              "depth_p95_mm": 19.50865936279297,
+              "common_valid_pixels": 1101106,
+              "common_depth_median_mm": 3.6935806274414062,
+              "common_depth_p95_mm": 19.50865936279297,
+              "foreground_median_mm": 8.10551643371582,
+              "foreground_p95_mm": 43.339111328125,
+              "valid_objects": 132,
+              "object_opportunities": 132,
+              "object_valid_fraction": 1.0,
+              "object_median_mm": 10.532304969469614,
+              "object_p95_mm": 26.511839746286636,
+              "rejected": {},
+              "timing_median_ms": {
+                "rectification_ms": 0.42614099993443233,
+                "estimator_ms": 18.108041499999672,
+                "postprocess_ms": 3.50014600007853
+              }
+            },
+            "learned": {
+              "samples": 44,
+              "valid_pixels": 1332922,
+              "reference_pixels": 1332934,
+              "valid_pixel_fraction": 0.9999909973036925,
+              "depth_median_mm": 2.1036267280578613,
+              "depth_p95_mm": 12.37069034576416,
+              "common_valid_pixels": 1101106,
+              "common_depth_median_mm": 2.133190631866455,
+              "common_depth_p95_mm": 12.020439147949219,
+              "foreground_median_mm": 6.688922882080078,
+              "foreground_p95_mm": 28.848873138427734,
+              "valid_objects": 132,
+              "object_opportunities": 132,
+              "object_valid_fraction": 1.0,
+              "object_median_mm": 5.530740360189909,
+              "object_p95_mm": 18.6971586843157,
+              "rejected": {},
+              "timing_median_ms": {
+                "rectification_ms": 0.42614099993443233,
+                "estimator_ms": 4.447076499900504,
+                "postprocess_ms": 2.8726154998821585
+              }
+            }
+          }
+        },
+        "baseline_m": {
+          "0.12": {
+            "sgbm": {
+              "samples": 90,
+              "valid_pixels": 2196186,
+              "reference_pixels": 2926310,
+              "valid_pixel_fraction": 0.7504967006229688,
+              "depth_median_mm": 2.6862473487854004,
+              "depth_p95_mm": 17.91034698486328,
+              "common_valid_pixels": 2196186,
+              "common_depth_median_mm": 2.6862473487854004,
+              "common_depth_p95_mm": 17.91034698486328,
+              "foreground_median_mm": 4.838049411773682,
+              "foreground_p95_mm": 38.94717788696289,
+              "valid_objects": 263,
+              "object_opportunities": 270,
+              "object_valid_fraction": 0.9740740740740741,
+              "object_median_mm": 10.854604026866772,
+              "object_p95_mm": 29.676531226957824,
+              "rejected": {
+                "insufficient valid stereo support": 2,
+                "depth spread exceeds 35 mm": 3,
+                "reference object not visible in left image": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.42559949974929623,
+                "estimator_ms": 18.217533499864658,
+                "postprocess_ms": 3.602535500021986
+              }
+            },
+            "learned": {
+              "samples": 90,
+              "valid_pixels": 2926292,
+              "reference_pixels": 2926310,
+              "valid_pixel_fraction": 0.9999938489086939,
+              "depth_median_mm": 1.7441511154174805,
+              "depth_p95_mm": 12.899324417114258,
+              "common_valid_pixels": 2196186,
+              "common_depth_median_mm": 1.7191171646118164,
+              "common_depth_p95_mm": 11.753976821899414,
+              "foreground_median_mm": 3.9901435375213623,
+              "foreground_p95_mm": 24.503923416137695,
+              "valid_objects": 264,
+              "object_opportunities": 270,
+              "object_valid_fraction": 0.9777777777777777,
+              "object_median_mm": 4.154376368693925,
+              "object_p95_mm": 18.322077974292032,
+              "rejected": {
+                "depth spread exceeds 35 mm": 4,
+                "reference object not visible in left image": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.42559949974929623,
+                "estimator_ms": 4.446274999963862,
+                "postprocess_ms": 2.9050919999917824
+              }
+            }
+          }
+        },
+        "blur_sigma": {
+          "0.0": {
+            "sgbm": {
+              "samples": 45,
+              "valid_pixels": 1101494,
+              "reference_pixels": 1463155,
+              "valid_pixel_fraction": 0.7528211296820911,
+              "depth_median_mm": 2.4470388889312744,
+              "depth_p95_mm": 15.836801528930664,
+              "common_valid_pixels": 1101494,
+              "common_depth_median_mm": 2.4470388889312744,
+              "common_depth_p95_mm": 15.836801528930664,
+              "foreground_median_mm": 4.307091236114502,
+              "foreground_p95_mm": 37.26784133911133,
+              "valid_objects": 131,
+              "object_opportunities": 135,
+              "object_valid_fraction": 0.9703703703703703,
+              "object_median_mm": 9.917443443986395,
+              "object_p95_mm": 28.273607113565227,
+              "rejected": {
+                "insufficient valid stereo support": 1,
+                "depth spread exceeds 35 mm": 2,
+                "reference object not visible in left image": 1
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.42613599998730933,
+                "estimator_ms": 18.181519999870943,
+                "postprocess_ms": 3.6011580000376853
+              }
+            },
+            "learned": {
+              "samples": 45,
+              "valid_pixels": 1463139,
+              "reference_pixels": 1463155,
+              "valid_pixel_fraction": 0.9999890647265669,
+              "depth_median_mm": 1.6321539878845215,
+              "depth_p95_mm": 11.812400817871094,
+              "common_valid_pixels": 1101494,
+              "common_depth_median_mm": 1.607835292816162,
+              "common_depth_p95_mm": 10.790009498596191,
+              "foreground_median_mm": 3.6113858222961426,
+              "foreground_p95_mm": 22.22977638244629,
+              "valid_objects": 132,
+              "object_opportunities": 135,
+              "object_valid_fraction": 0.9777777777777777,
+              "object_median_mm": 3.936736658360406,
+              "object_p95_mm": 17.348480910903113,
+              "rejected": {
+                "depth spread exceeds 35 mm": 2,
+                "reference object not visible in left image": 1
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.42613599998730933,
+                "estimator_ms": 4.439623000052961,
+                "postprocess_ms": 2.896084999974846
+              }
+            }
+          },
+          "0.8": {
+            "sgbm": {
+              "samples": 17,
+              "valid_pixels": 409780,
+              "reference_pixels": 548661,
+              "valid_pixel_fraction": 0.7468728413355423,
+              "depth_median_mm": 2.9746742248535156,
+              "depth_p95_mm": 19.458480834960938,
+              "common_valid_pixels": 409780,
+              "common_depth_median_mm": 2.9746742248535156,
+              "common_depth_p95_mm": 19.458480834960938,
+              "foreground_median_mm": 5.485028266906738,
+              "foreground_p95_mm": 42.734535217285156,
+              "valid_objects": 50,
+              "object_opportunities": 51,
+              "object_valid_fraction": 0.9803921568627451,
+              "object_median_mm": 12.820152996806378,
+              "object_p95_mm": 32.465794960216535,
+              "rejected": {
+                "depth spread exceeds 35 mm": 1
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4247030001351959,
+                "estimator_ms": 18.271930999617325,
+                "postprocess_ms": 3.6402109999471577
+              }
+            },
+            "learned": {
+              "samples": 17,
+              "valid_pixels": 548660,
+              "reference_pixels": 548661,
+              "valid_pixel_fraction": 0.9999981773809329,
+              "depth_median_mm": 1.9148588180541992,
+              "depth_p95_mm": 14.430643081665039,
+              "common_valid_pixels": 409780,
+              "common_depth_median_mm": 1.8829107284545898,
+              "common_depth_p95_mm": 12.843671798706055,
+              "foreground_median_mm": 4.656314849853516,
+              "foreground_p95_mm": 26.169689178466797,
+              "valid_objects": 50,
+              "object_opportunities": 51,
+              "object_valid_fraction": 0.9803921568627451,
+              "object_median_mm": 4.787028209766435,
+              "object_p95_mm": 15.222646859512437,
+              "rejected": {
+                "depth spread exceeds 35 mm": 1
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4247030001351959,
+                "estimator_ms": 4.500768000070821,
+                "postprocess_ms": 2.927974999693106
+              }
+            }
+          },
+          "1.6": {
+            "sgbm": {
+              "samples": 28,
+              "valid_pixels": 684912,
+              "reference_pixels": 914494,
+              "valid_pixel_fraction": 0.7489518793999742,
+              "depth_median_mm": 2.955660343170166,
+              "depth_p95_mm": 20.03705596923828,
+              "common_valid_pixels": 684912,
+              "common_depth_median_mm": 2.955660343170166,
+              "common_depth_p95_mm": 20.03705596923828,
+              "foreground_median_mm": 5.417376518249512,
+              "foreground_p95_mm": 39.94041442871094,
+              "valid_objects": 82,
+              "object_opportunities": 84,
+              "object_valid_fraction": 0.9761904761904762,
+              "object_median_mm": 11.938299164917527,
+              "object_p95_mm": 28.100397699515238,
+              "rejected": {
+                "insufficient valid stereo support": 1,
+                "reference object not visible in left image": 1
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4253739998603123,
+                "estimator_ms": 18.22548850009298,
+                "postprocess_ms": 3.589205000025686
+              }
+            },
+            "learned": {
+              "samples": 28,
+              "valid_pixels": 914493,
+              "reference_pixels": 914494,
+              "valid_pixel_fraction": 0.9999989064991132,
+              "depth_median_mm": 1.8294453620910645,
+              "depth_p95_mm": 13.746664047241211,
+              "common_valid_pixels": 684912,
+              "common_depth_median_mm": 1.810312271118164,
+              "common_depth_p95_mm": 12.655604362487793,
+              "foreground_median_mm": 4.26095724105835,
+              "foreground_p95_mm": 27.025388717651367,
+              "valid_objects": 82,
+              "object_opportunities": 84,
+              "object_valid_fraction": 0.9761904761904762,
+              "object_median_mm": 3.9245487003747543,
+              "object_p95_mm": 21.09696536981212,
+              "rejected": {
+                "depth spread exceeds 35 mm": 1,
+                "reference object not visible in left image": 1
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4253739998603123,
+                "estimator_ms": 4.429447999882541,
+                "postprocess_ms": 2.9085280000344937
+              }
+            }
+          }
+        },
+        "occluded": {
+          "False": {
+            "sgbm": {
+              "samples": 36,
+              "valid_pixels": 902626,
+              "reference_pixels": 1173392,
+              "valid_pixel_fraction": 0.769245060474249,
+              "depth_median_mm": 2.7469396591186523,
+              "depth_p95_mm": 17.459505081176758,
+              "common_valid_pixels": 902626,
+              "common_depth_median_mm": 2.7469396591186523,
+              "common_depth_p95_mm": 17.459505081176758,
+              "foreground_median_mm": 4.719555377960205,
+              "foreground_p95_mm": 36.619285583496094,
+              "valid_objects": 104,
+              "object_opportunities": 108,
+              "object_valid_fraction": 0.9629629629629629,
+              "object_median_mm": 10.716570934292697,
+              "object_p95_mm": 27.46678013656828,
+              "rejected": {
+                "insufficient valid stereo support": 2,
+                "reference object not visible in left image": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4258199999185308,
+                "estimator_ms": 18.171866499869793,
+                "postprocess_ms": 3.5334040001089306
+              }
+            },
+            "learned": {
+              "samples": 36,
+              "valid_pixels": 1173378,
+              "reference_pixels": 1173392,
+              "valid_pixel_fraction": 0.9999880687783793,
+              "depth_median_mm": 1.7893165349960327,
+              "depth_p95_mm": 12.370534896850586,
+              "common_valid_pixels": 902626,
+              "common_depth_median_mm": 1.7542243003845215,
+              "common_depth_p95_mm": 11.52208423614502,
+              "foreground_median_mm": 3.9751977920532227,
+              "foreground_p95_mm": 24.342966079711914,
+              "valid_objects": 106,
+              "object_opportunities": 108,
+              "object_valid_fraction": 0.9814814814814815,
+              "object_median_mm": 3.644175586409696,
+              "object_p95_mm": 18.511133130168304,
+              "rejected": {
+                "reference object not visible in left image": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4258199999185308,
+                "estimator_ms": 4.440739499841584,
+                "postprocess_ms": 2.939692000154537
+              }
+            }
+          },
+          "True": {
+            "sgbm": {
+              "samples": 54,
+              "valid_pixels": 1293560,
+              "reference_pixels": 1752918,
+              "valid_pixel_fraction": 0.7379466694962343,
+              "depth_median_mm": 2.64216947555542,
+              "depth_p95_mm": 18.22715950012207,
+              "common_valid_pixels": 1293560,
+              "common_depth_median_mm": 2.64216947555542,
+              "common_depth_p95_mm": 18.22715950012207,
+              "foreground_median_mm": 4.9491376876831055,
+              "foreground_p95_mm": 40.87291717529297,
+              "valid_objects": 159,
+              "object_opportunities": 162,
+              "object_valid_fraction": 0.9814814814814815,
+              "object_median_mm": 11.022862434492458,
+              "object_p95_mm": 33.84216174160178,
+              "rejected": {
+                "depth spread exceeds 35 mm": 3
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.42546949975985626,
+                "estimator_ms": 18.26879000009285,
+                "postprocess_ms": 3.623385000082635
+              }
+            },
+            "learned": {
+              "samples": 54,
+              "valid_pixels": 1752914,
+              "reference_pixels": 1752918,
+              "valid_pixel_fraction": 0.9999977180906352,
+              "depth_median_mm": 1.713395118713379,
+              "depth_p95_mm": 13.305279731750488,
+              "common_valid_pixels": 1293560,
+              "common_depth_median_mm": 1.6952306032180786,
+              "common_depth_p95_mm": 11.92656135559082,
+              "foreground_median_mm": 4.001945495605469,
+              "foreground_p95_mm": 24.683258056640625,
+              "valid_objects": 158,
+              "object_opportunities": 162,
+              "object_valid_fraction": 0.9753086419753086,
+              "object_median_mm": 4.661163606192457,
+              "object_p95_mm": 17.687980022938618,
+              "rejected": {
+                "depth spread exceeds 35 mm": 4
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.42546949975985626,
+                "estimator_ms": 4.452612000022782,
+                "postprocess_ms": 2.8914110000641813
+              }
+            }
+          }
+        },
+        "textured_cube": {
+          "False": {
+            "sgbm": {
+              "samples": 24,
+              "valid_pixels": 558599,
+              "reference_pixels": 816422,
+              "valid_pixel_fraction": 0.6842037573705755,
+              "depth_median_mm": 1.831144094467163,
+              "depth_p95_mm": 15.292703628540039,
+              "common_valid_pixels": 558599,
+              "common_depth_median_mm": 1.831144094467163,
+              "common_depth_p95_mm": 15.292703628540039,
+              "foreground_median_mm": 3.8470253944396973,
+              "foreground_p95_mm": 37.909053802490234,
+              "valid_objects": 71,
+              "object_opportunities": 72,
+              "object_valid_fraction": 0.9861111111111112,
+              "object_median_mm": 11.311428616709666,
+              "object_p95_mm": 48.498404123786145,
+              "rejected": {
+                "depth spread exceeds 35 mm": 1
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.424482500193335,
+                "estimator_ms": 18.282145000057426,
+                "postprocess_ms": 3.6978205000650632
+              }
+            },
+            "learned": {
+              "samples": 24,
+              "valid_pixels": 816420,
+              "reference_pixels": 816422,
+              "valid_pixel_fraction": 0.999997550286494,
+              "depth_median_mm": 1.4663114547729492,
+              "depth_p95_mm": 14.113143920898438,
+              "common_valid_pixels": 558599,
+              "common_depth_median_mm": 1.3641417026519775,
+              "common_depth_p95_mm": 12.25156021118164,
+              "foreground_median_mm": 3.292128562927246,
+              "foreground_p95_mm": 21.869287490844727,
+              "valid_objects": 70,
+              "object_opportunities": 72,
+              "object_valid_fraction": 0.9722222222222222,
+              "object_median_mm": 3.564447739914385,
+              "object_p95_mm": 16.74360998324879,
+              "rejected": {
+                "depth spread exceeds 35 mm": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.424482500193335,
+                "estimator_ms": 4.443800499984718,
+                "postprocess_ms": 2.9633565000040107
+              }
+            }
+          },
+          "True": {
+            "sgbm": {
+              "samples": 66,
+              "valid_pixels": 1637587,
+              "reference_pixels": 2109888,
+              "valid_pixel_fraction": 0.7761487813571147,
+              "depth_median_mm": 3.0468106269836426,
+              "depth_p95_mm": 18.533363342285156,
+              "common_valid_pixels": 1637587,
+              "common_depth_median_mm": 3.0468106269836426,
+              "common_depth_p95_mm": 18.533363342285156,
+              "foreground_median_mm": 5.621433258056641,
+              "foreground_p95_mm": 39.83777618408203,
+              "valid_objects": 192,
+              "object_opportunities": 198,
+              "object_valid_fraction": 0.9696969696969697,
+              "object_median_mm": 10.68166428253937,
+              "object_p95_mm": 26.67044715666661,
+              "rejected": {
+                "insufficient valid stereo support": 2,
+                "depth spread exceeds 35 mm": 2,
+                "reference object not visible in left image": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4259854999872914,
+                "estimator_ms": 18.172828499928073,
+                "postprocess_ms": 3.5233205001077295
+              }
+            },
+            "learned": {
+              "samples": 66,
+              "valid_pixels": 2109872,
+              "reference_pixels": 2109888,
+              "valid_pixel_fraction": 0.9999924166590833,
+              "depth_median_mm": 1.861661672592163,
+              "depth_p95_mm": 12.498658180236816,
+              "common_valid_pixels": 1637587,
+              "common_depth_median_mm": 1.8574893474578857,
+              "common_depth_p95_mm": 11.600196838378906,
+              "foreground_median_mm": 4.502788066864014,
+              "foreground_p95_mm": 25.917640686035156,
+              "valid_objects": 194,
+              "object_opportunities": 198,
+              "object_valid_fraction": 0.9797979797979798,
+              "object_median_mm": 4.375694902815564,
+              "object_p95_mm": 18.46053417896142,
+              "rejected": {
+                "depth spread exceeds 35 mm": 2,
+                "reference object not visible in left image": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4259854999872914,
+                "estimator_ms": 4.458638499954759,
+                "postprocess_ms": 2.8833910000685137
+              }
+            }
+          }
+        },
+        "time_offset_ms": {
+          "0": {
+            "sgbm": {
+              "samples": 90,
+              "valid_pixels": 2196186,
+              "reference_pixels": 2926310,
+              "valid_pixel_fraction": 0.7504967006229688,
+              "depth_median_mm": 2.6862473487854004,
+              "depth_p95_mm": 17.91034698486328,
+              "common_valid_pixels": 2196186,
+              "common_depth_median_mm": 2.6862473487854004,
+              "common_depth_p95_mm": 17.91034698486328,
+              "foreground_median_mm": 4.838049411773682,
+              "foreground_p95_mm": 38.94717788696289,
+              "valid_objects": 263,
+              "object_opportunities": 270,
+              "object_valid_fraction": 0.9740740740740741,
+              "object_median_mm": 10.854604026866772,
+              "object_p95_mm": 29.676531226957824,
+              "rejected": {
+                "insufficient valid stereo support": 2,
+                "depth spread exceeds 35 mm": 3,
+                "reference object not visible in left image": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.42559949974929623,
+                "estimator_ms": 18.217533499864658,
+                "postprocess_ms": 3.602535500021986
+              }
+            },
+            "learned": {
+              "samples": 90,
+              "valid_pixels": 2926292,
+              "reference_pixels": 2926310,
+              "valid_pixel_fraction": 0.9999938489086939,
+              "depth_median_mm": 1.7441511154174805,
+              "depth_p95_mm": 12.899324417114258,
+              "common_valid_pixels": 2196186,
+              "common_depth_median_mm": 1.7191171646118164,
+              "common_depth_p95_mm": 11.753976821899414,
+              "foreground_median_mm": 3.9901435375213623,
+              "foreground_p95_mm": 24.503923416137695,
+              "valid_objects": 264,
+              "object_opportunities": 270,
+              "object_valid_fraction": 0.9777777777777777,
+              "object_median_mm": 4.154376368693925,
+              "object_p95_mm": 18.322077974292032,
+              "rejected": {
+                "depth spread exceeds 35 mm": 4,
+                "reference object not visible in left image": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.42559949974929623,
+                "estimator_ms": 4.446274999963862,
+                "postprocess_ms": 2.9050919999917824
+              }
+            }
+          }
+        }
+      },
+      "object_classes": {
+        "red_cube": {
+          "sgbm": {
+            "valid": 84,
+            "opportunities": 90,
+            "median_mm": 7.744948966857477,
+            "p95_mm": 26.952786865391147
+          },
+          "learned": {
+            "valid": 86,
+            "opportunities": 90,
+            "median_mm": 3.050255927328716,
+            "p95_mm": 18.25928989271646
+          }
+        },
+        "blue_bowl": {
+          "sgbm": {
+            "valid": 89,
+            "opportunities": 90,
+            "median_mm": 19.409854962790074,
+            "p95_mm": 32.90072714414882
+          },
+          "learned": {
+            "valid": 88,
+            "opportunities": 90,
+            "median_mm": 5.7500194937791855,
+            "p95_mm": 18.460408205411404
+          }
+        },
+        "reference": {
+          "sgbm": {
+            "valid": 90,
+            "opportunities": 90,
+            "median_mm": 8.902314812812971,
+            "p95_mm": 15.915059085528144
+          },
+          "learned": {
+            "valid": 90,
+            "opportunities": 90,
+            "median_mm": 3.2537308006460366,
+            "p95_mm": 16.052928452713843
+          }
+        }
+      },
+      "marker_triangulation": {
+        "valid": 268,
+        "median_mm": 1.3589367120327753,
+        "p95_mm": 5.60336571188581
+      },
+      "model_checkpoint": "checkpoints/so101-compact-stereo/best.pt",
+      "model_peak_allocated_mb": 31.4482421875,
+      "model_peak_reserved_mb": 42.0,
+      "model_process_gpu_mb_at_end": 270.0
+    },
+    "asynchronous": {
+      "split": "asynchronous",
+      "overall": {
+        "sgbm": {
+          "samples": 216,
+          "valid_pixels": 5383348,
+          "reference_pixels": 8095878,
+          "valid_pixel_fraction": 0.6649492494822674,
+          "depth_median_mm": 3.8119852542877197,
+          "depth_p95_mm": 48.921077728271484,
+          "common_valid_pixels": 5382563,
+          "common_depth_median_mm": 3.811061382293701,
+          "common_depth_p95_mm": 48.83053970336914,
+          "foreground_median_mm": 27.549907684326172,
+          "foreground_p95_mm": 290.6780700683594,
+          "valid_objects": 580,
+          "object_opportunities": 648,
+          "object_valid_fraction": 0.8950617283950617,
+          "object_median_mm": 21.764933439774932,
+          "object_p95_mm": 305.80503320472866,
+          "rejected": {
+            "insufficient valid stereo support": 55,
+            "depth spread exceeds 35 mm": 7,
+            "reference object not visible in left image": 6
+          },
+          "timing_median_ms": {
+            "rectification_ms": 0.4271430000244436,
+            "estimator_ms": 18.22993099995074,
+            "postprocess_ms": 3.5416700002315338
+          }
+        },
+        "learned": {
+          "samples": 216,
+          "valid_pixels": 8084501,
+          "reference_pixels": 8095878,
+          "valid_pixel_fraction": 0.9985947169658436,
+          "depth_median_mm": 2.747654914855957,
+          "depth_p95_mm": 60.710548400878906,
+          "common_valid_pixels": 5382563,
+          "common_depth_median_mm": 2.6574134826660156,
+          "common_depth_p95_mm": 40.508419036865234,
+          "foreground_median_mm": 22.43057632446289,
+          "foreground_p95_mm": 266.40960693359375,
+          "valid_objects": 585,
+          "object_opportunities": 648,
+          "object_valid_fraction": 0.9027777777777778,
+          "object_median_mm": 11.16365172197288,
+          "object_p95_mm": 255.98238995590717,
+          "rejected": {
+            "depth spread exceeds 35 mm": 55,
+            "insufficient valid stereo support": 2,
+            "reference object not visible in left image": 6
+          },
+          "timing_median_ms": {
+            "rectification_ms": 0.4271430000244436,
+            "estimator_ms": 4.358959999990475,
+            "postprocess_ms": 2.873757500310603
+          }
+        }
+      },
+      "groups": {
+        "distance_m": {
+          "0.3": {
+            "sgbm": {
+              "samples": 72,
+              "valid_pixels": 1734148,
+              "reference_pixels": 2891994,
+              "valid_pixel_fraction": 0.5996374819588146,
+              "depth_median_mm": 2.570211887359619,
+              "depth_p95_mm": 63.64407730102539,
+              "common_valid_pixels": 1734030,
+              "common_depth_median_mm": 2.570211887359619,
+              "common_depth_p95_mm": 63.589141845703125,
+              "foreground_median_mm": 26.980220794677734,
+              "foreground_p95_mm": 273.3184509277344,
+              "valid_objects": 185,
+              "object_opportunities": 216,
+              "object_valid_fraction": 0.8564814814814815,
+              "object_median_mm": 21.688082516380636,
+              "object_p95_mm": 273.133689602776,
+              "rejected": {
+                "insufficient valid stereo support": 22,
+                "depth spread exceeds 35 mm": 3,
+                "reference object not visible in left image": 6
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.42696749983406335,
+                "estimator_ms": 18.273107499908292,
+                "postprocess_ms": 3.7420535002183897
+              }
+            },
+            "learned": {
+              "samples": 72,
+              "valid_pixels": 2889778,
+              "reference_pixels": 2891994,
+              "valid_pixel_fraction": 0.9992337466813555,
+              "depth_median_mm": 2.095848321914673,
+              "depth_p95_mm": 65.17896270751953,
+              "common_valid_pixels": 1734030,
+              "common_depth_median_mm": 1.9084811210632324,
+              "common_depth_p95_mm": 51.33277130126953,
+              "foreground_median_mm": 21.814748764038086,
+              "foreground_p95_mm": 238.12547302246094,
+              "valid_objects": 192,
+              "object_opportunities": 216,
+              "object_valid_fraction": 0.8888888888888888,
+              "object_median_mm": 11.96589351350854,
+              "object_p95_mm": 218.43700952444559,
+              "rejected": {
+                "depth spread exceeds 35 mm": 18,
+                "reference object not visible in left image": 6
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.42696749983406335,
+                "estimator_ms": 4.37130350019288,
+                "postprocess_ms": 2.9496659999495023
+              }
+            }
+          },
+          "0.45": {
+            "sgbm": {
+              "samples": 72,
+              "valid_pixels": 1860343,
+              "reference_pixels": 2806158,
+              "valid_pixel_fraction": 0.6629501973873174,
+              "depth_median_mm": 3.8290321826934814,
+              "depth_p95_mm": 45.46504211425781,
+              "common_valid_pixels": 1860115,
+              "common_depth_median_mm": 3.828376531600952,
+              "common_depth_p95_mm": 45.37593460083008,
+              "foreground_median_mm": 27.72658920288086,
+              "foreground_p95_mm": 352.51080322265625,
+              "valid_objects": 192,
+              "object_opportunities": 216,
+              "object_valid_fraction": 0.8888888888888888,
+              "object_median_mm": 22.455463806463698,
+              "object_p95_mm": 353.34153277910065,
+              "rejected": {
+                "insufficient valid stereo support": 22,
+                "depth spread exceeds 35 mm": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4274280001936859,
+                "estimator_ms": 18.194047999941176,
+                "postprocess_ms": 3.533714999775839
+              }
+            },
+            "learned": {
+              "samples": 72,
+              "valid_pixels": 2804159,
+              "reference_pixels": 2806158,
+              "valid_pixel_fraction": 0.9992876381158866,
+              "depth_median_mm": 2.710700035095215,
+              "depth_p95_mm": 66.87081146240234,
+              "common_valid_pixels": 1860115,
+              "common_depth_median_mm": 2.5928914546966553,
+              "common_depth_p95_mm": 38.37958526611328,
+              "foreground_median_mm": 22.11746597290039,
+              "foreground_p95_mm": 319.7776184082031,
+              "valid_objects": 196,
+              "object_opportunities": 216,
+              "object_valid_fraction": 0.9074074074074074,
+              "object_median_mm": 8.543842579571622,
+              "object_p95_mm": 250.56611687984025,
+              "rejected": {
+                "depth spread exceeds 35 mm": 20
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4274280001936859,
+                "estimator_ms": 4.360843000085879,
+                "postprocess_ms": 2.8713985000194953
+              }
+            }
+          },
+          "0.6": {
+            "sgbm": {
+              "samples": 72,
+              "valid_pixels": 1788857,
+              "reference_pixels": 2397726,
+              "valid_pixel_fraction": 0.7460639789533917,
+              "depth_median_mm": 5.159437656402588,
+              "depth_p95_mm": 37.347984313964844,
+              "common_valid_pixels": 1788418,
+              "common_depth_median_mm": 5.15824556350708,
+              "common_depth_p95_mm": 37.27927017211914,
+              "foreground_median_mm": 29.10870361328125,
+              "foreground_p95_mm": 324.1337890625,
+              "valid_objects": 203,
+              "object_opportunities": 216,
+              "object_valid_fraction": 0.9398148148148148,
+              "object_median_mm": 21.5963811899127,
+              "object_p95_mm": 330.21412181379344,
+              "rejected": {
+                "depth spread exceeds 35 mm": 2,
+                "insufficient valid stereo support": 11
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4273229999398609,
+                "estimator_ms": 18.145886499951303,
+                "postprocess_ms": 3.466362000153822
+              }
+            },
+            "learned": {
+              "samples": 72,
+              "valid_pixels": 2390564,
+              "reference_pixels": 2397726,
+              "valid_pixel_fraction": 0.9970130031538216,
+              "depth_median_mm": 3.7038326263427734,
+              "depth_p95_mm": 48.80650329589844,
+              "common_valid_pixels": 1788418,
+              "common_depth_median_mm": 3.611743450164795,
+              "common_depth_p95_mm": 30.760175704956055,
+              "foreground_median_mm": 25.34469985961914,
+              "foreground_p95_mm": 320.74993896484375,
+              "valid_objects": 197,
+              "object_opportunities": 216,
+              "object_valid_fraction": 0.9120370370370371,
+              "object_median_mm": 13.454622131486845,
+              "object_p95_mm": 287.4631962875237,
+              "rejected": {
+                "depth spread exceeds 35 mm": 17,
+                "insufficient valid stereo support": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4273229999398609,
+                "estimator_ms": 4.342133000136528,
+                "postprocess_ms": 2.8337719998035027
+              }
+            }
+          }
+        },
+        "baseline_m": {
+          "0.06": {
+            "sgbm": {
+              "samples": 72,
+              "valid_pixels": 1932396,
+              "reference_pixels": 2821554,
+              "valid_pixel_fraction": 0.684869401755203,
+              "depth_median_mm": 4.444897174835205,
+              "depth_p95_mm": 52.10861587524414,
+              "common_valid_pixels": 1932128,
+              "common_depth_median_mm": 4.444241523742676,
+              "common_depth_p95_mm": 52.04078674316406,
+              "foreground_median_mm": 35.440982818603516,
+              "foreground_p95_mm": 360.976318359375,
+              "valid_objects": 180,
+              "object_opportunities": 216,
+              "object_valid_fraction": 0.8333333333333334,
+              "object_median_mm": 21.86226768627722,
+              "object_p95_mm": 420.6593067477364,
+              "rejected": {
+                "insufficient valid stereo support": 34,
+                "depth spread exceeds 35 mm": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4256544998497702,
+                "estimator_ms": 18.179610499828414,
+                "postprocess_ms": 3.4470765001515247
+              }
+            },
+            "learned": {
+              "samples": 72,
+              "valid_pixels": 2816429,
+              "reference_pixels": 2821554,
+              "valid_pixel_fraction": 0.9981836250520103,
+              "depth_median_mm": 2.993673086166382,
+              "depth_p95_mm": 51.069454193115234,
+              "common_valid_pixels": 1932128,
+              "common_depth_median_mm": 3.0756592750549316,
+              "common_depth_p95_mm": 43.23065948486328,
+              "foreground_median_mm": 37.22059631347656,
+              "foreground_p95_mm": 344.01666259765625,
+              "valid_objects": 182,
+              "object_opportunities": 216,
+              "object_valid_fraction": 0.8425925925925926,
+              "object_median_mm": 10.599207420192966,
+              "object_p95_mm": 309.4204842078854,
+              "rejected": {
+                "depth spread exceeds 35 mm": 32,
+                "insufficient valid stereo support": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4256544998497702,
+                "estimator_ms": 4.360843000085879,
+                "postprocess_ms": 2.838691499846391
+              }
+            }
+          },
+          "0.08": {
+            "sgbm": {
+              "samples": 72,
+              "valid_pixels": 1749599,
+              "reference_pixels": 2686632,
+              "valid_pixel_fraction": 0.6512239115740451,
+              "depth_median_mm": 3.6914944648742676,
+              "depth_p95_mm": 43.56231689453125,
+              "common_valid_pixels": 1749192,
+              "common_depth_median_mm": 3.6910176277160645,
+              "common_depth_p95_mm": 43.4580078125,
+              "foreground_median_mm": 23.815631866455078,
+              "foreground_p95_mm": 282.18878173828125,
+              "valid_objects": 192,
+              "object_opportunities": 216,
+              "object_valid_fraction": 0.8888888888888888,
+              "object_median_mm": 20.626778904500938,
+              "object_p95_mm": 306.38298614355546,
+              "rejected": {
+                "depth spread exceeds 35 mm": 3,
+                "insufficient valid stereo support": 15,
+                "reference object not visible in left image": 6
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4264905001036823,
+                "estimator_ms": 18.247605000169642,
+                "postprocess_ms": 3.568400500171265
+              }
+            },
+            "learned": {
+              "samples": 72,
+              "valid_pixels": 2681562,
+              "reference_pixels": 2686632,
+              "valid_pixel_fraction": 0.9981128788758564,
+              "depth_median_mm": 2.752959728240967,
+              "depth_p95_mm": 84.39195251464844,
+              "common_valid_pixels": 1749192,
+              "common_depth_median_mm": 2.521678924560547,
+              "common_depth_p95_mm": 34.0724983215332,
+              "foreground_median_mm": 17.951488494873047,
+              "foreground_p95_mm": 235.94012451171875,
+              "valid_objects": 199,
+              "object_opportunities": 216,
+              "object_valid_fraction": 0.9212962962962963,
+              "object_median_mm": 11.458905960436383,
+              "object_p95_mm": 282.6684730998781,
+              "rejected": {
+                "depth spread exceeds 35 mm": 11,
+                "reference object not visible in left image": 6
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4264905001036823,
+                "estimator_ms": 4.35718149992681,
+                "postprocess_ms": 2.859891000071002
+              }
+            }
+          },
+          "0.1": {
+            "sgbm": {
+              "samples": 72,
+              "valid_pixels": 1701353,
+              "reference_pixels": 2587692,
+              "valid_pixel_fraction": 0.6574789426253201,
+              "depth_median_mm": 3.3163726329803467,
+              "depth_p95_mm": 52.295257568359375,
+              "common_valid_pixels": 1701243,
+              "common_depth_median_mm": 3.3162832260131836,
+              "common_depth_p95_mm": 52.27381896972656,
+              "foreground_median_mm": 27.345626831054688,
+              "foreground_p95_mm": 174.91696166992188,
+              "valid_objects": 208,
+              "object_opportunities": 216,
+              "object_valid_fraction": 0.9629629629629629,
+              "object_median_mm": 22.381680104492492,
+              "object_p95_mm": 222.43547318995053,
+              "rejected": {
+                "depth spread exceeds 35 mm": 2,
+                "insufficient valid stereo support": 6
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4285349998554011,
+                "estimator_ms": 18.2481545000428,
+                "postprocess_ms": 3.6473699999532982
+              }
+            },
+            "learned": {
+              "samples": 72,
+              "valid_pixels": 2586510,
+              "reference_pixels": 2587692,
+              "valid_pixel_fraction": 0.9995432223000265,
+              "depth_median_mm": 2.4902522563934326,
+              "depth_p95_mm": 56.97698974609375,
+              "common_valid_pixels": 1701243,
+              "common_depth_median_mm": 2.3681819438934326,
+              "common_depth_p95_mm": 43.430171966552734,
+              "foreground_median_mm": 20.35491180419922,
+              "foreground_p95_mm": 160.4688262939453,
+              "valid_objects": 204,
+              "object_opportunities": 216,
+              "object_valid_fraction": 0.9444444444444444,
+              "object_median_mm": 11.1195496917103,
+              "object_p95_mm": 200.10643951352742,
+              "rejected": {
+                "depth spread exceeds 35 mm": 12
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4285349998554011,
+                "estimator_ms": 4.353465000122014,
+                "postprocess_ms": 2.9251539999677334
+              }
+            }
+          }
+        },
+        "blur_sigma": {
+          "0.0": {
+            "sgbm": {
+              "samples": 108,
+              "valid_pixels": 2696390,
+              "reference_pixels": 4047939,
+              "valid_pixel_fraction": 0.6661142868012586,
+              "depth_median_mm": 3.345608711242676,
+              "depth_p95_mm": 46.75391387939453,
+              "common_valid_pixels": 2695890,
+              "common_depth_median_mm": 3.3444762229919434,
+              "common_depth_p95_mm": 46.64118576049805,
+              "foreground_median_mm": 26.3824462890625,
+              "foreground_p95_mm": 289.10113525390625,
+              "valid_objects": 289,
+              "object_opportunities": 324,
+              "object_valid_fraction": 0.8919753086419753,
+              "object_median_mm": 20.092192537344413,
+              "object_p95_mm": 292.5588798702613,
+              "rejected": {
+                "insufficient valid stereo support": 28,
+                "depth spread exceeds 35 mm": 4,
+                "reference object not visible in left image": 3
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4260800001247844,
+                "estimator_ms": 18.22993099995074,
+                "postprocess_ms": 3.5534520000055636
+              }
+            },
+            "learned": {
+              "samples": 108,
+              "valid_pixels": 4041880,
+              "reference_pixels": 4047939,
+              "valid_pixel_fraction": 0.9985031889067498,
+              "depth_median_mm": 2.5338828563690186,
+              "depth_p95_mm": 58.094024658203125,
+              "common_valid_pixels": 2695890,
+              "common_depth_median_mm": 2.456367015838623,
+              "common_depth_p95_mm": 38.92393493652344,
+              "foreground_median_mm": 20.981884002685547,
+              "foreground_p95_mm": 268.0211181640625,
+              "valid_objects": 295,
+              "object_opportunities": 324,
+              "object_valid_fraction": 0.9104938271604939,
+              "object_median_mm": 10.533815692232151,
+              "object_p95_mm": 279.3720861661356,
+              "rejected": {
+                "depth spread exceeds 35 mm": 25,
+                "insufficient valid stereo support": 1,
+                "reference object not visible in left image": 3
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4260800001247844,
+                "estimator_ms": 4.370086000108131,
+                "postprocess_ms": 2.8653804999976273
+              }
+            }
+          },
+          "0.8": {
+            "sgbm": {
+              "samples": 42,
+              "valid_pixels": 1024562,
+              "reference_pixels": 1585086,
+              "valid_pixel_fraction": 0.6463762849460534,
+              "depth_median_mm": 3.4923553466796875,
+              "depth_p95_mm": 50.26606750488281,
+              "common_valid_pixels": 1024430,
+              "common_depth_median_mm": 3.492206335067749,
+              "common_depth_p95_mm": 50.15410232543945,
+              "foreground_median_mm": 27.184276580810547,
+              "foreground_p95_mm": 272.1018981933594,
+              "valid_objects": 113,
+              "object_opportunities": 126,
+              "object_valid_fraction": 0.8968253968253969,
+              "object_median_mm": 22.43273095452149,
+              "object_p95_mm": 262.0725548310239,
+              "rejected": {
+                "depth spread exceeds 35 mm": 1,
+                "reference object not visible in left image": 3,
+                "insufficient valid stereo support": 9
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.42768849993990443,
+                "estimator_ms": 18.229169500045828,
+                "postprocess_ms": 3.6303379999935714
+              }
+            },
+            "learned": {
+              "samples": 42,
+              "valid_pixels": 1583209,
+              "reference_pixels": 1585086,
+              "valid_pixel_fraction": 0.9988158371217714,
+              "depth_median_mm": 2.6688575744628906,
+              "depth_p95_mm": 70.51640319824219,
+              "common_valid_pixels": 1024430,
+              "common_depth_median_mm": 2.4691224098205566,
+              "common_depth_p95_mm": 42.002567291259766,
+              "foreground_median_mm": 19.33681869506836,
+              "foreground_p95_mm": 250.0572052001953,
+              "valid_objects": 114,
+              "object_opportunities": 126,
+              "object_valid_fraction": 0.9047619047619048,
+              "object_median_mm": 10.443435687531773,
+              "object_p95_mm": 212.14356983212858,
+              "rejected": {
+                "depth spread exceeds 35 mm": 9,
+                "reference object not visible in left image": 3
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.42768849993990443,
+                "estimator_ms": 4.3444375000945,
+                "postprocess_ms": 2.9297374999259773
+              }
+            }
+          },
+          "1.6": {
+            "sgbm": {
+              "samples": 66,
+              "valid_pixels": 1662396,
+              "reference_pixels": 2462853,
+              "valid_pixel_fraction": 0.6749879103624943,
+              "depth_median_mm": 5.065113067626953,
+              "depth_p95_mm": 51.00874328613281,
+              "common_valid_pixels": 1662243,
+              "common_depth_median_mm": 5.062967300415039,
+              "common_depth_p95_mm": 50.948204040527344,
+              "foreground_median_mm": 29.568790435791016,
+              "foreground_p95_mm": 329.013427734375,
+              "valid_objects": 178,
+              "object_opportunities": 198,
+              "object_valid_fraction": 0.898989898989899,
+              "object_median_mm": 23.32114697650733,
+              "object_p95_mm": 347.4032448519256,
+              "rejected": {
+                "insufficient valid stereo support": 18,
+                "depth spread exceeds 35 mm": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4279185002360464,
+                "estimator_ms": 18.232831499972235,
+                "postprocess_ms": 3.527017999886084
+              }
+            },
+            "learned": {
+              "samples": 66,
+              "valid_pixels": 2459412,
+              "reference_pixels": 2462853,
+              "valid_pixel_fraction": 0.9986028398771668,
+              "depth_median_mm": 3.1734704971313477,
+              "depth_p95_mm": 59.29741287231445,
+              "common_valid_pixels": 1662243,
+              "common_depth_median_mm": 3.1489133834838867,
+              "common_depth_p95_mm": 42.1162109375,
+              "foreground_median_mm": 25.682598114013672,
+              "foreground_p95_mm": 283.0113220214844,
+              "valid_objects": 176,
+              "object_opportunities": 198,
+              "object_valid_fraction": 0.8888888888888888,
+              "object_median_mm": 12.633638273935928,
+              "object_p95_mm": 274.3019256276322,
+              "rejected": {
+                "depth spread exceeds 35 mm": 21,
+                "insufficient valid stereo support": 1
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4279185002360464,
+                "estimator_ms": 4.358784499800095,
+                "postprocess_ms": 2.854511500117951
+              }
+            }
+          }
+        },
+        "occluded": {
+          "False": {
+            "sgbm": {
+              "samples": 108,
+              "valid_pixels": 2693230,
+              "reference_pixels": 4052232,
+              "valid_pixel_fraction": 0.6646287774243923,
+              "depth_median_mm": 4.008352756500244,
+              "depth_p95_mm": 63.08698654174805,
+              "common_valid_pixels": 2692719,
+              "common_depth_median_mm": 4.007399082183838,
+              "common_depth_p95_mm": 62.8758659362793,
+              "foreground_median_mm": 28.692007064819336,
+              "foreground_p95_mm": 288.80169677734375,
+              "valid_objects": 303,
+              "object_opportunities": 324,
+              "object_valid_fraction": 0.9351851851851852,
+              "object_median_mm": 19.59540858960606,
+              "object_p95_mm": 295.8619934999875,
+              "rejected": {
+                "reference object not visible in left image": 6,
+                "insufficient valid stereo support": 15
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4242670001985971,
+                "estimator_ms": 18.23192450001443,
+                "postprocess_ms": 3.590391499983525
+              }
+            },
+            "learned": {
+              "samples": 108,
+              "valid_pixels": 4044850,
+              "reference_pixels": 4052232,
+              "valid_pixel_fraction": 0.9981782879163879,
+              "depth_median_mm": 2.862870693206787,
+              "depth_p95_mm": 74.29039001464844,
+              "common_valid_pixels": 2692719,
+              "common_depth_median_mm": 2.834022045135498,
+              "common_depth_p95_mm": 51.72771072387695,
+              "foreground_median_mm": 22.454679489135742,
+              "foreground_p95_mm": 272.89801025390625,
+              "valid_objects": 308,
+              "object_opportunities": 324,
+              "object_valid_fraction": 0.9506172839506173,
+              "object_median_mm": 11.584324736477674,
+              "object_p95_mm": 277.68335843596645,
+              "rejected": {
+                "reference object not visible in left image": 6,
+                "depth spread exceeds 35 mm": 10
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4242670001985971,
+                "estimator_ms": 4.334534000008716,
+                "postprocess_ms": 2.915796000024784
+              }
+            }
+          },
+          "True": {
+            "sgbm": {
+              "samples": 108,
+              "valid_pixels": 2690118,
+              "reference_pixels": 4043646,
+              "valid_pixel_fraction": 0.6652704020084844,
+              "depth_median_mm": 3.6400258541107178,
+              "depth_p95_mm": 35.3045768737793,
+              "common_valid_pixels": 2689844,
+              "common_depth_median_mm": 3.6398768424987793,
+              "common_depth_p95_mm": 35.287139892578125,
+              "foreground_median_mm": 26.116966247558594,
+              "foreground_p95_mm": 303.0066223144531,
+              "valid_objects": 277,
+              "object_opportunities": 324,
+              "object_valid_fraction": 0.8549382716049383,
+              "object_median_mm": 22.813099325346155,
+              "object_p95_mm": 306.80667030658594,
+              "rejected": {
+                "insufficient valid stereo support": 40,
+                "depth spread exceeds 35 mm": 7
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.42935199985549843,
+                "estimator_ms": 18.228538499897695,
+                "postprocess_ms": 3.505796999888844
+              }
+            },
+            "learned": {
+              "samples": 108,
+              "valid_pixels": 4039651,
+              "reference_pixels": 4043646,
+              "valid_pixel_fraction": 0.9990120302321222,
+              "depth_median_mm": 2.6414096355438232,
+              "depth_p95_mm": 49.52992630004883,
+              "common_valid_pixels": 2689844,
+              "common_depth_median_mm": 2.501159906387329,
+              "common_depth_p95_mm": 28.391674041748047,
+              "foreground_median_mm": 22.395252227783203,
+              "foreground_p95_mm": 253.06008911132812,
+              "valid_objects": 277,
+              "object_opportunities": 324,
+              "object_valid_fraction": 0.8549382716049383,
+              "object_median_mm": 10.950855378384377,
+              "object_p95_mm": 208.62321481218459,
+              "rejected": {
+                "depth spread exceeds 35 mm": 45,
+                "insufficient valid stereo support": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.42935199985549843,
+                "estimator_ms": 4.391501500094819,
+                "postprocess_ms": 2.840639999931227
+              }
+            }
+          }
+        },
+        "textured_cube": {
+          "False": {
+            "sgbm": {
+              "samples": 54,
+              "valid_pixels": 1319108,
+              "reference_pixels": 2012118,
+              "valid_pixel_fraction": 0.6555818296938848,
+              "depth_median_mm": 3.8773417472839355,
+              "depth_p95_mm": 50.42256546020508,
+              "common_valid_pixels": 1318995,
+              "common_depth_median_mm": 3.8773417472839355,
+              "common_depth_p95_mm": 50.42350387573242,
+              "foreground_median_mm": 29.2813777923584,
+              "foreground_p95_mm": 336.53497314453125,
+              "valid_objects": 147,
+              "object_opportunities": 162,
+              "object_valid_fraction": 0.9074074074074074,
+              "object_median_mm": 18.235171926285226,
+              "object_p95_mm": 345.53448917730645,
+              "rejected": {
+                "insufficient valid stereo support": 14,
+                "depth spread exceeds 35 mm": 1
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.42768349999278144,
+                "estimator_ms": 18.21537849991728,
+                "postprocess_ms": 3.6270964999403077
+              }
+            },
+            "learned": {
+              "samples": 54,
+              "valid_pixels": 2009915,
+              "reference_pixels": 2012118,
+              "valid_pixel_fraction": 0.9989051337943401,
+              "depth_median_mm": 2.8197169303894043,
+              "depth_p95_mm": 57.20598602294922,
+              "common_valid_pixels": 1318995,
+              "common_depth_median_mm": 2.808809280395508,
+              "common_depth_p95_mm": 41.03022003173828,
+              "foreground_median_mm": 24.77157211303711,
+              "foreground_p95_mm": 291.74346923828125,
+              "valid_objects": 145,
+              "object_opportunities": 162,
+              "object_valid_fraction": 0.8950617283950617,
+              "object_median_mm": 12.216704534188079,
+              "object_p95_mm": 293.8221035009224,
+              "rejected": {
+                "depth spread exceeds 35 mm": 17
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.42768349999278144,
+                "estimator_ms": 4.370086000108131,
+                "postprocess_ms": 2.9043809997801873
+              }
+            }
+          },
+          "True": {
+            "sgbm": {
+              "samples": 162,
+              "valid_pixels": 4064240,
+              "reference_pixels": 6083760,
+              "valid_pixel_fraction": 0.668047391744579,
+              "depth_median_mm": 3.7923083305358887,
+              "depth_p95_mm": 48.57099151611328,
+              "common_valid_pixels": 4063568,
+              "common_depth_median_mm": 3.791168212890625,
+              "common_depth_p95_mm": 48.4410514831543,
+              "foreground_median_mm": 26.905715942382812,
+              "foreground_p95_mm": 284.8778076171875,
+              "valid_objects": 433,
+              "object_opportunities": 486,
+              "object_valid_fraction": 0.8909465020576132,
+              "object_median_mm": 23.107488865148316,
+              "object_p95_mm": 294.8238227894605,
+              "rejected": {
+                "depth spread exceeds 35 mm": 6,
+                "insufficient valid stereo support": 41,
+                "reference object not visible in left image": 6
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.42712250001386565,
+                "estimator_ms": 18.232109999871682,
+                "postprocess_ms": 3.520920999790178
+              }
+            },
+            "learned": {
+              "samples": 162,
+              "valid_pixels": 6074586,
+              "reference_pixels": 6083760,
+              "valid_pixel_fraction": 0.99849205096848,
+              "depth_median_mm": 2.723902463912964,
+              "depth_p95_mm": 62.1324462890625,
+              "common_valid_pixels": 4063568,
+              "common_depth_median_mm": 2.609550952911377,
+              "common_depth_p95_mm": 40.334224700927734,
+              "foreground_median_mm": 21.865234375,
+              "foreground_p95_mm": 264.2392883300781,
+              "valid_objects": 440,
+              "object_opportunities": 486,
+              "object_valid_fraction": 0.9053497942386831,
+              "object_median_mm": 10.942642722687271,
+              "object_p95_mm": 249.8706054006879,
+              "rejected": {
+                "depth spread exceeds 35 mm": 38,
+                "insufficient valid stereo support": 2,
+                "reference object not visible in left image": 6
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.42712250001386565,
+                "estimator_ms": 4.356014499990124,
+                "postprocess_ms": 2.866829499907908
+              }
+            }
+          }
+        },
+        "time_offset_ms": {
+          "0": {
+            "sgbm": {
+              "samples": 72,
+              "valid_pixels": 1643881,
+              "reference_pixels": 2698626,
+              "valid_pixel_fraction": 0.6091548069276735,
+              "depth_median_mm": 4.040658473968506,
+              "depth_p95_mm": 30.49302101135254,
+              "common_valid_pixels": 1643463,
+              "common_depth_median_mm": 4.039168357849121,
+              "common_depth_p95_mm": 30.431564331054688,
+              "foreground_median_mm": 4.927158355712891,
+              "foreground_p95_mm": 38.2347297668457,
+              "valid_objects": 204,
+              "object_opportunities": 216,
+              "object_valid_fraction": 0.9444444444444444,
+              "object_median_mm": 9.641313449895055,
+              "object_p95_mm": 27.92351929135198,
+              "rejected": {
+                "insufficient valid stereo support": 10,
+                "reference object not visible in left image": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.42696199989222805,
+                "estimator_ms": 18.275291500003732,
+                "postprocess_ms": 3.6669370003892254
+              }
+            },
+            "learned": {
+              "samples": 72,
+              "valid_pixels": 2693453,
+              "reference_pixels": 2698626,
+              "valid_pixel_fraction": 0.9980830985842425,
+              "depth_median_mm": 3.1752288341522217,
+              "depth_p95_mm": 61.32893371582031,
+              "common_valid_pixels": 1643463,
+              "common_depth_median_mm": 2.8687119483947754,
+              "common_depth_p95_mm": 25.467864990234375,
+              "foreground_median_mm": 3.927290439605713,
+              "foreground_p95_mm": 24.035463333129883,
+              "valid_objects": 210,
+              "object_opportunities": 216,
+              "object_valid_fraction": 0.9722222222222222,
+              "object_median_mm": 3.2801867063273504,
+              "object_p95_mm": 17.038482833965006,
+              "rejected": {
+                "depth spread exceeds 35 mm": 4,
+                "reference object not visible in left image": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.42696199989222805,
+                "estimator_ms": 4.35169100001076,
+                "postprocess_ms": 2.8711170000406128
+              }
+            }
+          },
+          "33": {
+            "sgbm": {
+              "samples": 72,
+              "valid_pixels": 1917645,
+              "reference_pixels": 2698626,
+              "valid_pixel_fraction": 0.7106005055906228,
+              "depth_median_mm": 3.7944912910461426,
+              "depth_p95_mm": 48.07011795043945,
+              "common_valid_pixels": 1917643,
+              "common_depth_median_mm": 3.7944912910461426,
+              "common_depth_p95_mm": 48.06806945800781,
+              "foreground_median_mm": 42.161808013916016,
+              "foreground_p95_mm": 98.08158111572266,
+              "valid_objects": 199,
+              "object_opportunities": 216,
+              "object_valid_fraction": 0.9212962962962963,
+              "object_median_mm": 47.007349775971974,
+              "object_p95_mm": 108.94745243815058,
+              "rejected": {
+                "insufficient valid stereo support": 14,
+                "depth spread exceeds 35 mm": 1,
+                "reference object not visible in left image": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.42712300000857795,
+                "estimator_ms": 18.180732499786245,
+                "postprocess_ms": 3.50057649984592
+              }
+            },
+            "learned": {
+              "samples": 72,
+              "valid_pixels": 2698505,
+              "reference_pixels": 2698626,
+              "valid_pixel_fraction": 0.9999551623678123,
+              "depth_median_mm": 2.5225579738616943,
+              "depth_p95_mm": 39.102439880371094,
+              "common_valid_pixels": 1917643,
+              "common_depth_median_mm": 2.628624439239502,
+              "common_depth_p95_mm": 40.676055908203125,
+              "foreground_median_mm": 36.931915283203125,
+              "foreground_p95_mm": 79.08219909667969,
+              "valid_objects": 209,
+              "object_opportunities": 216,
+              "object_valid_fraction": 0.9675925925925926,
+              "object_median_mm": 38.08303491384979,
+              "object_p95_mm": 81.59662948131093,
+              "rejected": {
+                "depth spread exceeds 35 mm": 5,
+                "reference object not visible in left image": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.42712300000857795,
+                "estimator_ms": 4.357937999884598,
+                "postprocess_ms": 2.876988500020161
+              }
+            }
+          },
+          "100": {
+            "sgbm": {
+              "samples": 72,
+              "valid_pixels": 1821822,
+              "reference_pixels": 2698626,
+              "valid_pixel_fraction": 0.6750924359285059,
+              "depth_median_mm": 3.6393702030181885,
+              "depth_p95_mm": 150.11367797851562,
+              "common_valid_pixels": 1821457,
+              "common_depth_median_mm": 3.6382675170898438,
+              "common_depth_p95_mm": 149.85020446777344,
+              "foreground_median_mm": 148.02523803710938,
+              "foreground_p95_mm": 376.30194091796875,
+              "valid_objects": 177,
+              "object_opportunities": 216,
+              "object_valid_fraction": 0.8194444444444444,
+              "object_median_mm": 155.13612693158882,
+              "object_p95_mm": 421.278119381668,
+              "rejected": {
+                "insufficient valid stereo support": 31,
+                "depth spread exceeds 35 mm": 6,
+                "reference object not visible in left image": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4273729998658382,
+                "estimator_ms": 18.22108900000785,
+                "postprocess_ms": 3.5120384998208465
+              }
+            },
+            "learned": {
+              "samples": 72,
+              "valid_pixels": 2692543,
+              "reference_pixels": 2698626,
+              "valid_pixel_fraction": 0.997745889945476,
+              "depth_median_mm": 2.6022791862487793,
+              "depth_p95_mm": 149.73492431640625,
+              "common_valid_pixels": 1821457,
+              "common_depth_median_mm": 2.5054514408111572,
+              "common_depth_p95_mm": 115.02589416503906,
+              "foreground_median_mm": 144.52978515625,
+              "foreground_p95_mm": 353.7301940917969,
+              "valid_objects": 166,
+              "object_opportunities": 216,
+              "object_valid_fraction": 0.7685185185185185,
+              "object_median_mm": 138.96253156161356,
+              "object_p95_mm": 334.3534301877023,
+              "rejected": {
+                "depth spread exceeds 35 mm": 46,
+                "insufficient valid stereo support": 2,
+                "reference object not visible in left image": 2
+              },
+              "timing_median_ms": {
+                "rectification_ms": 0.4273729998658382,
+                "estimator_ms": 4.370086000108131,
+                "postprocess_ms": 2.875145500183862
+              }
+            }
+          }
+        }
+      },
+      "object_classes": {
+        "red_cube": {
+          "sgbm": {
+            "valid": 177,
+            "opportunities": 216,
+            "median_mm": 58.1698828964137,
+            "p95_mm": 347.6526275191381
+          },
+          "learned": {
+            "valid": 179,
+            "opportunities": 216,
+            "median_mm": 38.258782887156805,
+            "p95_mm": 277.7673212823863
+          }
+        },
+        "blue_bowl": {
+          "sgbm": {
+            "valid": 205,
+            "opportunities": 216,
+            "median_mm": 16.298604309912907,
+            "p95_mm": 29.29167746445242
+          },
+          "learned": {
+            "valid": 206,
+            "opportunities": 216,
+            "median_mm": 4.6128836268818105,
+            "p95_mm": 20.69235843235624
+          }
+        },
+        "reference": {
+          "sgbm": {
+            "valid": 198,
+            "opportunities": 216,
+            "median_mm": 53.461506855939575,
+            "p95_mm": 346.34483890738517
+          },
+          "learned": {
+            "valid": 200,
+            "opportunities": 216,
+            "median_mm": 43.54313651936131,
+            "p95_mm": 295.16118266974127
+          }
+        }
+      },
+      "marker_triangulation": {
+        "valid": 632,
+        "median_mm": 1.397093867771188,
+        "p95_mm": 5.7142010120605855
+      },
+      "model_checkpoint": "checkpoints/so101-compact-stereo/best.pt",
+      "model_peak_allocated_mb": 31.4482421875,
+      "model_peak_reserved_mb": 42.0,
+      "model_process_gpu_mb_at_end": 270.0
+    }
+  },
+  "onnx_parity": [
+    {
+      "sample": "test/test_0001_clean.npz",
+      "max_disparity_difference_px": 6.866455078125e-05,
+      "max_confidence_difference": 2.8014183044433594e-06
+    },
+    {
+      "sample": "test/test_0010_degraded.npz",
+      "max_disparity_difference_px": 0.0001068115234375,
+      "max_confidence_difference": 3.874301910400391e-06
+    },
+    {
+      "sample": "unseen/unseen_0001_clean.npz",
+      "max_disparity_difference_px": 0.00022125244140625,
+      "max_confidence_difference": 3.0994415283203125e-06
+    },
+    {
+      "sample": "asynchronous/asynchronous_0001_offset100_degraded.npz",
+      "max_disparity_difference_px": 0.00014495849609375,
+      "max_confidence_difference": 3.546476364135742e-06
+    }
+  ],
+  "integration": {
+    "adapter_objects": [
+      {
+        "object_id": "red_cube_1",
+        "xyz": [
+          0.17660313174469766,
+          -0.08616038799927322,
+          0.03242141410777563
+        ],
+        "reference_frame": "so101_work_surface",
+        "timestamp_ns": 421000000001,
+        "valid": true,
+        "reference_kind": "surface"
+      },
+      {
+        "object_id": "red_cube_2",
+        "xyz": [
+          0.29417451413649287,
+          -0.027924294429686775,
+          0.00035255327727920505
+        ],
+        "reference_frame": "so101_work_surface",
+        "timestamp_ns": 421000000001,
+        "valid": true,
+        "reference_kind": "surface"
+      },
+      {
+        "object_id": "red_cube_3",
+        "xyz": [
+          0.25644812086293806,
+          -0.10597874627021883,
+          0.0036898169681593984
+        ],
+        "reference_frame": "so101_work_surface",
+        "timestamp_ns": 421000000001,
+        "valid": true,
+        "reference_kind": "surface"
+      },
+      {
+        "object_id": "red_cube_4",
+        "xyz": [
+          0.0972652990168906,
+          0.11021717707217055,
+          0.0019117848947788896
+        ],
+        "reference_frame": "so101_work_surface",
+        "timestamp_ns": 421000000001,
+        "valid": true,
+        "reference_kind": "surface"
+      },
+      {
+        "object_id": "blue_bowl_1",
+        "xyz": [
+          0.1875429595648015,
+          0.09300678871681778,
+          0.012195163661230385
+        ],
+        "reference_frame": "so101_work_surface",
+        "timestamp_ns": 421000000001,
+        "valid": true,
+        "reference_kind": "surface"
+      },
+      {
+        "object_id": "blue_bowl_2",
+        "xyz": [
+          0.1429248554609453,
+          0.02682643976749388,
+          0.001968114741328686
+        ],
+        "reference_frame": "so101_work_surface",
+        "timestamp_ns": 421000000001,
+        "valid": true,
+        "reference_kind": "surface"
+      },
+      {
+        "object_id": "blue_bowl_3",
+        "xyz": null,
+        "reference_frame": "so101_work_surface",
+        "timestamp_ns": 421000000001,
+        "valid": false,
+        "reference_kind": "surface"
+      },
+      {
+        "object_id": "blue_bowl_4",
+        "xyz": null,
+        "reference_frame": "so101_work_surface",
+        "timestamp_ns": 421000000001,
+        "valid": false,
+        "reference_kind": "surface"
+      },
+      {
+        "object_id": "blue_bowl_5",
+        "xyz": [
+          0.2867360520212068,
+          0.02456569070202219,
+          0.002179978313481712
+        ],
+        "reference_frame": "so101_work_surface",
+        "timestamp_ns": 421000000001,
+        "valid": true,
+        "reference_kind": "surface"
+      }
+    ],
+    "skew_100ms_rejected": true,
+    "saved_pair_inference_parity": true,
+    "cpu_estimator_ms_median": 94.05372950004676,
+    "cpu_estimator_ms_p95": 96.4309392999894,
+    "cpu_threads": 2,
+    "checkpoint_sha256": "792fa8af6fac4ca6b5a85f5867d4e1c5ca321697ed7faccb750b50f6b3423709"
+  },
+  "tests": {
+    "stereo_learning": 8,
+    "existing_vision": 27,
+    "ruff": "passed",
+    "resume_weights": "bit equal on CPU regression"
+  },
+  "source_sha256": {
+    "configs/stereo/so101.yaml": "64fcc8ad4950d594ff0d66d914344ca321a208b2e1de018b26e501d5b37c0438",
+    "requirements-stereo.lock.txt": "ed6ae7976dbb1a22704471d684708ba0edf15043a3dc3a8ba8ba5cc755d33a89",
+    "scripts/audit_stereo_dataset.py": "ec45bf7cbe78e73c8f5e949143d97c77cce49c1ec2bab08c1e3d84cee5b69903",
+    "scripts/generate_stereo_isaac.py": "fe402193077e3ade23da52d03c619e6ad44628452f5faae8a0b0eee86052252b",
+    "scripts/plot_stereo_run.py": "b5e09063a9be5a124d2a6e29e912106b6967878d23a90a23ff9065b272323018",
+    "scripts/prepare_so101_stereo.py": "412e39f18807a57eaaaad03bd27f6444751fb9de6264d69e98b2f484735b9cd9",
+    "scripts/stereo_depth.py": "58433fa31b5465c354b448a572f4e2b679104891afecb975e592ff10c1aa41b9",
+    "src/ros_robot_studio/vision/stereo.py": "bd2c44d86a58f92c8a9829e100f4af49f4c1d92b3d0b89b0bfba0bac18c136e4",
+    "src/ros_robot_studio/vision/stereo_learning/__init__.py": "466d1b9d3fd4b45cf0d107ac64f38e93c5f13ed76077aeaa48b93fc0fc52a12e",
+    "src/ros_robot_studio/vision/stereo_learning/adapter.py": "beba0d8ede2c343fb1a5a852bec7385c5a94df57565a3d77a6e4c63baafa7f79",
+    "src/ros_robot_studio/vision/stereo_learning/evaluation.py": "b03e95d522e0e71715638f73b4246d5151b5bac1d3fe4ec20a1da7d0ce9faf4e",
+    "src/ros_robot_studio/vision/stereo_learning/geometry.py": "06968b93f11ffc8117851a6cbe49efeb3e5d2338bf7a3f9e94bfcfa435324e8c",
+    "src/ros_robot_studio/vision/stereo_learning/inference.py": "0daa64b5abbb0dff08819387d63a36064b6e38a4d7294eb8f335afde0f463634",
+    "src/ros_robot_studio/vision/stereo_learning/model.py": "b1c3250b0f60dc1325123767f6fe2caba049bff4563a941cbc33daceb79b1c45",
+    "src/ros_robot_studio/vision/stereo_learning/training.py": "05eface573ad63f9b5d2354ab000d0ed4f625ad1a64ec2bb8d4bcf452453c898",
+    "tests/test_stereo_learning.py": "591a0e1db7fe6920dd9207d9311f214b8692a206b2ba58670df8b065f6b7f0c0"
+  }
+}

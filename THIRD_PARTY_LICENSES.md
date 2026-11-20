@@ -14,6 +14,9 @@ Dependencies are not relicensed by Studio. Their distributed notices remain auth
 | SciPy (optional kinematics) | 1.15.3 | BSD-3-Clause; bundled OpenBLAS and other notices in the wheel retain their licenses |
 | OpenCV Contrib Python Headless (optional vision) | 4.12.0.88 | Apache-2.0 for OpenCV; the wheel includes additional third-party notices. [OpenCV license](https://github.com/opencv/opencv/blob/4.12.0/LICENSE) |
 | ONNX Runtime (optional vision) | 1.22.1 | MIT; package notices apply. [ONNX Runtime license](https://github.com/microsoft/onnxruntime/blob/v1.22.1/LICENSE) |
+| PyTorch (optional stereo training) | 2.6.0+cu124 | BSD-3-Clause; CUDA/cuDNN/NCCL and other wheel components retain their separate notices. [PyTorch license](https://github.com/pytorch/pytorch/blob/v2.6.0/LICENSE) |
+| ONNX (optional stereo export) | 1.17.0 | Apache-2.0; package notices apply. [ONNX license](https://github.com/onnx/onnx/blob/v1.17.0/LICENSE) |
+| Matplotlib (optional stereo reports) | 3.10.3 | Matplotlib/PSF-style license; bundled dependency notices apply. [Matplotlib license](https://github.com/matplotlib/matplotlib/blob/v3.10.3/LICENSE/LICENSE) |
 | NumPy | 2.2.6 | BSD-3-Clause; bundled numerical-library notices also apply |
 | Pydantic | 2.10.6 | MIT |
 | PyYAML | 6.0.2 | MIT |

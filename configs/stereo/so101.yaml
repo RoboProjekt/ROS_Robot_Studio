@@ -1,0 +1,33 @@
+schema_version: 1
+seed: 101
+image:
+  width: 320
+  height: 192
+  horizontal_fov_deg: 65
+camera:
+  baseline_m: 0.08
+  baselines_m: [0.06, 0.08, 0.10]
+  distances_m: [0.30, 0.45, 0.60]
+  depth_range_m: [0.18, 1.0]
+  mount_jitter_deg: 3.0
+  optical_frames: [so101_stereo_left_optical_frame, so101_stereo_right_optical_frame]
+  reference_frame: so101_work_surface
+dataset:
+  train_scenes: 360
+  validation_scenes: 60
+  test_scenes: 90
+  unseen_scenes: 45
+  asynchronous_scenes: 36
+  blur_sigmas: [0.0, 0.8, 1.6]
+  jpeg_qualities: [100, 85, 65]
+  time_offsets_ms: [0, 33, 100]
+model:
+  max_disparity: 128
+  channels: 12
+train:
+  epochs: 60
+  batch_size: 8
+  learning_rate: 0.001
+  workers: 0
+  threads: 2
+  device: cuda
