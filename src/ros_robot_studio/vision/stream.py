@@ -137,6 +137,8 @@ class CameraStream:
         if profile.id != self.camera.backend_id or not self.session.container_id:
             raise ValueError("Camera requires its own connected backend session")
         targets = {self.camera.world_frame, self.camera.base_frame}
+        if self.camera.id in ("so101_stereo_left", "so101_stereo_right"):
+            targets.update(("robot_base", "so101_work_surface"))
         if self.camera.plane:
             targets.add(self.camera.plane.frame)
         config = self.camera.model_dump(mode="json")

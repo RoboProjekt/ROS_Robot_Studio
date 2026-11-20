@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QTableWidget,
     QTableWidgetItem,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -35,6 +36,7 @@ from ros_robot_studio.gui.camera_dialogs import (
     values,
     vector_fields,
 )
+from ros_robot_studio.gui.stereo_workspace import StereoWorkspace
 from ros_robot_studio.gui.widgets import button, label
 from ros_robot_studio.motion.positions import VisionPoseProvider
 from ros_robot_studio.vision.detection import (
@@ -278,7 +280,14 @@ class VisionWorkspace(QObject):
     def build_view(self):
         self.panel = QWidget()
         self.panel.setObjectName("CameraVision")
-        layout = QVBoxLayout(self.panel)
+        container = QVBoxLayout(self.panel)
+        tabs = QTabWidget()
+        container.addWidget(tabs)
+        mono = QWidget()
+        tabs.addTab(mono, "RGB")
+        self.stereo = StereoWorkspace(self)
+        tabs.addTab(self.stereo, "Stereo & Planning")
+        layout = QVBoxLayout(mono)
         self.camera = QComboBox()
         self.camera.activated.connect(lambda _: self.select(self.camera.currentData()))
         layout.addWidget(self.camera)
@@ -355,6 +364,7 @@ class VisionWorkspace(QObject):
 
     def load(self, project):
         self.stop()
+        self.stereo.stop()
         self.cameras.load(project.cameras)
         self.refresh()
 
@@ -466,13 +476,15 @@ class VisionWorkspace(QObject):
             self.refresh()
 
     def author(self, camera, destination=None):
-        profile = self.backend(camera)
+        stereo = isinstance(camera, tuple)
+        cameras = camera if stereo else (camera,)
+        profile = self.backend(cameras[0])
         if not profile or profile.backend_type != "isaac_sim" or self.pending_authoring:
             raise ValueError("Choose an Isaac backend and finish current scene work first")
         header = self.main.simulation_header
         local = header.local(profile.id)
         source = local.get("scene_path")
-        if not source:
+        if not source and not stereo:
             raise ValueError("Choose the source USD in the Simulation File field first")
         if self.main.runner.busy or self.main.isaac_processes.processes:
             raise ValueError("Finish the current operation and stop the owned Isaac instance first")
@@ -484,7 +496,7 @@ class VisionWorkspace(QObject):
             destination, _ = QFileDialog.getSaveFileName(
                 self.main,
                 "Save derived RGB scene",
-                "SO101_RGB_Vision_Demo.usd",
+                "SO101_Stereo_Demo.usda" if stereo else "SO101_RGB_Vision_Demo.usd",
                 "USD (*.usd *.usda *.usdc)",
             )
         if not destination:
@@ -495,12 +507,13 @@ class VisionWorkspace(QObject):
         existing = self.cameras.profiles
         trial = CameraManager()
         trial.load(existing.values())
-        trial.save(camera)
+        for item in cameras:
+            trial.save(item)
         project_id = self.main.project.id
         model, positions = self.main.model, self.main.independent_positions()
         folder = self.main.model_manager.root.parent / "simulations" / profile.id / uuid4().hex
         self.config_status.setText("Building an independent RGB scene in Isaac Sim…")
-        self.pending_authoring = (profile.id, project_id, camera, destination)
+        self.pending_authoring = (profile.id, project_id, cameras, destination)
 
         def prepared(request):
             try:
@@ -517,7 +530,14 @@ class VisionWorkspace(QObject):
 
         self.main.runner.run(
             lambda _: IsaacSimSceneManager().prepare(
-                profile, model, folder, positions, source, camera=camera, vision_output=destination
+                profile,
+                model,
+                folder,
+                positions,
+                source,
+                camera=None if stereo else camera,
+                stereo=cameras if stereo else (),
+                vision_output=destination,
             ),
             prepared,
             lambda message: self.scene_error(profile.id, message),
@@ -534,7 +554,9 @@ class VisionWorkspace(QObject):
         processes = self.main.isaac_processes
         if identity in processes.processes:
             return
-        _, project_id, camera, destination = self.pending_authoring
+        _, project_id, cameras, destination = self.pending_authoring
+        # Keep compatibility with callers that store one camera request.
+        cameras = cameras if isinstance(cameras, tuple) else (cameras,)
         self.pending_authoring = None
         report = processes.ready_reports.get(identity, {})
         if not destination.is_file() or report.get("scene") != str(destination):
@@ -543,19 +565,24 @@ class VisionWorkspace(QObject):
         if project_id != self.main.project.id:
             self.config_status.setText(f"Saved {destination}; the active project changed")
             return
-        item = next(
-            (value for value in report.get("rgb_cameras", ()) if value["id"] == camera.id), None
-        )
-        if not item:
+        items = {item["id"]: item for item in report.get("rgb_cameras", ())}
+        if any(camera.id not in items for camera in cameras):
             self.config_status.setText("Isaac did not report the authored RGB camera")
             return
-        if item.get("plane"):
-            camera = camera.model_copy(update={"plane": WorkPlane.model_validate(item["plane"])})
         try:
             self.main.backend_manager.select_profile(identity)
             self.main.simulation_header.assign_scene(str(destination))
-            self.save_camera(camera)
-            self.config_status.setText(f"Saved {destination}\nCamera prim {item['prim']}")
+            for camera in cameras:
+                item = items[camera.id]
+                if item.get("plane"):
+                    camera = camera.model_copy(
+                        update={"plane": WorkPlane.model_validate(item["plane"])}
+                    )
+                self.save_camera(camera)
+            self.config_status.setText(
+                f"Saved {destination}\nCamera prims "
+                + ", ".join(items[c.id]["prim"] for c in cameras)
+            )
         except (ValueError, OSError) as exc:
             self.config_status.setText(str(exc))
 
@@ -928,7 +955,7 @@ class VisionWorkspace(QObject):
 
     def close_ready(self):
         self.stop()
-        return not any(
+        return self.stereo.close_ready() and not any(
             thread and thread.is_alive()
             for thread in (self.stream.thread if self.stream else None, self.detector.thread)
         )

@@ -72,6 +72,7 @@ class IsaacSimSceneManager:
         existing_scene=None,
         *,
         camera=None,
+        stereo=(),
         vision_output=None,
     ):
         from ros_robot_studio.kinematics.engine import UniversalKinematicsEngine
@@ -140,24 +141,40 @@ class IsaacSimSceneManager:
                 raise ValueError("Use a separate output directory when opening an existing scene")
             request["existing_scene"] = str(scene)
             request["source_files"][str(scene)] = hashlib.sha256(scene.read_bytes()).hexdigest()
-        if camera is not None:
-            if (
+        cameras = tuple(stereo) if stereo else ((camera,) if camera is not None else ())
+        if cameras:
+            if stereo and (
+                camera is not None
+                or len(cameras) != 2
+                or profile.distribution != "humble"
+                or profile.domain_id != 1
+            ):
+                raise ValueError("Select an Isaac Humble backend in Domain 1 for the stereo demo.")
+            if any(
                 camera.backend_id != profile.id
                 or not camera.mount
                 or camera.mount.kind != "world_fixed"
                 or camera.mount.reference_frame != camera.world_frame
                 or camera.encoding != "raw"
                 or camera.base_frame != model.root
+                for camera in cameras
             ):
                 raise ValueError(
                     "Isaac authoring requires a world-fixed raw camera and the active model's base frame"
                 )
             destination = Path(vision_output).expanduser().resolve()
-            if not existing_scene or destination.suffix.lower() not in (".usd", ".usda", ".usdc"):
+            if (not existing_scene and not stereo) or destination.suffix.lower() not in (
+                ".usd",
+                ".usda",
+                ".usdc",
+            ):
                 raise ValueError("Select a source scene and a new USD destination")
             if destination.exists() or not destination.parent.is_dir():
                 raise ValueError("Choose a new USD file in an existing directory")
-            request["vision_camera"] = camera.model_dump(mode="json")
+            if stereo:
+                request["vision_stereo"] = [camera.model_dump(mode="json") for camera in cameras]
+            else:
+                request["vision_camera"] = cameras[0].model_dump(mode="json")
             request["vision_output"] = str(destination)
         path = directory / "scene-request.json"
         atomic_text(path, json.dumps(request, indent=2))

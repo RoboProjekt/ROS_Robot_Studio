@@ -324,6 +324,10 @@ Bei einer aktiven Isaac-Simulation folgen **Robot Configuration** und **Live Mon
 
 `./start.sh --pick-place-demo` öffnet zusätzlich das Beispiel mit 13 Schritten und virtueller Objektzuordnung. Die Abnahme bestätigt Gelenk- und Greiferbewegungen. Physischer Objektkontakt ist ein eigener, noch ausstehender Test.
 
+### Stereo, Qwen und MoveIt
+
+Der neue Reiter **Camera & Vision → Stereo & Planning** koppelt zwei ROS-Kameras mit einer Arbeitsszene, lokalem Ollama und MoveIt Plan Only. Isaac Sim kann dazu auf einem separaten Rechner laufen. [Einrichtung und Abnahme](docs/ISAAC_SIM_RGB_CAMERA.md#stereo-und-qwen-mit-einem-separaten-isaac-rechner)
+
 ### 14. RGB-Kamera zur USD hinzufügen
 
 1. Die eigene Szene auswählen und den laufenden eigenen Simulator stoppen.

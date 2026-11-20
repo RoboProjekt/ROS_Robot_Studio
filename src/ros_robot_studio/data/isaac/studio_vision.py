@@ -6,8 +6,6 @@ import os
 import tempfile
 
 import numpy as np
-import omni.graph.core as og
-import usdrt
 from pxr import Gf, Usd, UsdGeom
 
 METADATA = "studioVisionRGB"
@@ -94,6 +92,16 @@ def author_camera(stage, profile):
 
 
 def configure(stage, request, cameras):
+    import omni.graph.core as og
+    import usdrt
+
+    if request.get("vision_stereo"):
+        from stereo_workcell import author_fixtures
+
+        if stage.GetPrimAtPath("/World/StudioRGBTestCube"):
+            stage.RemovePrim("/World/StudioRGBTestCube")
+        author_fixtures(stage)
+        cameras = [author_camera(stage, profile) for profile in request["vision_stereo"]]
     if request.get("vision_camera"):
         new = author_camera(stage, request["vision_camera"])
         cameras = [c for c in cameras if c["id"] != new["id"]] + [new]
@@ -140,6 +148,17 @@ def configure(stage, request, cameras):
         )
 
     bases = set()
+    stereo = [camera for camera in cameras if camera["id"].startswith("so101_stereo_")]
+    if stereo and stereo[0].get("plane"):
+        plane = stereo[0]["plane"]
+        quat = Gf.Rotation(Gf.Vec3d(0, 0, 1), Gf.Vec3d(*plane["normal"])).GetQuat()
+        static_transform(
+            "StereoWorkSurface",
+            plane["frame"],
+            "so101_work_surface",
+            plane["point"],
+            (*vector(quat.GetImaginary()), quat.GetReal()),
+        )
     for index, camera in enumerate(cameras):
         width, height, fps = camera["width"], camera["height"], camera["fps"]
         if not (16 <= width <= 1920 and 16 <= height <= 1080 and 1 <= fps <= 60):
@@ -227,6 +246,10 @@ def configure(stage, request, cameras):
                 Usd.TimeCode.Default()
             )
             static_transform(f"BaseTF{index}", world, base, *tf_pose(base_pose))
+            if base != "robot_base" and stereo:
+                static_transform(
+                    f"StudioBaseAlias{index}", base, "robot_base", (0, 0, 0), (0, 0, 0, 1)
+                )
             bases.add((world, base))
         camera["world_from_optical"] = np.asarray(world_from_optical).T.tolist()
     keys = og.Controller.Keys

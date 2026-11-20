@@ -1,0 +1,6 @@
+FROM ros-robot-studio/humble:0.1.0
+USER root
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       ros-humble-moveit-ros-move-group ros-humble-moveit-planners-ompl ros-humble-robot-state-publisher ros-humble-moveit-simple-controller-manager \
+    && rm -rf /var/lib/apt/lists/*
