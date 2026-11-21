@@ -1,0 +1,37 @@
+schema_version: 1
+seed: 20261121
+source_split: test
+clean_only: true
+profiles:
+  - id: control
+    blur_sigma: [0.0, 0.0]
+  - id: blur_soft
+    blur_sigma: [0.4, 0.4]
+  - id: blur_mild
+    blur_sigma: [0.8, 0.8]
+  - id: blur_unequal
+    blur_sigma: [0.35, 0.9]
+  - id: motion_soft
+    motion_pixels: [3, 3]
+  - id: barrel_calibrated
+    lens_model: plumb_bob
+    distortion_left: [-0.02, 0.005, 0.0, 0.0, 0.0]
+    distortion_right: [-0.025, 0.005, 0.0, 0.0, 0.0]
+  - id: fisheye_calibrated
+    lens_model: fisheye
+    distortion_left: [0.31, 0.085, 0.0, 0.0]
+    distortion_right: [0.30, 0.08, 0.0, 0.0]
+  - id: fisheye_calibration_error
+    lens_model: fisheye
+    distortion_left: [0.31, 0.085, 0.0, 0.0]
+    distortion_right: [0.30, 0.08, 0.0, 0.0]
+    # Only the right camera's assumed calibration is perturbed, preserving the left GT grid.
+    assumed_distortion_right: [0.285, 0.08, 0.0, 0.0]
+  - id: combined_mild
+    lens_model: fisheye
+    distortion_left: [0.31, 0.085, 0.0, 0.0]
+    distortion_right: [0.30, 0.08, 0.0, 0.0]
+    assumed_distortion_right: [0.285, 0.08, 0.0, 0.0]
+    blur_sigma: [0.4, 0.65]
+    noise_sigma_dn: [1.0, 1.0]
+    gain: [1.0, 0.97]

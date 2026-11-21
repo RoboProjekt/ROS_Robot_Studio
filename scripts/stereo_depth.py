@@ -35,6 +35,14 @@ benchmark.add_argument(
     "--split", choices=["validation", "test", "unseen", "asynchronous"], default="test"
 )
 benchmark.add_argument("--device")
+robustness = commands.add_parser("robustness", help="Matched mild blur/lens/calibration tests")
+robustness.add_argument("--dataset", type=Path, required=True)
+robustness.add_argument("--checkpoint", type=Path, required=True)
+robustness.add_argument("--output", type=Path, required=True)
+robustness.add_argument(
+    "--effects-config", type=Path, default=Path("configs/stereo/robustness-mild.yaml")
+)
+robustness.add_argument("--device")
 infer = commands.add_parser("infer")
 infer.add_argument("--checkpoint", type=Path, required=True)
 infer.add_argument("--left", type=Path, required=True)
@@ -72,6 +80,12 @@ def main():
 
         report = benchmark(
             config, args.dataset, args.checkpoint, args.output, split=args.split, device=args.device
+        )
+    elif args.command == "robustness":
+        from ros_robot_studio.vision.stereo_learning.robustness import run
+
+        report = run(
+            config, args.dataset, args.checkpoint, args.output, args.effects_config, args.device
         )
     elif args.command == "infer":
         import cv2

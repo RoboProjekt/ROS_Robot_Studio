@@ -143,12 +143,24 @@ def object_classes(rows):
     return result
 
 
-def benchmark(config, dataset, checkpoint, output, *, split="test", device=None):
+def benchmark(
+    config,
+    dataset,
+    checkpoint,
+    output,
+    *,
+    split="test",
+    device=None,
+    preprocess=None,
+    clean_only=False,
+):
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     root = Path(dataset)
     manifest = json.loads((root / "manifest.json").read_text())
     records = [r for r in manifest["samples"] if r["split"] == split]
+    if clean_only:
+        records = [r for r in records if r["id"].endswith("_clean")]
     if not records:
         raise ValueError("Empty benchmark split")
     estimator = TorchEstimator(checkpoint, device or config["train"]["device"])
@@ -167,6 +179,9 @@ def benchmark(config, dataset, checkpoint, output, *, split="test", device=None)
         cal = meta["calibration"]
         with np.load(filename) as archive:
             sample = {key: archive[key].copy() for key in archive.files}
+        extra = {}
+        if preprocess is not None:
+            sample, extra = preprocess(sample, meta)
         # Apply actual OpenCV remaps even though the synthetic pinhole calibration is already rectified.
         # Map setup is cached by intrinsics, as it is in Studio. GT and Q use this same pixel grid.
         start = time.perf_counter()
@@ -194,7 +209,7 @@ def benchmark(config, dataset, checkpoint, output, *, split="test", device=None)
             cv2.remap(image, *mapping, cv2.INTER_LINEAR)
             for image, mapping in zip((a, b), rectification_maps[key])
         )
-        rect_ms = (time.perf_counter() - start) * 1000
+        rect_ms = (time.perf_counter() - start) * 1000 + extra.get("rectification_ms", 0)
         start = time.perf_counter()
         classical, classical_quality = sgbm(a, b, config["model"]["max_disparity"])
         classic_ms = (time.perf_counter() - start) * 1000
@@ -212,6 +227,8 @@ def benchmark(config, dataset, checkpoint, output, *, split="test", device=None)
             accepted = (
                 np.isfinite(points).all(2) & (points[..., 2] >= low) & (points[..., 2] <= high)
             )
+            if "photographic_support" in sample:
+                accepted &= sample["photographic_support"]
             points[~accepted] = np.nan
             clouds[method] = points
             target = sample["valid"] & (sample["depth"] > low) & (sample["depth"] < high)
@@ -260,6 +277,7 @@ def benchmark(config, dataset, checkpoint, output, *, split="test", device=None)
                     rectification_ms=rect_ms,
                     estimator_ms=elapsed,
                     postprocess_ms=post_ms,
+                    reference_support=extra,
                 )
             )
             stored[method] = np.where(accepted, disparity, np.nan)

@@ -114,6 +114,22 @@ PYTHONPATH=src "$PY" -m pytest --noconftest -q tests/test_stereo_learning.py
 
 Die YAML-Datei steuert die Basisprofile `baselines_m`, Abstände, Auflösung, Szeneanzahl und Trainingsparameter. `baseline_m` ist der nominale Startwert bzw. Fallback ohne Profilliste. Für ein einzelnes Basis-/Abstandsprofil sind zusätzlich `generate_stereo_isaac.py --baseline-m 0.08 --distance-m 0.45` möglich; die ausdrücklich ungesehene Testgruppe behält ihre andere Konfiguration. `mount_jitter_deg` steuert eine kleine näherungsweise Winkelvariation über Positions-/Zielverschiebungen. Intrinsics und Posen werden immer neu gespeichert.
 
+## Ergänzte milde Kameratests vom 21.11.2026
+
+Der [zusätzliche Blur-/Linsenbericht](stereo/robustness-mild/RESULTS.md) vergleicht neun Profile auf jeweils denselben 90 sauberen Testpaaren. Konfigurierbar sind leichte Gauß- und Bewegungsunschärfe, unterschiedliche Schärfe links/rechts, Brown-Conrady- und Fisheye-Verzeichnung sowie eine kleine Fehlkalibrierung rechts. Der kombinierte Fall ergänzt geringes Rauschen und einen Helligkeitsunterschied. Die Standardverzeichnung verschiebt Punkte um höchstens 4,27 Pixel bei 320×192; die größte Restabweichung nach der absichtlich fehlerhaften rechten Entzerrung beträgt 1,07 Pixel.
+
+```bash
+"$PY" scripts/stereo_depth.py robustness \
+  --dataset "$DATASET" --checkpoint "$RUN/best.pt" \
+  --effects-config configs/stereo/robustness-mild.yaml \
+  --output "$RESULTS/robustness-mild" --device cuda
+
+PYTHONPATH=src "$PY" -m pytest --noconftest -q \
+  tests/test_stereo_learning.py tests/test_stereo_camera_effects.py
+```
+
+Ein neues Ausgabeverzeichnis wählen, wenn der Bericht dort bereits existiert. Die originalen Trainingsdateien und Gewichte bleiben erhalten. Der Vergleich verwendet für alle Profile dieselbe fotografisch verfügbare Referenzregion. Die linke Kamera wird immer geometrisch korrekt entzerrt; die rechte erhält im Kalibrierfehlertest leicht unpassende Parameter. Damit bleiben linke Tiefenlabels und Q konsistent. Diese Erweiterung betrifft Offline-Tests. Live-Fisheye-CameraInfo in der GUI ist damit noch nicht ergänzt.
+
 ## Übergabe an Robot Studio
 
 Der Austauschpunkt bleibt `OpenCVStereo.compute_disparity()`. Das unveränderte `estimate()`-Ergebnis enthält rektifizierte RGB-Bilder, Disparität, metrische Punkte und Transformation. `LearnedStereo` erbt CameraInfo-Prüfung, bildzeitbezogene TF2-Transformation, OpenCV-Rektifizierung, Q-Rekonstruktion und das bestehende HSV-Objektergebnis. Zusätzlich weist es Paare über dem vorhandenen Studio-Limit von 25 ms Zeitversatz ab. Das schützt nicht vor einer unbekannten Differenz zwischen USB-Aufnahmezeitpunkt und gemeldetem Zeitstempel. Der bestehende Pairer prüft außerdem Alter und Reihenfolge.
