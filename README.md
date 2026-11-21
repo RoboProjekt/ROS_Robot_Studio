@@ -330,6 +330,7 @@ Ein separat ausführbarer, tatsächlich trainierter Stereo-Tiefenschätzer mit I
 OpenCV-Vergleich, ONNX-Export und optionalem Studio-Adapter ist in der
 [Stereo-Trainingsdokumentation](docs/STEREO_DEPTH_TRAINING.md) beschrieben. Die Messwerte gelten für Simulation.
 Zusätzliche [milde Blur-/Fisheye-Tests](docs/stereo/robustness-mild/RESULTS.md) prüfen günstige Kameraoptik und kleine Kalibrierabweichungen auf identischen Testszenen.
+Der geprüfte [PyTorch-/ONNX-Modellstand](checkpoints/so101-compact-stereo/README.md) und ein kleines kalibriertes Beispielpaar sind enthalten; die Inferenz benötigt keinen laufenden Simulator.
 
 Der neue Reiter **Camera & Vision → Stereo & Planning** koppelt zwei ROS-Kameras mit einer Arbeitsszene, lokalem Ollama und MoveIt Plan Only. Isaac Sim kann dazu auf einem separaten Rechner laufen. [Einrichtung und Abnahme](docs/ISAAC_SIM_RGB_CAMERA.md#stereo-und-qwen-mit-einem-separaten-isaac-rechner)
 

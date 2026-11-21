@@ -52,7 +52,17 @@ Der Gültigkeitsschwellwert ist 0,08, hinzu kommen positive Disparität und rech
 
 Seed ist 101. AdamW verwendet Lernrate 0,001, Weight Decay 0,0001, Batch 8, Smooth-L1 auf gültiger Referenzdisparität, fünffaches Objektpixelgewicht und Gradient Clipping 10. Es gibt keine Verwendung der Testdaten zur Auswahl. Der beste Checkpoint wird ausschließlich nach dem Validierungs-EPE bestimmt. `last.pt` enthält zusätzlich Optimizer, Epochennummer und Python-/NumPy-/Torch-/CUDA-Zufallszustände. Die Szene-Splits, Konfiguration, Verlauf und Datenfingerprint werden gespeichert. Train-/Validierungsdateien werden gegen die Audit-Prüfsummen geprüft. Ein Regressionstest vergleicht unterbrochenes und durchgehendes Training auf bitgleiche Gewichte. Deterministische Ergebnisse sind für diese Umgebung angestrebt; andere GPU-/Treiber-/Renderer-Versionen können numerisch abweichen.
 
-Die endgültigen Zahlen, Fehlergruppen, Laufzeiten, Artefaktprüfsummen und Beispiele stehen im [ausgeführten Messbericht](stereo/RESULTS.md). Gewichte und Datensatz bleiben außerhalb der Git-Historie. Der Modellpfad relativ zu diesem Checkout ist `checkpoints/so101-compact-stereo/best.pt`, der fortsetzbare Stand `last.pt` im gleichen Ordner. Das ONNX-Modell heißt `compact-stereo.onnx`. Das [versionierte Modellmanifest](../configs/stereo/model-manifest.json) beschreibt Format und Nachverarbeitung; beim Export wird daneben zusätzlich ein lokales Manifest mit absolutem Checkpoint-Pfad erzeugt.
+Die endgültigen Zahlen, Fehlergruppen, Laufzeiten, Artefaktprüfsummen und Beispiele stehen im [ausgeführten Messbericht](stereo/RESULTS.md). Auf ausdrücklichen Wunsch werden die beiden kleinen geprüften Modellartefakte mit veröffentlicht: [best.pt](../checkpoints/so101-compact-stereo/best.pt) (ca. 171 KiB) und [compact-stereo.onnx](../checkpoints/so101-compact-stereo/compact-stereo.onnx) (ca. 205 KiB). Der Datensatz, der fortsetzbare lokale Stand `last.pt`, Trainingsausgaben und Rechnerpfade bleiben außerhalb der Git-Historie. Das [Modellmanifest](../configs/stereo/model-manifest.json) enthält die SHA-256-Prüfsummen und beschreibt Format und Nachverarbeitung. Der ursprüngliche Export erzeugt daneben ein nur lokal gespeichertes Manifest mit absolutem Checkpoint-Pfad.
+
+Für eine Inferenzprüfung nach einem frischen Checkout steht ein [kleines synthetisches RGB-Beispielpaar](stereo/example/metadata.json) mit Kalibrierung bereit. Nach Einrichtung der separaten Python-Umgebung funktioniert dieser Aufruf ohne Isaac Sim und ohne Datensatzerzeugung:
+
+```bash
+.bootstrap/stereo/venv/bin/python scripts/stereo_depth.py infer \
+  --checkpoint checkpoints/so101-compact-stereo/best.pt \
+  --left docs/stereo/example/left.png --right docs/stereo/example/right.png \
+  --calibration docs/stereo/example/metadata.json \
+  --output training-runs/published-example.npz --device cpu
+```
 
 ## Ausführbare Startbefehle
 

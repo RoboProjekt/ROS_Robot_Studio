@@ -50,7 +50,12 @@ Thumbs.db
 
 # Stereo training artifacts and locally installed optional environments
 /stereo-data/
-/checkpoints/
+/checkpoints/*
+!/checkpoints/so101-compact-stereo/
+/checkpoints/so101-compact-stereo/*
+!/checkpoints/so101-compact-stereo/best.pt
+!/checkpoints/so101-compact-stereo/compact-stereo.onnx
+!/checkpoints/so101-compact-stereo/README.md
 /training-runs/
 *.pth
 *.ckpt

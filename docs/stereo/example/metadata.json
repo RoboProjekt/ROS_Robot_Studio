@@ -1,0 +1,276 @@
+{
+  "schema_version": 1,
+  "id": "test_0001_clean",
+  "scene_id": "test_0001",
+  "frame_id": 421,
+  "seed": 424890,
+  "split": "test",
+  "simulator": "Isaac Sim 5.1",
+  "calibration": {
+    "width": 320,
+    "height": 192,
+    "K_left": [
+      [
+        251.14969233879845,
+        0.0,
+        159.5
+      ],
+      [
+        0.0,
+        251.14969233879845,
+        95.5
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "K_right": [
+      [
+        251.14969233879845,
+        0.0,
+        159.5
+      ],
+      [
+        0.0,
+        251.14969233879845,
+        95.5
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "P_left": [
+      [
+        251.14969233879845,
+        0.0,
+        159.5,
+        0.0
+      ],
+      [
+        0.0,
+        251.14969233879845,
+        95.5,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ]
+    ],
+    "P_right": [
+      [
+        251.14969233879845,
+        0.0,
+        159.5,
+        -20.091975387103876
+      ],
+      [
+        0.0,
+        251.14969233879845,
+        95.5,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ]
+    ],
+    "Q": [
+      [
+        1.0,
+        0.0,
+        0.0,
+        -159.5
+      ],
+      [
+        0.0,
+        1.0,
+        0.0,
+        -95.5
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        251.14969233879845
+      ],
+      [
+        0.0,
+        0.0,
+        12.5,
+        0.0
+      ]
+    ],
+    "baseline_m": 0.08,
+    "world_from_left": [
+      [
+        0.9990433176077995,
+        -0.027113161791147034,
+        0.03431218443772505,
+        0.15275579423396884
+      ],
+      [
+        -0.04373156232289646,
+        -0.6193975624896105,
+        0.7838585395584635,
+        -0.22783781464180944
+      ],
+      [
+        0.0,
+        -0.784609161327865,
+        -0.6199906966724452,
+        0.20697639333230988
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "world_from_right": [
+      [
+        0.9990433176077995,
+        -0.027113161791147034,
+        0.03431218443772505,
+        0.2326792596425928
+      ],
+      [
+        -0.04373156232289646,
+        -0.6193975624896105,
+        0.7838585395584635,
+        -0.23133633962764116
+      ],
+      [
+        0.0,
+        -0.784609161327865,
+        -0.6199906966724452,
+        0.20697639333230988
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "distortion_left": [],
+    "distortion_right": [],
+    "rectified": true,
+    "depth_type": "optical_z_m",
+    "disparity_type": "u_left_minus_u_right_px",
+    "left_frame": "so101_stereo_left_optical_frame",
+    "right_frame": "so101_stereo_right_optical_frame",
+    "world_frame": "world",
+    "work_frame": "so101_work_surface",
+    "work_from_world": [
+      [
+        1,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        1,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        1,
+        0.005
+      ],
+      [
+        0,
+        0,
+        0,
+        1
+      ]
+    ]
+  },
+  "objects": [
+    {
+      "id": "red_cube",
+      "mask_value": 1,
+      "reference_world": [
+        0.1769718238622813,
+        -0.08056898872650509,
+        0.03308870234191508
+      ],
+      "reference_camera": [
+        0.017752566740423123,
+        0.04455935046131466,
+        0.22407758235931396
+      ],
+      "reference_work": [
+        0.1769718238622813,
+        -0.08056898872650509,
+        0.038088702341915075
+      ],
+      "reference_rule": "coordinatewise median of optical XYZ in eroded left semantic mask; rigidly transformed to world/work",
+      "support": 1844
+    },
+    {
+      "id": "blue_bowl",
+      "mask_value": 2,
+      "reference_world": [
+        0.18737133135306233,
+        0.0902115548674795,
+        0.008344366165719819
+      ],
+      "reference_camera": [
+        0.020673625219781704,
+        -0.04208903263577655,
+        0.3736434578895569
+      ],
+      "reference_work": [
+        0.18737133135306233,
+        0.0902115548674795,
+        0.01334436616571982
+      ],
+      "reference_rule": "coordinatewise median of optical XYZ in eroded left semantic mask; rigidly transformed to world/work",
+      "support": 1959
+    },
+    {
+      "id": "reference",
+      "mask_value": 3,
+      "reference_world": [
+        0.23450141303351166,
+        -0.09824649562947477,
+        0.027868929372097145
+      ],
+      "reference_camera": [
+        0.07600018336150349,
+        0.05804442778110028,
+        0.2154310941696167
+      ],
+      "reference_work": [
+        0.23450141303351166,
+        -0.09824649562947477,
+        0.03286892937209714
+      ],
+      "reference_rule": "coordinatewise median of optical XYZ in eroded left semantic mask; rigidly transformed to world/work",
+      "support": 2584
+    }
+  ],
+  "distance_m": 0.3,
+  "baseline_m": 0.08,
+  "blur_sigma": 0.0,
+  "jpeg_quality": 100,
+  "occluded": true,
+  "textured_cube": true,
+  "right_time_offset_ms": 0,
+  "left_timestamp_ns": 421000000001,
+  "right_timestamp_ns": 421000000001,
+  "source_sha256": "3f7832135f0ee4a40481d8eb4f37c35a4be8fb464dff79cd6c7942514eace189"
+}
