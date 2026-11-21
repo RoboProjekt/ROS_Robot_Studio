@@ -52,6 +52,11 @@ infer.add_argument(
 )
 infer.add_argument("--output", type=Path, required=True)
 infer.add_argument("--device", default="cpu")
+infer.add_argument(
+    "--raw-fisheye",
+    action="store_true",
+    help="Rectify raw fisheye RGB using per-pair optics metadata",
+)
 export = commands.add_parser("export")
 export.add_argument("--checkpoint", type=Path, required=True)
 export.add_argument("--output", type=Path, required=True)
@@ -59,6 +64,9 @@ export.add_argument("--sample", type=Path, help="Use a real saved NPZ pair for O
 unpack = commands.add_parser("unpack", help="Save a generated NPZ pair as RGB PNGs and metadata")
 unpack.add_argument("--sample", type=Path, required=True)
 unpack.add_argument("--output", type=Path, required=True)
+unpack.add_argument(
+    "--raw", action="store_true", help="Unpack raw fisheye exposures instead of rectified RGB"
+)
 
 
 def main():
@@ -100,12 +108,57 @@ def main():
         left, right = (cv2.cvtColor(image, cv2.COLOR_BGR2RGB) for image in (left, right))
         value = json.loads(args.calibration.read_text())
         cal = value.get("calibration", value)
+        photographic_support = None
+        if args.raw_fisheye:
+            from ros_robot_studio.vision.stereo_learning.camera_effects import (
+                pixel_grid,
+                project_raw,
+                remap,
+            )
+
+            if value.get("optics_model") != "fisheye" or "optics" not in value:
+                raise ValueError(
+                    "Raw fisheye inference requires calibrated per-camera optics metadata"
+                )
+            grid = pixel_grid(cal["width"], cal["height"])
+            corrected = []
+            photographic_support = []
+            for side, image in zip(("left", "right"), (left, right)):
+                optical = value["optics"][side]
+                mapping = project_raw(
+                    grid,
+                    cal["K_" + side],
+                    optical["distortion"],
+                    "fisheye",
+                    destination_k=optical["raw_k"],
+                )
+                corrected.append(remap(image, mapping))
+                photographic_support.append(
+                    remap(np.ones(image.shape[:2], np.float32), mapping) > 0.99999
+                )
+            left, right = corrected
         if not cal.get("rectified"):
             raise ValueError("Provide rectified RGB images and their rectified calibration")
         estimator = TorchEstimator(args.checkpoint, args.device)
         disparity, quality, valid = estimator.predict(left, right)
+        if photographic_support is not None:
+            yy, xx = np.indices(disparity.shape, dtype=np.float32)
+            right_support = cv2.remap(
+                photographic_support[1].astype(np.float32),
+                xx - disparity,
+                yy,
+                cv2.INTER_LINEAR,
+                borderMode=cv2.BORDER_CONSTANT,
+                borderValue=0,
+            )
+            valid &= photographic_support[0] & (right_support > 0.99999)
         points = reconstruct(disparity, cal, valid)
         valid &= np.isfinite(points).all(axis=2)
+        limits = (
+            estimator.checkpoint["config"].get("camera", {}).get("depth_range_m", (0, float("inf")))
+        )
+        valid &= (points[..., 2] >= limits[0]) & (points[..., 2] <= limits[1])
+        points[~valid] = np.nan
         args.output.parent.mkdir(parents=True, exist_ok=True)
         np.savez_compressed(
             args.output,
@@ -124,7 +177,8 @@ def main():
         with np.load(args.sample) as sample:
             for side in ("left", "right"):
                 if not cv2.imwrite(
-                    str(args.output / f"{side}.png"), cv2.cvtColor(sample[side], cv2.COLOR_RGB2BGR)
+                    str(args.output / f"{side}.png"),
+                    cv2.cvtColor(sample[("raw_" if args.raw else "") + side], cv2.COLOR_RGB2BGR),
                 ):
                     raise OSError("Could not save the RGB image")
         shutil.copyfile(args.sample.with_suffix(".json"), args.output / "metadata.json")
@@ -169,6 +223,11 @@ def main():
         )
         differences = [float(np.max(np.abs(a - b.numpy()))) for a, b in zip(actual, expected)]
         assert differences[0] < 0.002 and differences[1] < 0.0002, differences
+        effective_geometry = dict(value["config"].get("camera", {}))
+        if value["config"].get("generation_mode") == "height_angle":
+            effective_geometry.pop("distances_m", None)
+            effective_geometry.pop("mount_jitter_deg", None)
+            effective_geometry["relative_rotation_deg"] = [0, 0, 0]
         manifest = dict(
             schema_version=1,
             architecture="CompactStereo",
@@ -196,6 +255,8 @@ def main():
             minimum_confidence=0.08,
             max_disparity_px=value["model_config"]["max_disparity"],
             geometry="use original-resolution calibrated Q including principal-point shift",
+            camera_geometry=effective_geometry,
+            optics_training=value["config"].get("optics", {}),
             runtime_differences=differences,
         )
         args.output.with_suffix(".json").write_text(json.dumps(manifest, indent=2))

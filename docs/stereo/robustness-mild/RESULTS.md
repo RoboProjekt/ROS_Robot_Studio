@@ -1,5 +1,7 @@
 # Milde Kameraabweichungen im Stereo-Test
 
+**Historischer Messstand:** Dieser Bericht verwendet die frühere einseitige SGBM-Randauffüllung. Sie wurde im [Höhen-/Fisheye-Vergleich](../height-fisheye/RESULTS.md) durch eine beidseitige Behandlung ersetzt. Die alten Messwerte werden als historische Ergebnisse erhalten; aktuelle Vergleiche sollten die korrigierte Referenz verwenden.
+
 Bestehender Modellstand, **90 saubere Bildpaare je Profil**, 9 Profile, 270 Objektgelegenheiten pro Profil. Nur zurückgehaltene Isaac-Szenen; Gewichte und Trainingsdaten wurden nicht verändert.
 
 Die Bedingungen verwenden exakt dieselben Quellbilder, Posen, ideale Ausgangskalibrierung und Objektreferenzpunkte. Eine gemeinsame fotografisch verfügbare Bildregion wird aus sämtlichen Profilen bestimmt. Alle Tiefen- und Objektmetriken verwenden diese gemeinsame Region. Das verhindert einen scheinbaren Genauigkeitsgewinn durch unterschiedlich beschnittene Bildränder. Die Zahlen sind deshalb nicht unmittelbar mit dem älteren Benchmark auf sauber/degradiert gemischten Bildern vergleichbar.

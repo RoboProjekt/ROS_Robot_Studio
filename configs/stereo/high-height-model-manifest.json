@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "architecture": "CompactStereo",
+  "license": "Apache-2.0",
+  "pytorch_dependency_license": "BSD-3-Clause",
+  "checkpoint": "checkpoints/so101-high-height-fisheye/best.pt",
+  "checkpoint_sha256": "4d1a14e0fdb6f83804366bc5104b50314ceba2794919e9eefcd182d2b5977f88",
+  "onnx": "checkpoints/so101-high-height-fisheye/compact-stereo.onnx",
+  "onnx_sha256": "5a7029de9822294c5a32360c9591b5de778b3888730fc5a15c0a018c688cd5f4",
+  "dataset_fingerprint": "fa9fa5710bcfdd5a9b5fcc67b34555390bf9eb25f8007701219f7d619f6af85c",
+  "seed": 3101,
+  "selected_epoch_1based": 100,
+  "selected_validation_epe_px": 0.1391966422398885,
+  "parameters": 11210,
+  "opset": 17,
+  "input_shape": [
+    1,
+    3,
+    288,
+    480
+  ],
+  "input_dtype": "float32",
+  "channels": "RGB",
+  "normalization": "divide uint8 by 255; range 0..1",
+  "preprocessing": "rectify using pair-specific calibration; resize to training shape",
+  "padding": "internal convolution zero padding; no external padding",
+  "output": "left rectified disparity in pixels at the input resolution",
+  "output_to_original": "bilinear resize and multiply disparity by original_width / model_width",
+  "confidence": "maximum coarse disparity softmax probability, not calibrated accuracy",
+  "minimum_confidence": 0.08,
+  "max_disparity_px": 128,
+  "geometry": "use original-resolution calibrated Q including principal-point shift",
+  "camera_geometry": {
+    "baseline_m": 0.06,
+    "baselines_m": [
+      0.06
+    ],
+    "depth_range_m": [
+      0.04,
+      3.0
+    ],
+    "optical_frames": [
+      "so101_stereo_left_optical_frame",
+      "so101_stereo_right_optical_frame"
+    ],
+    "reference_frame": "so101_work_surface",
+    "height_range_m": [
+      0.42,
+      0.6
+    ],
+    "view_angle_deg": [
+      0.0,
+      45.0
+    ],
+    "angle_reference": "surface",
+    "minimum_target_depression_deg": 20.0,
+    "surface_z_m": -0.005,
+    "relative_rotation_deg": [
+      0,
+      0,
+      0
+    ]
+  },
+  "optics_training": {
+    "raw_horizontal_fov_deg": [
+      150.0,
+      165.0
+    ],
+    "k1_range": [
+      -0.08,
+      -0.02
+    ],
+    "unseen_k1_range": [
+      -0.13,
+      -0.09
+    ],
+    "k2_range": [
+      -0.003,
+      0.001
+    ],
+    "blur_sigma_range": [
+      0.2,
+      0.8
+    ],
+    "noise_sigma_dn_range": [
+      0.5,
+      2.0
+    ],
+    "gain_range": [
+      0.95,
+      1.05
+    ],
+    "jpeg_qualities": [
+      85,
+      95,
+      100
+    ]
+  },
+  "runtime_differences": [
+    0.0001373291015625,
+    2.384185791015625e-06
+  ],
+  "paths_relative_to": "repository_root",
+  "purpose": "high height; synthetic extreme fisheye stereo",
+  "maximum_exposure_skew_ns": 25000000
+}

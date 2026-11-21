@@ -11,8 +11,11 @@ class LearnedStereo(OpenCVStereo):
     """Retain Studio's CameraInfo, image-time TF2, rectification and object contract."""
 
     def __init__(self, checkpoint, device="cpu", confidence=0.08):
-        super().__init__()
         self.estimator = TorchEstimator(checkpoint, device, confidence)
+        depth_range = (
+            self.estimator.checkpoint["config"].get("camera", {}).get("depth_range_m", (0.2, 1.2))
+        )
+        super().__init__(depth_range=depth_range)
 
     def estimate(self, left, right, base):
         if abs(left.metadata["stamp_ns"] - right.metadata["stamp_ns"]) > PAIR_SLOP_NS:

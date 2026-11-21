@@ -91,7 +91,7 @@ def test_resumed_training_matches_uninterrupted_weights(tmp_path):
             root / filename,
             left=left,
             right=right,
-            disparity=np.full((32, 64), 8, np.float32),
+            disparity=np.where(valid, 8, np.nan).astype(np.float32),
             valid=valid,
             segmentation=np.ones((32, 64), np.uint8),
         )
@@ -108,6 +108,7 @@ def test_resumed_training_matches_uninterrupted_weights(tmp_path):
     train(config, root, resumed, epochs=2, overfit=4, resume=resumed / "last.pt")
     a = torch.load(whole / "last.pt", weights_only=False)
     b = torch.load(resumed / "last.pt", weights_only=False)
+    assert all(torch.isfinite(tensor).all() for tensor in a["model"].values())
     assert all(torch.equal(a["model"][name], b["model"][name]) for name in a["model"])
     assert a["history"][-1]["validation_epe_px"] == b["history"][-1]["validation_epe_px"]
 

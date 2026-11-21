@@ -22,13 +22,18 @@ def sgbm(left, right, max_disparity=128):
         mode=cv2.STEREO_SGBM_MODE_SGBM_3WAY,
     )
     a, b = (cv2.cvtColor(image, cv2.COLOR_RGB2GRAY) for image in (left, right))
-    # Padding removes SGBM's fixed search-range margin. Actual right-image bounds are checked below.
+    # Pad both sides: the reverse matcher loses a right search margin as well.
+    # One-sided padding rejects every reverse pixel when search range equals image width.
+    width = left.shape[1]
     a, b = (
-        cv2.copyMakeBorder(image, 0, 0, disparities, 0, cv2.BORDER_CONSTANT) for image in (a, b)
+        cv2.copyMakeBorder(image, 0, 0, disparities, disparities, cv2.BORDER_CONSTANT)
+        for image in (a, b)
     )
-    disparity = matcher.compute(a, b).astype(np.float32)[:, disparities:] / 16
+    disparity = matcher.compute(a, b).astype(np.float32)[:, disparities : disparities + width] / 16
     reverse = (
-        cv2.ximgproc.createRightMatcher(matcher).compute(b, a).astype(np.float32)[:, disparities:]
+        cv2.ximgproc.createRightMatcher(matcher)
+        .compute(b, a)
+        .astype(np.float32)[:, disparities : disparities + width]
         / 16
     )
     yy, xx = np.indices(disparity.shape)

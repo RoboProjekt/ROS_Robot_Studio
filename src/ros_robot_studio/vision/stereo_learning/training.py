@@ -90,10 +90,16 @@ def train(config, dataset, output, *, resume=None, epochs=None, overfit=None):
     torch.manual_seed(seed)
     torch.set_num_threads(cfg["threads"])
     device = torch.device(cfg["device"])
+    precision = cfg.get("precision", "float32")
+    if precision not in ("float32", "bfloat16"):
+        raise ValueError("Training precision must be float32 or bfloat16")
+    use_bfloat16 = precision == "bfloat16"
     if device.type == "cuda" and not torch.cuda.is_available():
         raise RuntimeError(
             "Configured CUDA device is unavailable. Select train.device=cpu explicitly."
         )
+    if use_bfloat16 and (device.type != "cuda" or not torch.cuda.is_bf16_supported()):
+        raise RuntimeError("bfloat16 training requires a supported CUDA GPU")
     torch.use_deterministic_algorithms(True)
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
@@ -144,14 +150,28 @@ def train(config, dataset, output, *, resume=None, epochs=None, overfit=None):
             left, right, target, mask, segmentation = (
                 x.to(device) for x in (left, right, target, mask, segmentation)
             )
-            mask = mask & (target > 0) & (target < config["model"]["max_disparity"])
-            prediction, _ = model(left, right)
-            error = torch.nn.functional.smooth_l1_loss(prediction[:, 0], target, reduction="none")
+            mask = (
+                mask
+                & torch.isfinite(target)
+                & (target > 0)
+                & (target < config["model"]["max_disparity"])
+            )
+            if not mask.any():
+                continue
+            with torch.autocast(
+                device_type=device.type, dtype=torch.bfloat16, enabled=use_bfloat16
+            ):
+                prediction, _ = model(left, right)
+            # Masking after a loss with NaN targets can still create NaN gradients (0*NaN).
+            safe_target = torch.where(mask, target, torch.zeros_like(target))
+            error = torch.nn.functional.smooth_l1_loss(
+                prediction[:, 0], safe_target, reduction="none"
+            )
             weights = 1 + 4 * ((segmentation > 0) & (segmentation < 4)).float()
             loss = (error[mask] * weights[mask]).sum() / weights[mask].sum().clamp_min(1)
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 10)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 10, error_if_nonfinite=True)
             optimizer.step()
             losses.append(float(loss.detach()))
         model.eval()
@@ -163,17 +183,25 @@ def train(config, dataset, output, *, resume=None, epochs=None, overfit=None):
                 )
                 prediction, _ = model(left, right)
                 error = (prediction[:, 0] - target).abs()
-                mask = mask & (target > 0) & (target < config["model"]["max_disparity"])
-                errors.append(float(error[mask].mean()))
+                mask = (
+                    mask
+                    & torch.isfinite(target)
+                    & (target > 0)
+                    & (target < config["model"]["max_disparity"])
+                )
+                if mask.any():
+                    errors.append(float(error[mask].mean()))
                 fg = mask & (segmentation > 0) & (segmentation < 4)
                 if fg.any():
                     foreground.append(float(error[fg].mean()))
+        if not losses or not errors:
+            raise ValueError("No finite supervised disparity pixels in this epoch")
         score = float(np.mean(errors))
         record = dict(
             epoch=epoch,
             loss=float(np.mean(losses)),
             validation_epe_px=score,
-            validation_foreground_epe_px=float(np.mean(foreground)),
+            validation_foreground_epe_px=float(np.mean(foreground)) if foreground else None,
             elapsed_s=previous_elapsed + time.monotonic() - begin,
         )
         history.append(record)
@@ -201,6 +229,8 @@ def train(config, dataset, output, *, resume=None, epochs=None, overfit=None):
         print(json.dumps(record), flush=True)
     report = dict(
         device=str(device),
+        training_precision=precision,
+        validation_precision="float32",
         parameters=sum(p.numel() for p in model.parameters()),
         train_samples=len(training),
         validation_samples=len(validation),

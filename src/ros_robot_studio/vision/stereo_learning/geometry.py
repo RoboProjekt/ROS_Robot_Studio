@@ -80,7 +80,7 @@ def surface_reference(optical_points, mask, world_from_camera):
     return camera, world
 
 
-def visibility(left_z, right_z, cal, tolerance_m=0.003):
+def visibility(left_z, right_z, cal, tolerance_m=0.003, max_depth_m=2.0):
     disparity = depth_to_disparity(left_z, cal)
     yy, xx = np.indices(left_z.shape)
     right_x = xx - disparity
@@ -92,7 +92,7 @@ def visibility(left_z, right_z, cal, tolerance_m=0.003):
         borderMode=cv2.BORDER_CONSTANT,
         borderValue=0,
     )
-    valid = np.isfinite(disparity) & (left_z > 0) & (left_z < 2)
+    valid = np.isfinite(disparity) & (left_z > 0) & (left_z < max_depth_m)
     valid &= (right_x >= 0) & (right_x < left_z.shape[1] - 1)
     valid &= np.isfinite(sampled) & (np.abs(sampled - left_z) < tolerance_m)
     return disparity, valid

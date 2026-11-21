@@ -16,29 +16,31 @@ def pixel_grid(width, height):
     return np.stack((xx, yy), axis=-1)
 
 
-def project_raw(ideal_pixels, k, distortion, model):
+def project_raw(ideal_pixels, k, distortion, model, destination_k=None):
     k = np.asarray(k, float)
     points = np.asarray(ideal_pixels, float).reshape(-1, 1, 2)
     normalized = cv2.undistortPoints(points, k, None)
+    output_k = k if destination_k is None else np.asarray(destination_k, float)
     if model == "fisheye":
-        result = cv2.fisheye.distortPoints(normalized, k, np.asarray(distortion, float))
+        result = cv2.fisheye.distortPoints(normalized, output_k, np.asarray(distortion, float))
     elif model == "plumb_bob":
         xyz = np.c_[normalized[:, 0], np.ones(len(points))]
         result, _ = cv2.projectPoints(
-            xyz, np.zeros(3), np.zeros(3), k, np.asarray(distortion, float)
+            xyz, np.zeros(3), np.zeros(3), output_k, np.asarray(distortion, float)
         )
     else:
         raise ValueError("Lens model must be fisheye or plumb_bob")
     return result.reshape(np.asarray(ideal_pixels).shape)
 
 
-def undistort_raw(raw_pixels, k, distortion, model):
+def undistort_raw(raw_pixels, k, distortion, model, destination_k=None):
     points = np.asarray(raw_pixels, float).reshape(-1, 1, 2)
     k, distortion = np.asarray(k, float), np.asarray(distortion, float)
+    output_k = k if destination_k is None else np.asarray(destination_k, float)
     if model == "fisheye":
-        result = cv2.fisheye.undistortPoints(points, k, distortion, P=k)
+        result = cv2.fisheye.undistortPoints(points, k, distortion, P=output_k)
     elif model == "plumb_bob":
-        result = cv2.undistortPoints(points, k, distortion, P=k)
+        result = cv2.undistortPoints(points, k, distortion, P=output_k)
     else:
         raise ValueError("Lens model must be fisheye or plumb_bob")
     return result.reshape(np.asarray(raw_pixels).shape)

@@ -28,12 +28,14 @@ def audit(root):
     assert len(identities) == len(set(identities)), "Duplicate sample identity"
     errors, preview = defaultdict(list), defaultdict(list)
     counts = Counter()
+    mounts, disparities = [], []
     landmarks = [[0.08, -0.12, 0], [0.32, -0.12, 0], [0.08, 0.13, 0], [0.32, 0.13, 0]]
     for record in manifest["samples"]:
         path = root / record["file"]
         metadata = path.with_suffix(".json")
         meta = json.loads(metadata.read_text())
         cal = meta["calibration"]
+        sample_landmarks = meta.get("landmarks_world", landmarks)
         scene, split = record["scene_id"], record["split"]
         assert groups.setdefault(scene, split) == split, "Scene leakage"
         counts[split] += 1
@@ -54,6 +56,18 @@ def audit(root):
             offsets[scene].add(meta["right_time_offset_ms"])
         pose = np.asarray(cal["world_from_left"])
         right = np.asarray(cal["world_from_right"])
+        if "camera_height_m" in meta:
+            camera = manifest["config"]["camera"]
+            height = float((np.asarray(cal["work_from_world"]) @ pose)[2, 3])
+            angle = float(np.degrees(np.arcsin(np.clip(-pose[2, 2], -1, 1))))
+            assert (
+                camera["height_range_m"][0] - 1e-8 <= height <= camera["height_range_m"][1] + 1e-8
+            )
+            assert abs(height - meta["camera_height_m"]) < 1e-7
+            assert abs(angle - meta["view_angle_surface_deg"]) < 1e-7
+            np.testing.assert_allclose(right[:3, :3], pose[:3, :3], atol=1e-8)
+            assert abs(cal["baseline_m"] - 0.060) < 1e-9
+            mounts.append((height, angle))
         np.testing.assert_allclose(pose[:3, :3].T @ pose[:3, :3], np.eye(3), atol=1e-7)
         np.testing.assert_allclose(
             right[:3, 3] - pose[:3, 3], pose[:3, 0] * cal["baseline_m"], atol=1e-7
@@ -64,6 +78,10 @@ def audit(root):
             assert sample["left"].dtype == sample["right"].dtype == np.uint8
             assert sample["valid"].dtype == bool
             mask = sample["valid"]
+            if mask.any():
+                disparities.append(
+                    (float(sample["disparity"][mask].min()), float(sample["disparity"][mask].max()))
+                )
             expected = depth_to_disparity(sample["depth"], cal)
             np.testing.assert_allclose(sample["disparity"][mask], expected[mask], atol=1e-5)
             points = reconstruct(sample["disparity"], cal, mask)
@@ -93,7 +111,7 @@ def audit(root):
             if not record["id"].endswith("clean"):
                 continue
             for side, key in (("left", "segmentation"), ("right", "segmentation_right")):
-                uv, _ = project(landmarks, cal["world_from_" + side], cal["K_" + side])
+                uv, _ = project(sample_landmarks, cal["world_from_" + side], cal["K_" + side])
                 for i, point in enumerate(uv):
                     pixels = np.argwhere(sample[key] == 10 + i)
                     if len(pixels):
@@ -115,7 +133,9 @@ def audit(root):
         value == set(manifest["config"]["dataset"]["time_offsets_ms"]) for value in offsets.values()
     )
     for side in ("left", "right"):
-        assert max(preview[side]) < 2.5
+        assert max(preview[side]) < (
+            3.5 if manifest["config"].get("generation_mode") == "height_angle" else 2.5
+        )
     checks = json.loads((root / "geometry_checks.json").read_text())
     plane_max_mm = (
         max(item["table_z_error_m"] for item in checks if item["table_z_error_m"] is not None)
@@ -140,6 +160,14 @@ def audit(root):
             for side, values in errors.items()
         },
     )
+    if mounts:
+        report["requested_rig"] = dict(
+            height_range_m=[min(m[0] for m in mounts), max(m[0] for m in mounts)],
+            angle_to_surface_deg=[min(m[1] for m in mounts), max(m[1] for m in mounts)],
+            baseline_m=0.060,
+            relative_rotation="identical rotations in all three axes",
+            disparity_range_px=[min(d[0] for d in disparities), max(d[1] for d in disparities)],
+        )
     (root / "data-integrity.json").write_text(json.dumps(integrity, indent=2))
     (root / "audit.json").write_text(json.dumps(report, indent=2))
     return report

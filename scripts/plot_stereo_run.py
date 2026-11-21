@@ -19,6 +19,15 @@ def plot(run, benchmark, output):
     output.mkdir(parents=True, exist_ok=True)
     history = json.loads((run / "history.json").read_text())
     epochs = [row["epoch"] + 1 for row in history]
+    training_report = json.loads((run / "training-report.json").read_text())
+    previous_elapsed = training_report.get("elapsed_s", 0) - training_report.get(
+        "session_elapsed_s", training_report.get("elapsed_s", 0)
+    )
+    resume_epoch = (
+        min(history, key=lambda row: abs(row["elapsed_s"] - previous_elapsed))["epoch"] + 1
+        if previous_elapsed > 0.1
+        else None
+    )
     fig, axes = plt.subplots(1, 2, figsize=(10, 3.7), layout="constrained")
     axes[0].plot(epochs, [r["loss"] for r in history], label="Training, weighted Smooth-L1")
     axes[1].plot(epochs, [r["validation_epe_px"] for r in history], label="All valid pixels")
@@ -29,19 +38,29 @@ def plot(run, benchmark, output):
         ax.set_xlabel("Epoch")
         ax.grid(alpha=0.25)
         ax.legend(fontsize=8)
-        ax.axvline(60, color="gray", linestyle="--", alpha=0.6)
+        if resume_epoch is not None:
+            ax.axvline(resume_epoch, color="gray", linestyle="--", alpha=0.6)
     axes[0].set_ylabel("Loss")
     axes[1].set_ylabel("Validation disparity error (pixels)")
-    fig.suptitle("SO-101 synthetic stereo · training resumed after epoch 60")
+    fig.suptitle(
+        f"SO-101 synthetic stereo · resumed after epoch {resume_epoch}"
+        if resume_epoch is not None
+        else "SO-101 synthetic stereo · training"
+    )
     fig.savefig(output / "learning.png", dpi=150)
     plt.close(fig)
 
     test = json.loads((benchmark / "test.json").read_text())
     fig, axes = plt.subplots(1, 4, figsize=(13, 3.6), layout="constrained")
+    height_run = "camera_height_m" in test["groups"]
     for ax, field, title in zip(
         axes,
-        ["distance_m", "baseline_m", "blur_sigma", "occluded"],
-        ["Working distance (m)", "Baseline (m)", "Blur sigma (px)", "Occluder present"],
+        ["camera_height_m", "view_angle_surface_deg", "quality", "occluded"]
+        if height_run
+        else ["distance_m", "baseline_m", "blur_sigma", "occluded"],
+        ["Vertical height (m)", "Angle to surface (deg)", "Raw image quality", "Occluder present"]
+        if height_run
+        else ["Working distance (m)", "Baseline (m)", "Blur sigma (px)", "Occluder present"],
     ):
         groups = test["groups"][field]
         labels = list(groups)
@@ -64,6 +83,8 @@ def plot(run, benchmark, output):
     fig.savefig(output / "groups.png", dpi=150)
     plt.close(fig)
 
+    if not (benchmark / "asynchronous.json").exists():
+        return
     temporal = json.loads((benchmark / "asynchronous.json").read_text())["groups"]["time_offset_ms"]
     labels = list(temporal)
     x = np.array([int(label) for label in labels])

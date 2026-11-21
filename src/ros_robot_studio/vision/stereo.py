@@ -65,9 +65,16 @@ class StereoResult:
 class OpenCVStereo:
     """Depth estimator interface: estimate(left, right, base) -> rectified images and points."""
 
-    def __init__(self):
+    def __init__(self, depth_range=(0.2, 1.2)):
         import cv2
 
+        if (
+            len(depth_range) != 2
+            or not np.isfinite(depth_range).all()
+            or not 0 < depth_range[0] < depth_range[1]
+        ):
+            raise ValueError("Stereo depth range must contain two increasing positive distances")
+        self.depth_range = tuple(depth_range)
         self.cv = cv2
         self.rectification = None
         self.key = None
@@ -140,7 +147,7 @@ class OpenCVStereo:
         disparity = self.compute_disparity(lrgb, rrgb)
         points = cv.reprojectImageTo3D(disparity, q)
         valid = (disparity > 0) & np.isfinite(points).all(axis=2)
-        valid &= (points[..., 2] >= 0.2) & (points[..., 2] <= 1.2)
+        valid &= (points[..., 2] >= self.depth_range[0]) & (points[..., 2] <= self.depth_range[1])
         points[~valid] = np.nan
         transform = left_tf.copy()
         transform[:3, :3] = left_tf[:3, :3] @ r1.T

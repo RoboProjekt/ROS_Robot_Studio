@@ -1,5 +1,7 @@
 # Ausgeführter Stereo-Benchmark · 20.11.2026
 
+**Historischer Messstand:** Diese SGBM-Zahlen stammen aus der Implementierung vor der Korrektur der beidseitigen Suchränder. Die damalige Randbehandlung schränkt die SGBM-Abdeckung ein. Der [neuere Höhen-/Fisheye-Vergleich](height-fisheye/RESULTS.md) verwendet die korrigierte Referenz. Die ursprünglichen Zahlen und Prüfsummen bleiben zur Nachvollziehbarkeit erhalten.
+
 Alle Angaben sind **Simulationsergebnisse**. Der endgültige Lauf enthält 1.326 Bildpaare aus 591 getrennten Szenen. Trainiert wurde auf 720 Paaren aus 360 Szenen, validiert auf 120 Paaren. Die übrigen Gruppen wurden zurückgehalten. Einrichtung und Startbefehle stehen in der [Trainingsdokumentation](../STEREO_DEPTH_TRAINING.md); vollständige Zahlen und Artefaktprüfsummen in [verification.json](verification.json).
 
 ## Tatsächlich trainierter Stand

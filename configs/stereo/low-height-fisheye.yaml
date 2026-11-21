@@ -1,0 +1,93 @@
+# Height-angle mode: height_range_m and view_angle_deg are authoritative.
+# Legacy distances_m and mount_jitter_deg below are unused in this mode.
+schema_version: 1
+seed: 3102
+image:
+  width: 320
+  height: 192
+  horizontal_fov_deg: 110
+camera:
+  baseline_m: 0.06
+  baselines_m:
+  - 0.06
+  distances_m:
+  - 0.3
+  - 0.45
+  - 0.6
+  depth_range_m:
+  - 0.02
+  - 1.5
+  mount_jitter_deg: 3.0
+  optical_frames:
+  - so101_stereo_left_optical_frame
+  - so101_stereo_right_optical_frame
+  reference_frame: so101_work_surface
+  height_range_m:
+  - 0.1
+  - 0.2
+  view_angle_deg:
+  - 0.0
+  - 45.0
+  angle_reference: surface
+  minimum_target_depression_deg: 20.0
+  surface_z_m: -0.005
+dataset:
+  train_scenes: 420
+  validation_scenes: 60
+  test_scenes: 90
+  unseen_scenes: 45
+  asynchronous_scenes: 0
+  blur_sigmas:
+  - 0.0
+  - 0.8
+  - 1.6
+  jpeg_qualities:
+  - 100
+  - 85
+  - 65
+  time_offsets_ms:
+  - 0
+  - 33
+  - 100
+model:
+  max_disparity: 320
+  channels: 12
+train:
+  epochs: 100
+  batch_size: 8
+  learning_rate: 0.001
+  workers: 0
+  threads: 2
+  device: cuda
+  precision: bfloat16
+generation_mode: height_angle
+render:
+  width: 1280
+  height: 768
+  horizontal_fov_deg: 160
+optics:
+  raw_horizontal_fov_deg:
+  - 150.0
+  - 165.0
+  k1_range:
+  - -0.08
+  - -0.02
+  unseen_k1_range:
+  - -0.13
+  - -0.09
+  k2_range:
+  - -0.003
+  - 0.001
+  blur_sigma_range:
+  - 0.2
+  - 0.8
+  noise_sigma_dn_range:
+  - 0.5
+  - 2.0
+  gain_range:
+  - 0.95
+  - 1.05
+  jpeg_qualities:
+  - 85
+  - 95
+  - 100

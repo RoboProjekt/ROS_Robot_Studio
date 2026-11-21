@@ -10,6 +10,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from .camera_effects import pixel_grid, project_raw, remap
 from .geometry import reconstruct
 from .inference import TorchEstimator, sgbm, timed_model
 
@@ -69,7 +70,13 @@ def summarize(rows):
                 reasons[o["reason"]] += 1
         timing = {
             key: float(np.median([r[key] for r in selected]))
-            for key in ("rectification_ms", "estimator_ms", "postprocess_ms")
+            for key in (
+                "rectification_ms",
+                "rectification_map_setup_ms",
+                "rectification_apply_ms",
+                "estimator_ms",
+                "postprocess_ms",
+            )
         }
         result[name] = dict(
             samples=len(selected),
@@ -113,9 +120,12 @@ def marker_triangulation(sample, metadata):
         )
         xyz = homogeneous[:3, 0] / homogeneous[3, 0]
         world = (np.asarray(cal["world_from_left"]) @ np.r_[xyz, 1])[:3]
-        truth = np.array([(0.08, -0.12, 0), (0.32, -0.12, 0), (0.08, 0.13, 0), (0.32, 0.13, 0)])[
-            label - 10
-        ]
+        truth = np.array(
+            metadata.get(
+                "landmarks_world",
+                [(0.08, -0.12, 0), (0.32, -0.12, 0), (0.08, 0.13, 0), (0.32, 0.13, 0)],
+            )
+        )[label - 10]
         if xyz[2] > 0 and abs(left[1] - right[1]) < 1.5:
             records.append(float(np.linalg.norm(world - truth) * 1000))
     return records
@@ -185,7 +195,36 @@ def benchmark(
         # Apply actual OpenCV remaps even though the synthetic pinhole calibration is already rectified.
         # Map setup is cached by intrinsics, as it is in Studio. GT and Q use this same pixel grid.
         start = time.perf_counter()
+        map_setup_ms = 0.0
         a, b = sample["left"], sample["right"]
+        if meta.get("optics_model") == "fisheye" and "raw_left" in sample:
+            corrected = []
+            for side in ("left", "right"):
+                optics = meta["optics"][side]
+                raw_key = (
+                    "raw_fisheye",
+                    side,
+                    tuple(np.ravel(cal["K_" + side])),
+                    tuple(np.ravel(optics["raw_k"])),
+                    tuple(optics["distortion"]),
+                )
+                if raw_key not in rectification_maps:
+                    setup_begin = time.perf_counter()
+                    rectification_maps[raw_key] = project_raw(
+                        pixel_grid(cal["width"], cal["height"]),
+                        cal["K_" + side],
+                        optics["distortion"],
+                        "fisheye",
+                        destination_k=optics["raw_k"],
+                    )
+                    map_setup_ms += (time.perf_counter() - setup_begin) * 1000
+                image = remap(sample["raw_" + side], rectification_maps[raw_key])
+                if not np.array_equal(image, sample[side]):
+                    raise ValueError(
+                        "Raw fisheye inference does not reproduce the captured rectified RGB"
+                    )
+                corrected.append(image)
+            a, b = corrected
         assert cal["rectified"] and a.shape[:2] == (cal["height"], cal["width"])
         key = (
             cal["width"],
@@ -194,6 +233,7 @@ def benchmark(
             tuple(np.ravel(cal["K_right"])),
         )
         if key not in rectification_maps:
+            setup_begin = time.perf_counter()
             rectification_maps[key] = tuple(
                 cv2.initUndistortRectifyMap(
                     np.asarray(cal["K_" + side]),
@@ -205,6 +245,7 @@ def benchmark(
                 )
                 for side in ("left", "right")
             )
+            map_setup_ms += (time.perf_counter() - setup_begin) * 1000
         a, b = (
             cv2.remap(image, *mapping, cv2.INTER_LINEAR)
             for image, mapping in zip((a, b), rectification_maps[key])
@@ -243,7 +284,14 @@ def benchmark(
             for obj in meta["objects"]:
                 world, reason = position(points, sample["segmentation"] == obj["mask_value"], cal)
                 if obj["reference_world"] is None:
-                    world, reason = None, "reference object not visible in left image"
+                    world, reason = (
+                        None,
+                        (
+                            "reference surface unavailable at this resolution"
+                            if (sample["segmentation"] == obj["mask_value"]).any()
+                            else "reference object not visible in left image"
+                        ),
+                    )
                 error = (
                     float(np.linalg.norm(world - np.asarray(obj["reference_world"])) * 1000)
                     if world is not None
@@ -268,13 +316,20 @@ def benchmark(
                     blur_sigma=meta["blur_sigma"],
                     occluded=meta["occluded"],
                     textured_cube=meta["textured_cube"],
+                    quality=meta.get(
+                        "quality", "degraded" if record["id"].endswith("_degraded") else "clean"
+                    ),
                     time_offset_ms=meta["right_time_offset_ms"],
+                    camera_height_m=meta.get("camera_height_m"),
+                    view_angle_surface_deg=meta.get("view_angle_surface_deg"),
                     depth_errors_mm=depth_errors,
                     foreground_errors_mm=foreground_errors,
                     reference_pixels=int(target.sum()),
                     valid_pixels=int(common.sum()),
                     objects=objects,
                     rectification_ms=rect_ms,
+                    rectification_map_setup_ms=map_setup_ms,
+                    rectification_apply_ms=max(0.0, rect_ms - map_setup_ms),
                     estimator_ms=elapsed,
                     postprocess_ms=post_ms,
                     reference_support=extra,
@@ -301,11 +356,32 @@ def benchmark(
         "occluded",
         "textured_cube",
         "time_offset_ms",
+        "quality",
     ):
+        if rows[0]["camera_height_m"] is not None and field in ("distance_m", "blur_sigma"):
+            continue
         groups[field] = {
             str(value): summarize([r for r in rows if r[field] == value])
             for value in sorted(set(r[field] for r in rows))
         }
+    angle_limits = config["camera"].get("view_angle_deg", [0, 90])
+    if config["camera"].get("angle_reference") == "normal":
+        angle_limits = [90 - angle_limits[1], 90 - angle_limits[0]]
+    for field, boundaries in (
+        ("camera_height_m", np.linspace(*config["camera"].get("height_range_m", [0, 1]), 4)),
+        ("view_angle_surface_deg", np.linspace(*angle_limits, 4)),
+    ):
+        if rows[0][field] is not None:
+            groups[field] = {}
+            for i, (low, high) in enumerate(zip(boundaries[:-1], boundaries[1:])):
+                selected = [
+                    r
+                    for r in rows
+                    if low - 1e-9 <= r[field]
+                    and (r[field] < high if i < len(boundaries) - 2 else r[field] <= high + 1e-9)
+                ]
+                if selected:
+                    groups[field][f"{low:.3f}–{high:.3f}"] = summarize(selected)
     report = dict(
         split=split,
         overall=overall,
@@ -377,7 +453,11 @@ def make_figures(examples, output, split):
                 image,
                 cmap=cmap,
                 vmin=0 if image.ndim == 2 else None,
-                vmax=128 if image.ndim == 2 else None,
+                vmax=max(
+                    128, float(np.nanmax(np.where(sample["valid"], sample["disparity"], np.nan)))
+                )
+                if image.ndim == 2
+                else None,
             )
             ax.set_title(title)
             ax.axis("off")
