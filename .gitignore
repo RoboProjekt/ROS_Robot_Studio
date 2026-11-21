@@ -51,11 +51,16 @@ Thumbs.db
 # Stereo training artifacts and locally installed optional environments
 /stereo-data/
 /checkpoints/*
-!/checkpoints/so101-compact-stereo/
-/checkpoints/so101-compact-stereo/*
-!/checkpoints/so101-compact-stereo/best.pt
-!/checkpoints/so101-compact-stereo/compact-stereo.onnx
-!/checkpoints/so101-compact-stereo/README.md
+!/checkpoints/so101-high-height-fisheye/
+/checkpoints/so101-high-height-fisheye/*
+!/checkpoints/so101-high-height-fisheye/best.pt
+!/checkpoints/so101-high-height-fisheye/compact-stereo.onnx
+!/checkpoints/so101-high-height-fisheye/README.md
+!/checkpoints/so101-low-height-fisheye/
+/checkpoints/so101-low-height-fisheye/*
+!/checkpoints/so101-low-height-fisheye/best.pt
+!/checkpoints/so101-low-height-fisheye/compact-stereo.onnx
+!/checkpoints/so101-low-height-fisheye/README.md
 /training-runs/
 *.pth
 *.ckpt

@@ -21,8 +21,31 @@ beiden mit `surface` erzeugten Datensätzen.
 
 Die [ausgeführten Messwerte](stereo/height-fisheye/RESULTS.md) dokumentieren
 Tiefen-/Objektfehler, Abdeckung, ungesehene Optik, Ressourcen und Beispiele.
-Die bisherigen veröffentlichten Modellartefakte werden durch diese Modelle nicht
-überschrieben.
+Die bisherigen veröffentlichten Modellartefakte werden durch diese beiden
+Modelle ersetzt. Der [Modellkatalog](../configs/stereo/model-manifest.json) verweist
+auf die getrennten Manifeste. Es gibt kein gemeinsames Standardmodell: die
+Variante wird anhand der senkrechten Montagehöhe gewählt.
+
+## Inferenz nach einem frischen Checkout
+
+Beide Gewichte und ONNX-Exporte sind im Repository enthalten:
+[High](../checkpoints/so101-high-height-fisheye/README.md) und
+[Low](../checkpoints/so101-low-height-fisheye/README.md). Nach Einrichtung der
+separaten Python-Umgebung mit `requirements-stereo.lock.txt` lassen sich die
+mitgelieferten synthetischen Rohbildpaare ohne Isaac Sim auswerten:
+
+```bash
+export STEREO_PY="$PWD/.bootstrap/stereo/venv/bin/python"
+export OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=2
+for profile in high low; do
+  "$STEREO_PY" scripts/stereo_depth.py infer --raw-fisheye \
+    --checkpoint "checkpoints/so101-${profile}-height-fisheye/best.pt" \
+    --left "docs/stereo/height-fisheye/examples/${profile}/left.png" \
+    --right "docs/stereo/height-fisheye/examples/${profile}/right.png" \
+    --calibration "docs/stereo/height-fisheye/examples/${profile}/metadata.json" \
+    --output "training-runs/published-${profile}-example.npz" --device cpu
+done
+```
 
 ## Daten und Optik
 

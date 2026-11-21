@@ -330,8 +330,7 @@ Ein separat ausführbarer, tatsächlich trainierter Stereo-Tiefenschätzer mit I
 OpenCV-Vergleich, ONNX-Export und optionalem Studio-Adapter ist in der
 [Stereo-Trainingsdokumentation](docs/STEREO_DEPTH_TRAINING.md) beschrieben. Die Messwerte gelten für Simulation.
 Zusätzliche [milde Blur-/Fisheye-Tests](docs/stereo/robustness-mild/RESULTS.md) prüfen günstige Kameraoptik und kleine Kalibrierabweichungen auf identischen Testszenen.
-Der geprüfte [PyTorch-/ONNX-Modellstand](checkpoints/so101-compact-stereo/README.md) und ein kleines kalibriertes Beispielpaar sind enthalten; die Inferenz benötigt keinen laufenden Simulator.
-Zwei weitere [getrennte Höhenmodelle mit extremer Fisheye-Optik](docs/STEREO_HEIGHT_FISHEYE.md) behandeln 42–60 cm und 10–20 cm senkrechte Montagehöhe bei 60 mm paralleler Basis. Ihre neuen Gewichte und Datensätze liegen lokal; Konfigurationen und Messberichte sind versioniert.
+Die beiden [getrennten Höhenmodelle mit extremer Fisheye-Optik](docs/STEREO_HEIGHT_FISHEYE.md) ersetzen den bisherigen Stereo-Modellstand: [42–60 cm](checkpoints/so101-high-height-fisheye/README.md) und [10–20 cm](checkpoints/so101-low-height-fisheye/README.md) senkrechte Montagehöhe bei 60 mm paralleler Basis und 0–45° gegen die Tischfläche. Beide geprüften PyTorch-/ONNX-Modelle, Konfigurationen, Messberichte und kalibrierte Rohbildbeispiele sind enthalten; die Inferenz benötigt keinen laufenden Simulator. Umfangreiche Datensätze und fortsetzbare Trainingsstände bleiben lokal.
 
 Der neue Reiter **Camera & Vision → Stereo & Planning** koppelt zwei ROS-Kameras mit einer Arbeitsszene, lokalem Ollama und MoveIt Plan Only. Isaac Sim kann dazu auf einem separaten Rechner laufen. [Einrichtung und Abnahme](docs/ISAAC_SIM_RGB_CAMERA.md#stereo-und-qwen-mit-einem-separaten-isaac-rechner)
 

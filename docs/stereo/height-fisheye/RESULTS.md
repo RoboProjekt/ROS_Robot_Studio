@@ -103,7 +103,7 @@ Roh-Fisheye- und bereits entzerrte Inferenz liefern bitgleiche Disparität und S
 - high: `checkpoints/so101-high-height-fisheye/best.pt`, ONNX-Abweichung maximal 0.00043488 Pixel. SHA-256 `4d1a14e0fdb6f83804366bc5104b50314ceba2794919e9eefcd182d2b5977f88`.
 - low: `checkpoints/so101-low-height-fisheye/best.pt`, ONNX-Abweichung maximal 0.00084686 Pixel. SHA-256 `8b8935917e3f4a05f13de04311d21d953b9b55b6248663d7cc71941f9059a1a5`.
 
-Die absoluten lokalen Pfade stehen außerhalb von Git in `training-runs/height-fisheye/local-paths.txt`. Die portablen Modellmanifeste liegen unter `configs/stereo/high-height-model-manifest.json` und `low-height-model-manifest.json`. Gewichte, Datensätze und Trainingslogs dieser neuen Reihe bleiben lokale Artefakte. [Vollständige Zahlen und Quellprüfsummen](verification.json).
+Die absoluten lokalen Pfade stehen außerhalb von Git in `training-runs/height-fisheye/local-paths.txt`. Die portablen Modellmanifeste liegen unter `configs/stereo/high-height-model-manifest.json` und `low-height-model-manifest.json`. Beide geprüften PyTorch-Gewichte und ONNX-Exporte sind mit kalibrierten Rohbildbeispielen im Repository enthalten und ersetzen das frühere Modell. Datensätze, fortsetzbare Trainingsstände und Trainingslogs bleiben lokale Artefakte. [Vollständige Zahlen und Quellprüfsummen](verification.json).
 
 ## Sichtprüfung
 

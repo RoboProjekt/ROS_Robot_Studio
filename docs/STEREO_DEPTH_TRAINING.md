@@ -1,5 +1,11 @@
 # Trainierter SO-101-Stereo-Tiefenschätzer
 
+Dieser Bericht beschreibt den historischen ersten Trainingslauf. Seine Gewichte
+wurden durch die beiden [Höhen-/Fisheye-Modelle](STEREO_HEIGHT_FISHEYE.md) ersetzt.
+Die folgenden alten Trainings- und Inferenzbefehle beziehen sich auf den
+[archivierten Stand `0e95d8c`](https://github.com/RoboProjekt/ROS_Robot_Studio/tree/0e95d8c70e42e4a1139af16041ecfb2515964609).
+Für den aktuellen Checkout die dort dokumentierten High-/Low-Befehle verwenden.
+
 Dieser lokale Entwicklungsstand liefert einen tatsächlich trainierten, kompakten Stereo-Schätzer und einen ausgeführten Vergleich mit StereoSGBM. Alle Genauigkeiten stammen aus Isaac Sim. Für die beiden späteren Conceptronic AMDIS01B liegen noch keine Realaufnahmen oder gemessenen Intrinsics vor.
 
 ## Repository und geprüfte Umgebung
@@ -52,7 +58,7 @@ Der Gültigkeitsschwellwert ist 0,08, hinzu kommen positive Disparität und rech
 
 Seed ist 101. AdamW verwendet Lernrate 0,001, Weight Decay 0,0001, Batch 8, Smooth-L1 auf gültiger Referenzdisparität, fünffaches Objektpixelgewicht und Gradient Clipping 10. Es gibt keine Verwendung der Testdaten zur Auswahl. Der beste Checkpoint wird ausschließlich nach dem Validierungs-EPE bestimmt. `last.pt` enthält zusätzlich Optimizer, Epochennummer und Python-/NumPy-/Torch-/CUDA-Zufallszustände. Die Szene-Splits, Konfiguration, Verlauf und Datenfingerprint werden gespeichert. Train-/Validierungsdateien werden gegen die Audit-Prüfsummen geprüft. Ein Regressionstest vergleicht unterbrochenes und durchgehendes Training auf bitgleiche Gewichte. Deterministische Ergebnisse sind für diese Umgebung angestrebt; andere GPU-/Treiber-/Renderer-Versionen können numerisch abweichen.
 
-Die endgültigen Zahlen, Fehlergruppen, Laufzeiten, Artefaktprüfsummen und Beispiele stehen im [ausgeführten Messbericht](stereo/RESULTS.md). Auf ausdrücklichen Wunsch werden die beiden kleinen geprüften Modellartefakte mit veröffentlicht: [best.pt](../checkpoints/so101-compact-stereo/best.pt) (ca. 171 KiB) und [compact-stereo.onnx](../checkpoints/so101-compact-stereo/compact-stereo.onnx) (ca. 205 KiB). Der Datensatz, der fortsetzbare lokale Stand `last.pt`, Trainingsausgaben und Rechnerpfade bleiben außerhalb der Git-Historie. Das [Modellmanifest](../configs/stereo/model-manifest.json) enthält die SHA-256-Prüfsummen und beschreibt Format und Nachverarbeitung. Der ursprüngliche Export erzeugt daneben ein nur lokal gespeichertes Manifest mit absolutem Checkpoint-Pfad.
+Die endgültigen Zahlen, Fehlergruppen, Laufzeiten, Artefaktprüfsummen und Beispiele dieses früheren Laufs stehen im [ausgeführten Messbericht](stereo/RESULTS.md). Seine Artefakte sind in der Git-Historie verfügbar: [best.pt](https://github.com/RoboProjekt/ROS_Robot_Studio/blob/0e95d8c70e42e4a1139af16041ecfb2515964609/checkpoints/so101-compact-stereo/best.pt) und [compact-stereo.onnx](https://github.com/RoboProjekt/ROS_Robot_Studio/blob/0e95d8c70e42e4a1139af16041ecfb2515964609/checkpoints/so101-compact-stereo/compact-stereo.onnx). Der [aktuelle Modellkatalog](../configs/stereo/model-manifest.json) verweist auf die neuen Höhenmodelle. Datensätze, fortsetzbare lokale Stände `last.pt`, Trainingsausgaben und Rechnerpfade bleiben außerhalb der Git-Historie.
 
 Für eine Inferenzprüfung nach einem frischen Checkout steht ein [kleines synthetisches RGB-Beispielpaar](stereo/example/metadata.json) mit Kalibrierung bereit. Nach Einrichtung der separaten Python-Umgebung funktioniert dieser Aufruf ohne Isaac Sim und ohne Datensatzerzeugung:
 

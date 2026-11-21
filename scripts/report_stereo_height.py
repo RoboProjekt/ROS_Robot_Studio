@@ -316,7 +316,8 @@ def write_markdown(v, output):
         "",
         "Die absoluten lokalen Pfade stehen außerhalb von Git in `training-runs/height-fisheye/local-paths.txt`. "
         "Die portablen Modellmanifeste liegen unter `configs/stereo/high-height-model-manifest.json` und `low-height-model-manifest.json`. "
-        "Gewichte, Datensätze und Trainingslogs dieser neuen Reihe bleiben lokale Artefakte. [Vollständige Zahlen und Quellprüfsummen](verification.json).",
+        "Beide geprüften PyTorch-Gewichte und ONNX-Exporte sind mit kalibrierten Rohbildbeispielen im Repository enthalten und ersetzen das frühere Modell. "
+        "Datensätze, fortsetzbare Trainingsstände und Trainingslogs bleiben lokale Artefakte. [Vollständige Zahlen und Quellprüfsummen](verification.json).",
         "",
         "## Sichtprüfung",
         "",

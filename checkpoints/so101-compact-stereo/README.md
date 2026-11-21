@@ -1,24 +1,17 @@
-# Geprüfter SO-101-Stereo-Modellstand
+# Abgelöster SO-101-Stereo-Modellstand
 
-Dieser Ordner enthält den tatsächlich trainierten CompactStereo-Schätzer mit
-11.210 Parametern. Er schätzt linke Disparität aus einem rektifizierten RGB-Paar.
-Er wurde ausschließlich auf synthetischen Isaac-Sim-Daten geprüft.
+Die frühere gemeinsame Policy wurde durch zwei getrennte Höhenmodelle ersetzt:
 
-| Datei | Inhalt | SHA-256 |
-| --- | --- | --- |
-| [best.pt](best.pt) | Bester Validierungscheckpoint, Epoche 76; für den Python-Schätzer | `792fa8af6fac4ca6b5a85f5867d4e1c5ca321697ed7faccb750b50f6b3423709` |
-| [compact-stereo.onnx](compact-stereo.onnx) | Inferenzgraph, Opset 17, fester Eingang 1×3×192×320 | `dbd66fbbb75fcdf72232cc2219ab90b2db6fe354a9ad98d193002ad46cd7e086` |
+- [42–60 cm: High](../so101-high-height-fisheye/README.md)
+- [10–20 cm: Low](../so101-low-height-fisheye/README.md)
 
-Ein- und Ausgang, Normalisierung, Rückskalierung und Geometrie stehen im
-[portablen Modellmanifest](../../configs/stereo/model-manifest.json).
-Das Modell und sein hier implementierter Quellcode stehen unter
-[Apache-2.0](../../LICENSE); Abhängigkeiten behalten ihre eigenen Lizenzen.
+Beide verwenden 60 mm parallele Kamerabasis, 0–45° gegen die Tischfläche und
+starke Fisheye-Rohbildoptik mit kalibrierter Entzerrung. Gewichte, ONNX-Exporte,
+Manifeste und Rohbildbeispiele sind im Repository enthalten.
 
-Die [Trainingsdokumentation](../../docs/STEREO_DEPTH_TRAINING.md) enthält
-Installation und einen ausführbaren Inferenzbefehl für das mitgelieferte
-synthetische RGB-Paar. [Messbericht](../../docs/stereo/RESULTS.md) und
-[Kamera-Robustheitstests](../../docs/stereo/robustness-mild/RESULTS.md)
-dokumentieren die Grenzen, insbesondere Zeitversatz und Kalibrierabweichungen.
+[Auswahl und Inferenz](../../docs/STEREO_HEIGHT_FISHEYE.md) ·
+[Modellkatalog](../../configs/stereo/model-manifest.json)
 
-Der umfangreiche Datensatz und lokale Trainingsausgaben sind nicht enthalten.
-`last.pt` zur Fortsetzung des letzten lokalen Trainings bleibt ein lokales Artefakt.
+Der [archivierte frühere Stand](https://github.com/RoboProjekt/ROS_Robot_Studio/tree/0e95d8c70e42e4a1139af16041ecfb2515964609/checkpoints/so101-compact-stereo)
+bleibt über die Git-Historie verfügbar. Seine Messungen stehen im
+[historischen Bericht](../../docs/STEREO_DEPTH_TRAINING.md).

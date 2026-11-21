@@ -1,40 +1,42 @@
 {
-  "schema_version": 1,
-  "architecture": "CompactStereo",
-  "license": "Apache-2.0",
-  "pytorch_dependency_license": "BSD-3-Clause",
-  "checkpoint": "checkpoints/so101-compact-stereo/best.pt",
-  "checkpoint_sha256": "792fa8af6fac4ca6b5a85f5867d4e1c5ca321697ed7faccb750b50f6b3423709",
-  "onnx": "checkpoints/so101-compact-stereo/compact-stereo.onnx",
-  "onnx_sha256": "dbd66fbbb75fcdf72232cc2219ab90b2db6fe354a9ad98d193002ad46cd7e086",
-  "dataset_fingerprint": "ce07ab20b86a433cb6b1b77c558413b78f0ca62f468a25eb77c2d6719a29f7f8",
-  "seed": 101,
-  "selected_epoch_1based": 76,
-  "selected_validation_epe_px": 0.4966498891512553,
-  "parameters": 11210,
-  "opset": 17,
-  "input_shape": [
-    1,
-    3,
-    192,
-    320
-  ],
-  "input_dtype": "float32",
-  "channels": "RGB",
-  "normalization": "divide uint8 by 255; range 0..1",
-  "preprocessing": "rectify using pair-specific calibration; resize to training shape",
-  "padding": "internal convolution zero padding; no external padding",
-  "output": "left rectified disparity in pixels at the input resolution",
-  "output_to_original": "bilinear resize and multiply disparity by original_width / model_width",
-  "confidence": "maximum coarse disparity softmax probability, not calibrated accuracy",
-  "minimum_confidence": 0.08,
-  "max_disparity_px": 128,
-  "geometry": "use original-resolution calibrated Q including principal-point shift",
-  "runtime_differences": [
-    6.866455078125e-05,
-    2.8014183044433594e-06
-  ],
+  "schema_version": 2,
+  "kind": "height_specific_stereo_model_catalog",
   "paths_relative_to": "repository_root",
-  "purpose": "simulation-only SO-101 stereo prototype",
-  "maximum_exposure_skew_ns": 25000000
+  "selection": "Choose high or low explicitly from perpendicular camera height; no default profile.",
+  "baseline_m": 0.06,
+  "relative_rotation_deg": [
+    0,
+    0,
+    0
+  ],
+  "view_angle_deg": [
+    0,
+    45
+  ],
+  "angle_reference": "surface: 0 degrees is a horizontal optical axis",
+  "profiles": {
+    "high": {
+      "manifest": "configs/stereo/high-height-model-manifest.json",
+      "checkpoint": "checkpoints/so101-high-height-fisheye/best.pt",
+      "onnx": "checkpoints/so101-high-height-fisheye/compact-stereo.onnx",
+      "height_range_m": [
+        0.42,
+        0.6
+      ]
+    },
+    "low": {
+      "manifest": "configs/stereo/low-height-model-manifest.json",
+      "checkpoint": "checkpoints/so101-low-height-fisheye/best.pt",
+      "onnx": "checkpoints/so101-low-height-fisheye/compact-stereo.onnx",
+      "height_range_m": [
+        0.1,
+        0.2
+      ]
+    }
+  },
+  "supersedes": {
+    "commit": "0e95d8c70e42e4a1139af16041ecfb2515964609",
+    "checkpoint": "checkpoints/so101-compact-stereo/best.pt"
+  },
+  "documentation": "docs/STEREO_HEIGHT_FISHEYE.md"
 }

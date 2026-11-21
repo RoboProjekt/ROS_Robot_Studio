@@ -4592,7 +4592,7 @@
     "scripts/generate_stereo_isaac.py": "40b55854f76aba38caafd26b98af49bd9cca9ecbc19fa4cdb65db2be8d12b0f9",
     "scripts/plot_stereo_run.py": "ef268b58ddf64f89ab58eabd942025a2d8be6def9c5c003e5f7c8ad9e0a59a83",
     "scripts/prepare_so101_stereo.py": "412e39f18807a57eaaaad03bd27f6444751fb9de6264d69e98b2f484735b9cd9",
-    "scripts/report_stereo_height.py": "aeda7aa24740bec4ef99467f7b16c56219e336b0cbac886492ac338235e5e7dc",
+    "scripts/report_stereo_height.py": "688694e46fb1531e8b1acc041dc30d9ff9db6d2b721f481cb50c64c08eb9ae0c",
     "scripts/stereo_depth.py": "10a18628eca8ca58e1b6016f08c19d2ee6768a535e746248d85d1d5d3338a9ca",
     "src/ros_robot_studio/vision/stereo.py": "1b9f978f0870f179fd728cf293380a82ff664c5feaa9d71741679efa6b887c8e",
     "src/ros_robot_studio/vision/stereo_learning/__init__.py": "466d1b9d3fd4b45cf0d107ac64f38e93c5f13ed76077aeaa48b93fc0fc52a12e",
