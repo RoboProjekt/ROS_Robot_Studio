@@ -1,7 +1,9 @@
 import json
 import sys
+import time
 from unittest.mock import MagicMock
 
+import numpy as np
 import pytest
 from pydantic import ValidationError
 from PySide6.QtCore import QPoint, Qt
@@ -16,6 +18,8 @@ from ros_robot_studio.gui.main_window import MainWindow
 from ros_robot_studio.motion.demos import pick_place_demo
 from ros_robot_studio.runtime.catalog import catalog
 from ros_robot_studio.runtime.manager import RuntimeStatus
+from ros_robot_studio.vision.profiles import CameraProfile
+from ros_robot_studio.vision.stereo import StereoResult
 
 
 @pytest.fixture
@@ -93,6 +97,41 @@ def test_real_robot_shows_usb_selector_and_preserves_a_disconnected_choice(
     assert header.robot_port.isHidden() and not header.scene.isHidden()
 
 
+def test_usb_runtime_connects_its_camera_bridge_without_activating_ros(
+    window, tmp_path, monkeypatch
+):
+    port = tmp_path / "ttyACM0"
+    port.touch()
+    monkeypatch.setattr(
+        "ros_robot_studio.gui.simulation_header.usb_ports", lambda: [(str(port), port.name)]
+    )
+    manager = window.backend_manager
+    profile = manager.add(
+        new_profile("real_robot", domain_id=23, network="host", network_confirmed=True)
+    )
+    window.project.cameras = [CameraProfile(name="Camera", backend_id=profile.id)]
+    header = window.simulation_header
+    header._select_runtime(profile.id)
+    header.robot_port.setCurrentIndex(header.robot_port.findData(str(port)))
+    header.select_port(header.robot_port.currentIndex())
+    start_usb, connect = MagicMock(), MagicMock()
+    monkeypatch.setattr(window.local_runtime, "start_usb", start_usb)
+    monkeypatch.setattr(window.backend_workspace, "connect", connect)
+
+    assert header.connect_button.isEnabled()
+    assert header.connect_button.text() == "Connect Cameras"
+    header.start.click()
+    start_usb.assert_called_once_with(profile, str(port), False)
+    connect.assert_not_called()
+
+    window.docker_status = RuntimeStatus(True, "Fixture: Humble installed", ["humble"])
+    header.start.click()
+    connect.assert_called_once_with(profile.id)
+    connect.reset_mock()
+    header.connect_button.click()
+    connect.assert_called_once_with(profile.id, activate=False)
+
+
 def test_connection_manager_crud_and_prepared_backends(window, qtbot):
     manager = window.backend_manager
     first = manager.add(new_profile("ros_demo"))
@@ -111,6 +150,31 @@ def test_connection_manager_crud_and_prepared_backends(window, qtbot):
     dialog.remove()
     assert second.id not in manager.profiles and first.id in manager.profiles
     assert window.dirty
+
+
+def test_stereo_preview_frames_do_not_grow_the_scroll_page(window, qtbot):
+    pytest.importorskip("cv2")
+    vision = window.vision
+    stereo = vision.stereo
+    page = window.tabs.pages[vision.panel]
+    window.resize(1480, 1250)
+    vision.open_view()
+    stereo.parentWidget().parentWidget().setCurrentWidget(stereo)
+    qtbot.wait(30)
+    assert page.verticalScrollBar().maximum() == 0
+
+    rgb = np.zeros((480, 640, 3), dtype=np.uint8)
+    depth = np.zeros((480, 640), dtype=np.uint8)
+    result = StereoResult(rgb, rgb, None, (), time.time_ns(), relative_depth=depth)
+    stereo.view.addItem("Relative Depth")
+    for index in (0, 2, 3) * 12:
+        stereo.view.setCurrentIndex(index)
+        stereo.accept_frame(stereo.generation, (result, None), time.time_ns())
+        qtbot.wait(10)
+
+    assert not stereo.image.pixmap().isNull()
+    assert page.verticalScrollBar().maximum() == 0
+    assert vision.panel.size() == page.viewport().size()
 
 
 def test_monitor_resets_when_switching_backend_identity_of_same_type(window, qtbot):

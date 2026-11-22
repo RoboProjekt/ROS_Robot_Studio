@@ -15,9 +15,76 @@ backends:
   - id: so101_real_usb
     name: Real Robot · SO-101
     backend_type: real_robot
-    domain_id: 0
     distribution: humble
+    domain_id: 23
+    discovery: localhost
+    network: host
+    network_confirmed: true
+    read_only: true
+    usb_joint_jog: true
     robot_model_id: so101_follower
     model_revision: a758567c3978dfeefe282ede0500085a48fe8f78
-    usb_joint_jog: true
+    model_signature: a3cf24a804b76eeca70422cf53597c59c5abbc8ca3c858a7426f1e638f5be0b5
 active_backend: so101_real_usb
+cameras:
+  - id: so101_usb_camera_1
+    name: SO-101 · USB Camera 1 (port 1-5)
+    backend_id: so101_real_usb
+    v4l2_device: /dev/v4l/by-path/pci-0000:01:00.0-usb-0:5:1.0-video-index0
+    rgb_topic: /so101/usb/camera_1/image_raw
+    info_topic: /so101/usb/camera_1/camera_info
+    camera_frame: so101_usb_camera_1_link
+    optical_frame: so101_usb_camera_1_optical_frame
+    width: 640
+    height: 480
+    fps: 30
+    display_fps: 30
+  - id: so101_usb_camera_2
+    name: SO-101 · USB Camera 2 (port 1-4)
+    backend_id: so101_real_usb
+    v4l2_device: /dev/v4l/by-path/pci-0000:01:00.0-usb-0:4:1.0-video-index0
+    rgb_topic: /so101/usb/camera_2/image_raw
+    info_topic: /so101/usb/camera_2/camera_info
+    camera_frame: so101_usb_camera_2_link
+    optical_frame: so101_usb_camera_2_optical_frame
+    width: 640
+    height: 480
+    fps: 30
+    display_fps: 30
+  - id: so101_ros_camera_1
+    name: SO-101 · ROS Camera 1
+    backend_id: so101_real_usb
+    rgb_topic: /so101/usb/camera_1/image_raw
+    info_topic: /so101/usb/camera_1/camera_info
+    camera_frame: so101_usb_camera_1_link
+    optical_frame: so101_usb_camera_1_optical_frame
+    fps: 30
+    display_fps: 30
+  - id: so101_ros_camera_2
+    name: SO-101 · ROS Camera 2
+    backend_id: so101_real_usb
+    rgb_topic: /so101/usb/camera_2/image_raw
+    info_topic: /so101/usb/camera_2/camera_info
+    camera_frame: so101_usb_camera_2_link
+    optical_frame: so101_usb_camera_2_optical_frame
+    fps: 30
+    display_fps: 30
+  - id: so101_ros_stereo_pair
+    name: SO-101 · ROS Side-by-side
+    backend_id: so101_real_usb
+    rgb_topic: /so101/usb/stereo/image_raw
+    info_topic: /so101/usb/stereo/camera_info
+    camera_frame: so101_usb_stereo_link
+    optical_frame: so101_usb_stereo_pair
+    width: 1280
+    fps: 30
+    display_fps: 30
+  - id: so101_ros_stereo_depth
+    name: SO-101 · ROS Relative Depth
+    backend_id: so101_real_usb
+    rgb_topic: /so101/usb/stereo/depth_relative
+    info_topic: /so101/usb/stereo/depth_camera_info
+    camera_frame: so101_usb_depth_link
+    optical_frame: so101_usb_depth_optical_frame
+    fps: 30
+    display_fps: 30

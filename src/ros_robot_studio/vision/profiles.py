@@ -1,6 +1,7 @@
 """Portable camera configuration bound to the project's existing backend IDs."""
 
 from math import isfinite
+from re import fullmatch
 from typing import Literal
 from uuid import uuid4
 
@@ -68,6 +69,7 @@ class CameraProfile(Model):
     )
     name: str = Field(min_length=1, max_length=100)
     backend_id: str = Field(min_length=1, max_length=80)
+    v4l2_device: str | None = None
     rgb_topic: str = "/so101/camera/image_raw"
     info_topic: str = "/so101/camera/camera_info"
     encoding: Literal["raw", "compressed"] = "raw"
@@ -85,6 +87,11 @@ class CameraProfile(Model):
 
     @model_validator(mode="after")
     def coherent(self):
+        if self.v4l2_device is not None and not fullmatch(
+            r"/dev/(?:video[0-9]+|v4l/by-(?:id|path)/[A-Za-z0-9_.:+-]+-video-index[0-9]+)",
+            self.v4l2_device,
+        ):
+            raise ValueError("Use a V4L2 device path under /dev/video* or /dev/v4l/")
         topics = (self.rgb_topic, self.info_topic)
         if len(set(topics)) != len(topics) or any(
             not topic.startswith("/") or len(topic) < 2 or any(c.isspace() for c in topic)
@@ -116,7 +123,13 @@ class CameraManager:
 
     def save(self, profile):
         for other in self.profiles.values():
-            if other.id == profile.id or other.backend_id != profile.backend_id:
+            if other.id == profile.id:
+                continue
+            if profile.v4l2_device or other.v4l2_device:
+                if profile.v4l2_device == other.v4l2_device:
+                    raise ValueError("Local cameras must use distinct V4L2 devices")
+                continue
+            if other.backend_id != profile.backend_id:
                 continue
             if {other.rgb_topic, other.info_topic} & {profile.rgb_topic, profile.info_topic}:
                 raise ValueError("Camera topics must be unique within this backend")

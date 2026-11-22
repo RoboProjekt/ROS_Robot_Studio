@@ -74,6 +74,8 @@ class CameraDialog(FormDialog):
         self.original = original
         self.author = author
         self.name = QLineEdit(original.name if original else "SO-101 Overhead Camera")
+        self.device = QLineEdit(original.v4l2_device or "" if original else "")
+        self.device.setPlaceholderText("/dev/v4l/by-path/…")
         self.backend = QComboBox()
         for profile in profiles.values():
             if not author or profile.backend_type == "isaac_sim":
@@ -120,6 +122,8 @@ class CameraDialog(FormDialog):
             ("Maximum display FPS", self.display),
         ):
             self.form.addRow(label, field)
+        if not author:
+            self.form.insertRow(2, "Local USB device (optional)", self.device)
         self.mount = None
         if author or (original and original.mount):
             self.mount = QComboBox()
@@ -195,6 +199,7 @@ class CameraDialog(FormDialog):
         data = dict(
             name=self.name.text().strip(),
             backend_id=self.backend.currentData(),
+            v4l2_device=None if self.author else self.device.text().strip() or None,
             rgb_topic=self.rgb.currentText().strip(),
             info_topic=self.info.text().strip(),
             camera_frame=self.link.text().strip(),

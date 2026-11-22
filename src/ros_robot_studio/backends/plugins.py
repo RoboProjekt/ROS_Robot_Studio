@@ -33,8 +33,10 @@ class ROSBackendPlugin(ABC):
 
     def prepare_runtime(self, profile, model, positions, runtime):
         config = profile.execution_config()
-        payload = simulation_config(model, positions, config, runtime)
-        if profile.read_only or not profile.execution_enabled:
+        read_only = profile.read_only or not profile.execution_enabled
+        # A read-only bridge has no controller and does not use a live pose to start.
+        payload = simulation_config(model, None if read_only else positions, config, runtime)
+        if read_only:
             payload["profile"] = "read_only"
         payload["backend_id"] = profile.id
         return payload

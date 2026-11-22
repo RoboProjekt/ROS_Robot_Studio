@@ -13,11 +13,13 @@ WORK_FRAME = "work_surface (+Y of robot_base is left)"
 
 
 class StereoPairer:
-    def __init__(self):
+    def __init__(self, capacity=4, slop_ns=PAIR_SLOP_NS):
+        self.capacity = capacity
+        self.slop_ns = slop_ns
         self.clear()
 
     def clear(self):
-        self.queues = (deque(maxlen=4), deque(maxlen=4))
+        self.queues = tuple(deque(maxlen=self.capacity) for _ in range(2))
         self.last = [None, None]
 
     def push(self, side, frame, now_ns):
@@ -41,7 +43,7 @@ class StereoPairer:
             for right in self.queues[1]:
                 stamps = (left.metadata["stamp_ns"], right.metadata["stamp_ns"])
                 skew = abs(stamps[0] - stamps[1])
-                if skew <= PAIR_SLOP_NS:
+                if skew <= self.slop_ns:
                     candidates.append((skew, -min(stamps), left, right))
         if not candidates:
             return None
@@ -56,10 +58,11 @@ class StereoPairer:
 class StereoResult:
     left: np.ndarray
     right: np.ndarray
-    disparity: np.ndarray
+    disparity: np.ndarray | None
     objects: tuple
     stamp_ns: int
     depth_error: str = ""
+    relative_depth: np.ndarray | None = None
 
 
 class OpenCVStereo:
@@ -221,6 +224,22 @@ def perceive(estimator, left, right, base):
         error = str(exc)
     return StereoResult(
         lrgb, rrgb, disparity, identify(lrgb, points, pose), left.metadata["stamp_ns"], error
+    )
+
+
+def perceive_usb_pair(pair, depth):
+    stamp = pair.metadata["stamp_ns"]
+    if (
+        depth.metadata["stamp_ns"] != stamp
+        or depth.metadata["encoding"] != "mono8"
+        or pair.height != depth.height
+        or pair.width != 2 * depth.width
+    ):
+        raise ValueError("Expected a matching USB RGB pair and relative depth image.")
+    left, right = (image.copy() for image in np.split(pair.rgb, 2, axis=1))
+    relative_depth = depth.rgb[:, :, 0].copy()
+    return StereoResult(
+        left, right, None, identify(left, None, None), stamp, relative_depth=relative_depth
     )
 
 

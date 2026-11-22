@@ -176,6 +176,22 @@ def test_hardware_monitoring_never_creates_command_route(manager, qtbot):
     backend.deleteLater()
 
 
+def test_read_only_camera_backend_connects_with_out_of_range_usb_feedback(manager, qtbot):
+    _, _, states, model, _ = manager
+    lease = states.activate_source("so101_usb", "SO-101 USB feedback")
+    lower, _ = model.effective_joint_bounds["axis_x"]
+    measured = dict(model.default_configuration(), axis_x=lower - 0.01)
+    assert states.update(lease, measured)
+
+    _, session = connected(
+        manager, qtbot, "generic_ros", 23, network="host", network_confirmed=True
+    )
+
+    assert session.payload["profile"] == "read_only"
+    assert session.payload["initial"] == model.default_configuration()
+    assert states.snapshot().positions["axis_x"] == measured["axis_x"]
+
+
 def test_start_cancel_race_cleans_owned_container_and_lease(manager, qtbot):
     instance, runtime, states, _, _ = manager
     started = threading.Event()

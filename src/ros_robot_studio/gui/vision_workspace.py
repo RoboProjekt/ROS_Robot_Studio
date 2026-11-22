@@ -240,7 +240,7 @@ class VisionWorkspace(QObject):
                 "Camera",
                 "Backend",
                 "Domain",
-                "RGB topic",
+                "Source",
                 "CameraInfo",
                 "Optical frame",
                 "Calibration",
@@ -374,16 +374,21 @@ class VisionWorkspace(QObject):
         self.camera_table.setRowCount(len(self.cameras.profiles))
         for row, camera in enumerate(self.cameras.profiles.values()):
             backend = self.backend(camera)
+            local = camera.v4l2_device
             self.camera.addItem(camera.name, camera.id)
             for column, value in enumerate(
                 (
                     camera.name,
-                    backend.name if backend else "Missing backend",
-                    str(backend.domain_id) if backend else "—",
-                    camera.rgb_topic,
-                    camera.info_topic,
+                    "Local USB" if local else backend.name if backend else "Missing backend",
+                    str(backend.domain_id) if backend and not local else "—",
+                    local or camera.rgb_topic,
+                    "—" if local else camera.info_topic,
                     camera.optical_frame,
-                    "Saved record" if camera.calibration else "Live CameraInfo + TF2",
+                    "USB RGB only"
+                    if local
+                    else "Saved record"
+                    if camera.calibration
+                    else "Live CameraInfo + TF2",
                     "Selected" if camera.id == self.cameras.selected_id else "Idle",
                 )
             ):
@@ -397,7 +402,9 @@ class VisionWorkspace(QObject):
     def show_status(self, message=""):
         camera, backend = self.profile(), self.backend()
         prefix = (
-            f"{backend.name} · {backend.id} · ROS domain {backend.domain_id}"
+            f"Local USB · {camera.v4l2_device}"
+            if camera and camera.v4l2_device
+            else f"{backend.name} · {backend.id} · ROS domain {backend.domain_id}"
             if backend
             else "Camera has no configured backend"
             if camera
@@ -587,6 +594,10 @@ class VisionWorkspace(QObject):
             self.config_status.setText(str(exc))
 
     def connect(self):
+        camera = self.profile()
+        if camera and camera.v4l2_device:
+            self.start()
+            return
         backend = self.backend()
         if not backend:
             self.show_status("Select a camera with a ROS backend")
@@ -598,15 +609,20 @@ class VisionWorkspace(QObject):
 
     def start(self):
         camera = self.profile()
-        session = self.main.backend_manager.sessions.get(camera.backend_id) if camera else None
-        if (
-            not session
-            or session.cancelled
-            or not session.transport
-            or not session.transport.connected
-        ):
-            self.show_status("Connect the camera's ROS backend first")
+        if not camera:
+            self.show_status("Select a camera first")
             return
+        session = None
+        if not camera.v4l2_device:
+            session = self.main.backend_manager.sessions.get(camera.backend_id)
+            if (
+                not session
+                or session.cancelled
+                or not session.transport
+                or not session.transport.connected
+            ):
+                self.show_status("Connect the camera's ROS backend first")
+                return
         if self.stream and self.stream.thread.is_alive():
             if self.stream.stop_requested.is_set():
                 self.show_status("Wait for the previous receiver to stop")
@@ -742,11 +758,17 @@ class VisionWorkspace(QObject):
         stream = self.stream
         if not stream:
             return
-        session = self.main.backend_manager.sessions.get(stream.camera.backend_id)
-        if session is not stream.session or session.cancelled or not session.transport.connected:
-            self.stop()
-            self.show_status("ROS backend disconnected")
-            return
+        local = stream.camera.v4l2_device
+        if not local:
+            session = self.main.backend_manager.sessions.get(stream.camera.backend_id)
+            if (
+                session is not stream.session
+                or session.cancelled
+                or not session.transport.connected
+            ):
+                self.stop()
+                self.show_status("ROS backend disconnected")
+                return
         now = time.monotonic()
         frame, error, epoch, received, replaced = stream.poll()
         if self.epoch != epoch:
@@ -759,13 +781,18 @@ class VisionWorkspace(QObject):
             self.detector.submit(frame)
         if not stream.thread.is_alive():
             self.stop()
-            self.show_status(error or "ROS image receiver disconnected")
+            self.show_status(error or "Image receiver disconnected")
             return
         if self.latest is None or now - self.last_arrival > 1.5:
             if self.latest is not None:
                 self.clear_frame()
             self.show_status(
-                error or "Waiting for RGB frames (paused, absent or incompatible publisher)"
+                error
+                or (
+                    "Waiting for USB camera frames"
+                    if local
+                    else "Waiting for RGB frames (paused, absent or incompatible publisher)"
+                )
             )
             return
         result, failure, detected, inference_drops = self.detector.poll()
@@ -793,11 +820,12 @@ class VisionWorkspace(QObject):
         metadata = self.latest.metadata
         age = max(0, (time.time_ns() - metadata["received_wall_ns"]) / 1e6)
         rate, display, detection = self.rates
+        source, clock = ("USB", "Capture stamp") if local else ("DDS", "ROS stamp")
         self.show_status(
             f"RGB {self.latest.width} × {self.latest.height} · {rate:.1f} FPS received · {display:.1f} FPS display"
             f"{' · display paused' if self.paused else ''}\n"
-            f"DDS receive → UI {age:.0f} ms · drops {metadata['drops'] + replaced} · "
-            f"ROS stamp {metadata['stamp_ns'] / 1e9:.6f} s"
+            f"{source} receive → UI {age:.0f} ms · drops {metadata['drops'] + replaced} · "
+            f"{clock} {metadata['stamp_ns'] / 1e9:.6f} s"
         )
         if self.detector.running and not failure and self.results.frame is not None:
             self.detector_status.setText(
@@ -914,6 +942,9 @@ class VisionWorkspace(QObject):
 
     def calibrate(self):
         camera = self.profile()
+        if camera and camera.v4l2_device:
+            self.show_status("USB RGB preview has no CameraInfo or TF calibration")
+            return
         if camera:
             dialog = CalibrationDialog(self.main, camera, self.calibration())
             if dialog.exec() == QDialog.DialogCode.Accepted:

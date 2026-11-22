@@ -449,7 +449,7 @@ sudo usermod -aG dialout "$USER"
 
 ### Einzelne Gelenke am echten Arm bewegen
 
-1. **Project → Open…** wählen und `Projects/SO-101-Real.studio.yaml` öffnen. Das Projekt verwendet das SO-101-Referenzmodell aus der Offline-Vorlage und enthält keine Kamera oder Objekterkennung. Den USB-Port des Followers unter **Robot Connection** wählen und **USB Joint Control…** öffnen.
+1. **Project → Open…** wählen und `Projects/SO-101-Real.studio.yaml` öffnen. Das Projekt verwendet das SO-101-Referenzmodell aus der Offline-Vorlage. Den USB-Port des Followers unter **Robot Connection** wählen und **USB Joint Control…** öffnen.
 2. Den Arm am Tisch befestigen und so abstützen, dass er sich auch bei ausgeschaltetem Drehmoment nicht absenkt. Den Bewegungsbereich freihalten und die Stromversorgung erreichbar halten.
 3. Im USB-Dialog die Kalibrierungsdatei prüfen und warten, bis die gemessenen Ausgangspositionen angezeigt werden. Der Dialog kann danach geschlossen oder neben dem Hauptfenster geöffnet bleiben.
 4. In **Robot Configuration** unter den Slidern das Kontrollkästchen **Arm is fixed and supported. Enable motor position control.** setzen. Sobald der Controller die Freigabe bestätigt, werden die Slider bedienbar. Die sechs Motoren übernehmen zuerst ihre gemessene Position und halten sie.
@@ -473,6 +473,33 @@ Du kannst beide Werte vor der Motorfreigabe einstellen. Bei aktiver Freigabe üb
 4. **Stop recording** schließt die CSV in `Replays/<Titel>.csv` ab und wählt sie im Dropdown aus. Die Datei enthält Zeit, fünf Gelenkwinkel, die Greiferstellung und die sechs Encoderpositionen aus jeder Messung. Nach einer Aufnahme mit Haltemoment hält der Arm die aktuelle Pose mit den normalen USB-Grenzen. Nach einer Aufnahme bei 0 % bleibt das Motordrehmoment ausgeschaltet.
 5. Aktiviere für die Wiedergabe die Motorfreigabe, wähle die CSV und klicke **Replay**, nachdem du den Bewegungsbereich freigegeben hast. Studio verwendet **USB Speed** und **USB Max torque** aus **Robot Configuration** bereits für die Fahrt zur Startpose. Es verlängert Übergänge, die mit der gewählten Geschwindigkeit länger dauern. Die Aufnahme braucht die ursprüngliche Motorkalibrierung.
 6. Beim Replay korrigiert ein äußerer PID-Regler die Positionsziele anhand der gemessenen Encoderwerte. Der Sollwert darf je Motor um bis zu 2° während der Fahrt und bis zu 4° beim Anfahren der Start- oder Endpose korrigiert werden. Die kalibrierten Bereiche und die USB-Grenzen für Drehmoment und Geschwindigkeit gelten weiter. Die Start- und Endpose gelten bei einer gemessenen Abweichung von höchstens 2° pro Motor als erreicht. Kommt der Arm nicht zur Pose, hält Studio die aktuelle Position und meldet die größte Abweichung. **Stop replay** hält ebenfalls die aktuelle Pose.
+
+### USB-Kamerabilder am SO-101
+
+Das Profil `Projects/SO-101-Real.studio.yaml` enthält zwei USB-Kameras. Unter **Camera & Vision → RGB** eine Kamera wählen und **Start Stream** klicken. Beim Wechsel der Kamera den Stream erneut starten. Die Vorschau benötigt OpenCV aus dem Studio-Extra `vision`. Falls die Kameras an andere USB-Ports gesteckt werden, lassen sich ihre Gerätepfade unter **Sensor Configuration → Configure… → Local USB device (optional)** aktualisieren.
+
+Für ROS 2 die direkte Vorschau mit **Stop Stream** schließen. Wähle im Projektordner das [Höhenmodell](docs/STEREO_HEIGHT_FISHEYE.md) passend zum senkrechten Abstand zwischen Kamera und Arbeitsfläche.
+
+```bash
+SO101_STEREO_PROFILE=high bash scripts/start_so101_usb_cameras.sh
+```
+
+`high` ist für 42–60 cm vorgesehen und `low` für 10–20 cm. Das Skript verwendet das Studio-Humble-Image als Basis und baut beim ersten Start ein separates Kamera-Image. Optional lassen sich die beiden V4L2-Gerätepfade in der Reihenfolge links, rechts als Argumente übergeben. Der Treiber publiziert in ROS-Domain 23 über Loopback. `ROS_DOMAIN_ID` kann beim Start überschrieben werden. **Ctrl+C** beendet den Treiber.
+
+| Ansicht | ROS-Topic | Bildformat |
+|---|---|---|
+| Kamera 1 | `/so101/usb/camera_1/image_raw` | `rgb8`, 640 × 480 |
+| Kamera 2 | `/so101/usb/camera_2/image_raw` | `rgb8`, 640 × 480 |
+| Nebeneinander | `/so101/usb/stereo/image_raw` | `rgb8`, 1280 × 480 |
+| Relative Tiefenkarte | `/so101/usb/stereo/depth_relative` | `mono8`, 640 × 480 |
+
+Alle vier ROS-Ansichten gehören zum Profil **Real Robot · SO-101**. **USB Joint Control…** startet bei verfügbarer Humble-Runtime auch die ROS-Kamerabrücke. **Connect Cameras** verbindet die Brücke bei ausgewähltem USB-Port auch separat. Unter **Camera & Vision → RGB** eine der vier ROS-Ansichten wählen und **Start Stream** klicken. **Disconnect** im Runtime-Banner beendet die Studio-Verbindungen für USB-Gelenke und Kamerabrücke.
+
+Die Stereoansichten verwenden Aufnahmen mit maximal 25 ms Abstand zwischen den Empfangszeitstempeln am PC. Die trainierte CompactStereo-Policy berechnet direkt aus den USB-Bildern die Disparität. Die Tiefenansicht zeigt deren Kehrwert als Graustufenbild. Schwarz markiert ungültige Pixel. Hellere gültige Pixel stehen für größere relative Tiefe. Die Werte haben keine metrische Einheit. `SO101_STEREO_MODEL` erlaubt es, einen anderen kompatiblen ONNX-Export zu laden.
+
+Mit verbundenem Profil **Real Robot · SO-101** öffnet **Camera & Vision → Stereo & Planning → Start Stereo** das Bildpaar und die zugehörige Policy-Tiefenkarte. Studio ordnet beide anhand des identischen Zeitstempels zu. **Check Ollama** prüft das Modell `qwen3-vl:8b-instruct`.
+
+Gib eine Beschreibung wie „grüner Würfel mit schwarzem Aufkleber“ ein und klicke **Find Objects**. Qwen sucht die Treffer in Kamera 1. Studio vergibt IDs wie `green_cube_1` und markiert die Treffer unter **Detected Objects**. Die IDs gelten für diese Aufnahme. **Interpret Task** führt dieselbe Erkennung automatisch aus und verwendet die gefundenen IDs, das Stereo-Bildpaar und die relative Tiefenkarte für den Auftragsvorschlag. **Plan Only** benötigt metrische Objektpositionen im Roboterkoordinatensystem und bleibt bei relativer USB-Tiefe gesperrt.
 
 ## Lokale MuJoCo-Runtime
 

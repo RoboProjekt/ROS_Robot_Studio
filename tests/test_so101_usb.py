@@ -148,7 +148,7 @@ def test_live_usb_reads_keep_confirmation_and_stop_when_dialog_closes(qtbot, tmp
     assert not dialog.poll.isActive() and counter.read_text() == final_count
 
 
-def test_manual_project_uses_the_offline_model_and_no_vision_or_ros_execution():
+def test_real_so101_project_binds_ros_cameras_to_the_usb_joint_backend():
     project = load_project(PROJECTS_DIR / "SO-101-Real.studio.yaml")
     reference = load_project(PROJECTS_DIR.parent / "examples/so101/so101.studio.yaml")
     assert project.robot.urdf == reference.robot.urdf
@@ -156,6 +156,15 @@ def test_manual_project_uses_the_offline_model_and_no_vision_or_ros_execution():
     (profile,) = project.backends
     assert profile.id == project.active_backend
     assert profile.usb_joint_jog and profile.read_only and not profile.execution_enabled
+    assert profile.domain_id == 23 and profile.network == "host"
+    assert profile.discovery == "localhost" and profile.network_confirmed
+    assert {camera.backend_id for camera in project.cameras} == {profile.id}
+    assert {camera.rgb_topic for camera in project.cameras if not camera.v4l2_device} == {
+        "/so101/usb/camera_1/image_raw",
+        "/so101/usb/camera_2/image_raw",
+        "/so101/usb/stereo/image_raw",
+        "/so101/usb/stereo/depth_relative",
+    }
 
 
 def test_jog_only_writes_to_selected_motor_and_releases_torque():

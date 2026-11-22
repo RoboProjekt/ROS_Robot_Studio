@@ -1,4 +1,4 @@
-"""Bounded binary camera stream in the existing backend's Docker session."""
+"""Latest-frame capture from a local V4L2 device or a ROS backend."""
 
 from __future__ import annotations
 
@@ -107,7 +107,7 @@ class PacketReader:
 
 
 class CameraStream:
-    def __init__(self, camera, session):
+    def __init__(self, camera, session=None):
         self.camera = camera
         self.session = session
         self.stop_requested = threading.Event()
@@ -161,6 +161,9 @@ class CameraStream:
 
     def run(self):
         try:
+            if self.camera.v4l2_device:
+                self.capture_v4l2()
+                return
             with tempfile.TemporaryFile() as stderr:
                 process = subprocess.Popen(
                     self.command(),
@@ -188,6 +191,66 @@ class CameraStream:
                 self.error = str(exc)
                 self.latest = None
 
+    def capture_v4l2(self):
+        try:
+            import cv2
+        except ImportError as exc:
+            raise OSError("USB camera capture requires the Studio vision extra (OpenCV)") from exc
+
+        camera = self.camera
+        device = camera.v4l2_device
+        if not Path(device).exists():
+            raise OSError(f"USB camera not found at {device}. Check its USB port.")
+        capture = cv2.VideoCapture(device, cv2.CAP_V4L2)
+        try:
+            if not capture.isOpened():
+                raise OSError(f"Cannot open {device}. Check access and close other camera apps.")
+            capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+            capture.set(cv2.CAP_PROP_FRAME_WIDTH, camera.width)
+            capture.set(cv2.CAP_PROP_FRAME_HEIGHT, camera.height)
+            capture.set(cv2.CAP_PROP_FPS, camera.fps)
+            capture.set(cv2.CAP_PROP_BUFFERSIZE, 2)
+            while not self.stop_requested.is_set():
+                ok, bgr = capture.read()
+                stamp = time.time_ns()
+                if not ok or bgr is None or not bgr.size:
+                    raise OSError(f"No frames from {device}. Check the camera connection.")
+                rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+                rgb.setflags(write=False)
+                self.publish(
+                    RGBFrame(
+                        rgb,
+                        dict(
+                            frame_id=camera.optical_frame,
+                            epoch=0,
+                            stamp_ns=stamp,
+                            received_wall_ns=stamp,
+                            drops=0,
+                            camera_info=None,
+                            transforms={},
+                        ),
+                    ),
+                    "",
+                    0,
+                )
+        except cv2.error as exc:
+            raise OSError(f"USB camera capture failed for {device}: {exc}") from exc
+        finally:
+            capture.release()
+
+    def publish(self, frame, error, epoch):
+        with self.lock:
+            if self.stop_requested.is_set():
+                return
+            if epoch != self.epoch:
+                self.latest = None
+                self.epoch = epoch
+            self.error = error
+            if frame is not None:
+                self.count += 1
+                self.replaced += self.latest is not None
+                self.latest = frame
+
     def receive(self, process):
         parser = PacketReader()
         next_lease = 0
@@ -211,15 +274,4 @@ class CameraStream:
                             frame = decode_frame(meta, body)
                         except (ValueError, TypeError, KeyError) as exc:
                             error = str(exc)
-                    with self.lock:
-                        if self.stop_requested.is_set():
-                            return
-                        epoch = meta["epoch"]
-                        if epoch != self.epoch:
-                            self.latest = None
-                            self.epoch = epoch
-                        self.error = error
-                        if frame is not None:
-                            self.count += 1
-                            self.replaced += self.latest is not None
-                            self.latest = frame
+                    self.publish(frame, error, meta["epoch"])

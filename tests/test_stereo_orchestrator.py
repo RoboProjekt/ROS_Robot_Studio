@@ -1,3 +1,5 @@
+import base64
+import json
 import time
 
 import numpy as np
@@ -8,11 +10,19 @@ from ros_robot_studio.vision.moveit import ARM, make_request
 from ros_robot_studio.vision.orchestrator import (
     Clarification,
     Proposal,
+    chat,
+    ground_objects,
     mock_reply,
     target_geometry,
     validate_reply,
 )
-from ros_robot_studio.vision.stereo import OpenCVStereo, StereoPairer, perceive, stereo_profiles
+from ros_robot_studio.vision.stereo import (
+    OpenCVStereo,
+    StereoPairer,
+    perceive,
+    perceive_usb_pair,
+    stereo_profiles,
+)
 from ros_robot_studio.vision.stream import RGBFrame
 
 
@@ -108,6 +118,82 @@ def test_stereo_profiles_are_parallel_with_unique_ros_names():
     assert left.mount.usd_rpy_deg == right.mount.usd_rpy_deg
     assert left.optical_frame != right.optical_frame
     assert left.rgb_topic != right.rgb_topic
+
+
+def test_real_stereo_requires_matching_policy_depth_and_leaves_xyz_unset():
+    left, right = synthetic_pair(0.45)
+    wall = left.metadata["received_wall_ns"]
+    pair = RGBFrame(np.concatenate((left.rgb, right.rgb), axis=1), left.metadata)
+    levels = np.full_like(left.rgb, 110)
+    depth = RGBFrame(levels, dict(left.metadata, encoding="mono8"))
+    older = RGBFrame(levels, dict(depth.metadata, stamp_ns=left.metadata["stamp_ns"] - 1))
+    pairer = StereoPairer(slop_ns=0)
+    pairer.push(0, pair, wall)
+    pairer.push(1, older, wall)
+    assert pairer.pair(wall) is None
+    pairer.push(1, depth, wall)
+    result = perceive_usb_pair(*pairer.pair(wall))
+    assert np.array_equal(result.right, right.rgb)
+    assert np.array_equal(result.relative_depth, levels[:, :, 0])
+    assert result.disparity is None
+    assert {obj["id"] for obj in result.objects} == {"red_cube", "blue_bowl"}
+    assert all(not obj["position_valid"] and obj["xyz"] is None for obj in result.objects)
+    with pytest.raises(ValueError, match="matching USB"):
+        perceive_usb_pair(pair, older)
+
+
+def test_qwen_request_sends_both_usb_pair_and_policy_depth(monkeypatch):
+    captured = {}
+
+    def fake_request(_, path, payload):
+        assert path == "/api/chat"
+        captured.update(payload)
+        return {"message": {"content": "fixture"}}
+
+    monkeypatch.setattr("ros_robot_studio.vision.orchestrator.request_json", fake_request)
+    snapshot = {"scene_id": "usb-scene", "depth_kind": "relative"}
+    assert (
+        chat(
+            "http://localhost:11434",
+            "qwen",
+            "Use the cube",
+            b"pair",
+            snapshot,
+            relative_depth_image=b"depth",
+        )
+        == "fixture"
+    )
+    assert [base64.b64decode(image) for image in captured["messages"][1]["images"]] == [
+        b"pair",
+        b"depth",
+    ]
+    assert "no measured robot-base positions" in captured["messages"][0]["content"]
+
+
+def test_grounding_assigns_distinct_ids_and_scales_boxes(monkeypatch):
+    detections = {
+        "scene_id": "usb-scene",
+        "objects": [
+            {"label": "Green cube", "bbox_2d": [600, 200, 800, 400]},
+            {"label": "green cube", "bbox_2d": [100, 300, 200, 400]},
+            {"label": " Green cube ", "bbox_2d": [100, 300, 200, 400]},
+        ],
+    }
+    monkeypatch.setattr(
+        "ros_robot_studio.vision.orchestrator.request_json",
+        lambda *args: {"message": {"content": json.dumps(detections)}},
+    )
+    objects = ground_objects(
+        "http://localhost", "qwen", "green cubes", b"image", "usb-scene", (640, 480)
+    )
+    assert [obj["id"] for obj in objects] == ["green_cube_1", "green_cube_2"]
+    assert [obj["bbox"] for obj in objects] == [[64, 144, 64, 48], [384, 96, 128, 96]]
+    assert all(obj["xyz"] is None and not obj["position_valid"] for obj in objects)
+    with pytest.raises(ValueError, match="different scene"):
+        ground_objects("http://localhost", "qwen", "green cube", b"image", "old-scene", (640, 480))
+    detections["objects"][0]["bbox_2d"] = [600, 200, 500, 1001]
+    with pytest.raises(ValueError, match="bbox_2d"):
+        ground_objects("http://localhost", "qwen", "green cube", b"image", "usb-scene", (640, 480))
 
 
 def test_proposal_resolves_scene_bound_geometry_in_the_app():

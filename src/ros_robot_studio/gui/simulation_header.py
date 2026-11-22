@@ -137,6 +137,12 @@ class SimulationHeader(QWidget):
             and (self.main.project.robot.model_id == profile.robot_model_id == "so101_follower")
         )
 
+    def has_ros_cameras(self, profile):
+        return any(
+            camera.backend_id == profile.id and not camera.v4l2_device
+            for camera in self.main.project.cameras
+        )
+
     def local(self, identity=None):
         return dict(
             self.main.settings.get("backend_local", {}).get(
@@ -231,8 +237,12 @@ class SimulationHeader(QWidget):
                 or self.robot_port.model().item(self.robot_port.currentIndex()).isEnabled()
             )
         )
+        camera_connection = serial_selected and self.has_ros_cameras(profile)
+        self.connect_button.setText("Connect Cameras" if camera_connection else "Connect ROS")
         self.connect_button.setEnabled(
-            bool(profile) and not serial_selected and kind not in ("mujoco", "gazebo")
+            bool(profile)
+            and (not serial_selected or camera_connection)
+            and kind not in ("mujoco", "gazebo")
         )
         self.refresh_status()
 
@@ -285,17 +295,23 @@ class SimulationHeader(QWidget):
             return
         port = self.robot_port.currentData() if p.backend_type == "real_robot" else ""
         if port:
+            usb_status = port_access_error(port)
             if self.main.local_runtime.profile is p:
-                self.set_status(port_access_error(port) or f"SO-101 USB · {self.main.ros_status}")
-                return
-            self.set_status(
-                port_access_error(port)
-                or (
+                usb_status = usb_status or f"SO-101 USB · {self.main.ros_status}"
+            else:
+                usb_status = usb_status or (
                     "SO-101 Follower · USB single-joint control"
                     if self.can_jog(p)
                     else "SO-101 Follower · USB joint readings · Read Only"
                 )
-            )
+            if self.has_ros_cameras(p):
+                bridge = (
+                    session.status
+                    if session
+                    else self.manager.last_errors.get(p.id, "Disconnected")
+                )
+                usb_status += f" · ROS camera bridge: {bridge}"
+            self.set_status(usb_status)
             return
         connection = session.status if session else "Disconnected"
         if p.backend_type == "isaac_sim":
@@ -482,7 +498,12 @@ class SimulationHeader(QWidget):
     def connect_selected(self):
         p = self.profile()
         if p:
-            self.workspace.connect(p.id, activate=True)
+            cameras_only = (
+                p.backend_type == "real_robot"
+                and bool(self.robot_port.currentData())
+                and self.has_ros_cameras(p)
+            )
+            self.workspace.connect(p.id, activate=not cameras_only)
 
     def disconnect_selected(self):
         p = self.profile()
@@ -499,6 +520,12 @@ class SimulationHeader(QWidget):
             return
         if p.backend_type == "real_robot" and self.robot_port.currentData():
             self.main.local_runtime.start_usb(p, self.robot_port.currentData(), self.can_jog(p))
+            if (
+                self.has_ros_cameras(p)
+                and self.main.docker_status.available
+                and p.distribution in self.main.docker_status.installed
+            ):
+                self.workspace.connect(p.id)
             return
         if p.backend_type == "mujoco":
             self.main.local_runtime.start_mujoco(p, self.local(p.id).get("scene_path"))
