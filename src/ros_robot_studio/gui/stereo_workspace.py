@@ -5,7 +5,7 @@ from dataclasses import replace
 from uuid import uuid4
 
 import numpy as np
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QSignalBlocker, Qt, QTimer
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import (
     QComboBox,
@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 from ros_robot_studio.gui.robot_view import RobotView
+from ros_robot_studio.gui.usb_cameras import RGB_TOPIC
 from ros_robot_studio.gui.workers import TaskRunner
 from ros_robot_studio.vision.geometry import transform_matrix
 from ros_robot_studio.vision.moveit import DEFAULT_CONTAINER, make_request, resolve_ik, run_plan
@@ -51,8 +52,18 @@ from ros_robot_studio.vision.stream import CameraStream
 
 SNAPSHOT_TIMEOUT = 120
 USB_STEREO_TOPICS = ("/so101/usb/stereo/image_raw", "/so101/usb/stereo/depth_relative")
-USB_STEREO_LABELS = ["Camera 1", "Camera 2", "Side by Side", "Relative Depth", "Detected Objects"]
+USB_STEREO_LABELS = [
+    "Camera 1",
+    "Camera 2",
+    "Side by Side",
+    "Relative Depth",
+    "Detected Objects",
+    "Live Qwen",
+]
 DETECTION_VIEW = 4
+LIVE_VIEW = 5
+LIVE_INTERVAL = 1.0
+LIVE_RESULT_LIFETIME = 2.0
 SIM_STEREO_LABELS = ["Left", "Right", "Stereo / Disparity"]
 
 
@@ -99,6 +110,35 @@ def jpeg_bytes(image):
     return jpeg.tobytes()
 
 
+def ground_rgb(url, model, description, rgb, scene_id, *, timeout=180):
+    import cv2
+
+    height, width = rgb.shape[:2]
+    return ground_objects(
+        url,
+        model,
+        description,
+        jpeg_bytes(cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)),
+        scene_id,
+        (width, height),
+        timeout=timeout,
+    )
+
+
+def visible_stationary_objects(reference, current, objects):
+    """Suppress older boxes when the region they describe has changed."""
+    if reference.shape != current.shape:
+        return ()
+    visible = []
+    for obj in objects:
+        x, y, width, height = obj["bbox"]
+        region = np.s_[y : y + height : max(1, height // 16), x : x + width : max(1, width // 16)]
+        before, after = reference[region], current[region]
+        if before.size and np.abs(before.astype(np.int16) - after).mean() <= 30:
+            visible.append(obj)
+    return tuple(visible)
+
+
 class StereoWorkspace(QWidget):
     def __init__(self, vision, estimator_factory=OpenCVStereo):
         super().__init__()
@@ -114,6 +154,10 @@ class StereoWorkspace(QWidget):
         self.epochs = None
         self.latest = self.proposal = self.planned = None
         self.grounded_result = None
+        self.live_stream = self.live_frame = self.live_result = None
+        self.live_generation = 0
+        self.live_stamp = self.live_epoch = None
+        self.live_next_request = 0.0
         self.generation = 0
         self.paused = False
         self.real_ui = None
@@ -195,6 +239,15 @@ class StereoWorkspace(QWidget):
         self.preview = QPlainTextEdit(readOnly=True)
         self.preview.setMaximumHeight(135)
         layout.addWidget(self.preview)
+        self.live_button = QPushButton("Live Detection · up to 1 Hz", checkable=True)
+        self.live_button.toggled.connect(self.set_live_detection)
+        command_row.insertWidget(3, self.live_button)
+        self.live_status = QLabel(wordWrap=True)
+        self.live_status.setTextFormat(Qt.TextFormat.PlainText)
+        layout.addWidget(self.live_status)
+        self.live_status.hide()
+        for field in (self.task, self.url, self.model):
+            field.textChanged.connect(self.clear_live_result)
 
     def real_profile(self):
         manager = self.main.backend_manager
@@ -211,13 +264,14 @@ class StereoWorkspace(QWidget):
         real = self.real_profile() is not None
         if real == self.real_ui:
             return
-        if self.streams:
+        if self.streams or self.live_stream:
             self.stop()
         self.real_ui = real
         self.geometry_options.setVisible(not real)
         for widget in (self.register, self.scene, self.container, self.moveit_label):
             widget.setVisible(not real)
         self.find_button.setVisible(real)
+        self.live_button.setVisible(real)
         self.plan_button.setEnabled(not real)
         self.task.setPlaceholderText(
             "Find a green cube or enter a pick-and-place task."
@@ -248,6 +302,172 @@ class StereoWorkspace(QWidget):
         if any(topic not in cameras for topic in USB_STEREO_TOPICS):
             raise ValueError("Add the SO-101 stereo RGB and relative depth topics to this backend.")
         return tuple(cameras[topic] for topic in USB_STEREO_TOPICS)
+
+    def set_live_detection(self, enabled):
+        if not enabled:
+            self.stop_live()
+            return
+        profile = self.real_profile()
+        manager = self.main.backend_manager
+        if self.vision.usb_backend_id and self.vision.usb_controls.mode == "depth":
+            self.stop_live()
+            self.preview.setPlainText(
+                "Select a color camera on the RGB tab for live Qwen detection."
+            )
+            return
+        session = manager.sessions.get(profile.id) if profile else None
+        if (
+            not session
+            or session.cancelled
+            or not session.transport
+            or not session.transport.connected
+        ):
+            self.stop_live()
+            self.preview.setPlainText("Start Stream on the RGB tab to connect the camera first.")
+            return
+        camera = next(
+            (
+                item
+                for item in self.vision.cameras.profiles.values()
+                if item.backend_id == profile.id
+                and item.rgb_topic == RGB_TOPIC
+                and not item.v4l2_device
+            ),
+            None,
+        )
+        if camera is None:
+            self.stop_live()
+            self.preview.setPlainText("Camera 1 is missing from the Real Robot camera profile.")
+            return
+        self.live_stream = CameraStream(camera, session)
+        self.live_stream.start()
+        if not self.streams:
+            self.paused = False
+        self.live_next_request = 0.0
+        self.view.setCurrentIndex(LIVE_VIEW)
+        self.live_status.setText("Waiting for live Camera 1 frames.")
+        self.live_status.show()
+        self.timer.start(15)
+
+    def clear_live_result(self):
+        self.live_generation += 1
+        self.live_result = None
+        self.live_stamp = None
+        if self.live_stream and self.view.currentIndex() == LIVE_VIEW:
+            self.render_live()
+
+    def stop_live(self):
+        if self.live_stream:
+            self.live_stream.stop()
+            self.retired.append(self.live_stream.thread)
+            self.live_stream = None
+        self.live_frame = self.live_epoch = None
+        self.clear_live_result()
+        self.live_status.hide()
+        with QSignalBlocker(self.live_button):
+            self.live_button.setChecked(False)
+        if self.view.currentIndex() == LIVE_VIEW:
+            self.view.setCurrentIndex(0)
+        if not self.streams:
+            self.timer.stop()
+
+    def tick_live(self):
+        stream = self.live_stream
+        if not stream:
+            return
+        manager, session = self.main.backend_manager, stream.session
+        if (
+            manager.selected_id != session.profile.id
+            or manager.sessions.get(session.profile.id) is not session
+            or session.cancelled
+            or not session.transport
+            or not session.transport.connected
+        ):
+            self.stop_live()
+            self.preview.setPlainText(
+                "Live detection stopped because the camera bridge disconnected."
+            )
+            return
+        frame, error, epoch, *_ = stream.poll()
+        if not stream.thread.is_alive():
+            self.stop_live()
+            self.preview.setPlainText(error or "Live Camera 1 receiver stopped.")
+            return
+        if self.paused:
+            return
+        if self.live_epoch != epoch:
+            self.clear_live_result()
+            self.live_epoch = epoch
+        fresh_frame = frame is not None
+        if fresh_frame:
+            if (
+                self.live_frame
+                and frame.metadata["stamp_ns"] < self.live_frame.metadata["stamp_ns"]
+            ):
+                self.clear_live_result()
+            self.live_frame = frame
+        frame = self.live_frame
+        if frame is None or time.time_ns() - frame.metadata["received_wall_ns"] > MAX_AGE_NS:
+            if frame is not None:
+                self.live_frame = None
+                self.clear_live_result()
+            self.live_status.setText(error or "Waiting for live Camera 1 frames.")
+            return
+        now = time.monotonic()
+        expired = self.live_result is not None and now >= self.live_result[2]
+        if expired:
+            self.live_result = None
+        self.request_live(frame, now)
+        if (fresh_frame or expired) and self.view.currentIndex() == LIVE_VIEW:
+            self.render_live()
+
+    def request_live(self, frame, now):
+        stamp = frame.metadata["stamp_ns"]
+        if self.requests.busy or now < self.live_next_request or stamp == self.live_stamp:
+            return
+        description = self.task.text().strip()
+        if not description:
+            self.live_status.setText("Enter an object description to start detection.")
+            return
+        url, model = self.url.text().strip(), self.model.text().strip()
+        version = self.live_generation
+        scene_id = uuid4().hex
+        self.live_stamp = stamp
+        self.live_next_request = now + LIVE_INTERVAL
+        self.live_status.setText("Qwen is checking the latest frame.")
+
+        def accepted(objects):
+            if version == self.live_generation and self.live_stream:
+                finished = time.monotonic()
+                self.live_result = frame.rgb, objects, finished + LIVE_RESULT_LIFETIME
+                self.live_status.setText(f"Last Qwen result · {finished - now:.1f} s inference")
+                if self.view.currentIndex() == LIVE_VIEW:
+                    self.render_live()
+
+        def failed(error):
+            if version == self.live_generation and self.live_stream:
+                self.live_next_request = time.monotonic() + 3
+                self.live_status.setText(error)
+
+        self.requests.run(
+            lambda _: ground_rgb(url, model, description, frame.rgb, scene_id, timeout=30),
+            accepted,
+            failed,
+        )
+
+    def render_live(self):
+        if self.live_frame is None:
+            self.image.clear()
+            self.objects.clear()
+            return
+        rgb = self.live_frame.rgb
+        objects = ()
+        if self.live_result:
+            reference, detections, expires = self.live_result
+            if time.monotonic() < expires:
+                objects = visible_stationary_objects(reference, rgb, detections)
+        self.objects.setText(" · ".join(obj["id"] for obj in objects))
+        self.render_rgb(annotate(rgb, objects) if objects else rgb)
 
     def backend(self, *, active=False):
         manager = self.main.backend_manager
@@ -343,6 +563,7 @@ class StereoWorkspace(QWidget):
         self.objects.clear()
 
     def stop(self):
+        self.stop_live()
         for stream in self.streams:
             stream.stop()
         self.retired.extend(stream.thread for stream in self.streams)
@@ -360,14 +581,21 @@ class StereoWorkspace(QWidget):
         return not (self.retired or self.processing.busy or self.requests.busy)
 
     def pause_stream(self):
-        if self.streams:
+        if self.streams or self.live_stream:
             self.paused = not self.paused
+            self.live_frame = None
+            self.clear_live_result()
+            if self.live_stream:
+                self.live_status.setText(
+                    "Paused." if self.paused else "Waiting for live Camera 1 frames."
+                )
             self.invalidate()
             self.status.setText(
                 "Stereo paused." if self.paused else "Waiting for fresh stereo frames."
             )
 
     def tick(self):
+        self.tick_live()
         if not self.streams:
             return
         manager = self.main.backend_manager
@@ -451,11 +679,14 @@ class StereoWorkspace(QWidget):
                 else "Paired stereo"
             )
             self.status.setText(result.depth_error or f"{source} at {result.stamp_ns / 1e9:.3f} s")
-            if self.view.currentIndex() != DETECTION_VIEW:
+            if self.view.currentIndex() not in (DETECTION_VIEW, LIVE_VIEW):
                 self.render()
 
     def render(self):
         index = self.view.currentIndex()
+        if index == LIVE_VIEW:
+            self.render_live()
+            return
         detection_view = index == DETECTION_VIEW
         result = self.grounded_result if detection_view else self.latest[0] if self.latest else None
         if result is None:
@@ -490,6 +721,9 @@ class StereoWorkspace(QWidget):
             rgb = cv2.cvtColor(raw, cv2.COLOR_BGR2RGB)
         else:
             rgb = result.right
+        self.render_rgb(rgb)
+
+    def render_rgb(self, rgb):
         image = QImage(
             rgb.data, rgb.shape[1], rgb.shape[0], rgb.strides[0], QImage.Format.Format_RGB888
         )
@@ -543,6 +777,7 @@ class StereoWorkspace(QWidget):
 
     def request_scene(self, *, interpret):
         if self.requests.busy:
+            self.preview.setPlainText("Wait for the current Qwen request to finish.")
             return
         self.proposal = None
         self.clear_plan()
@@ -567,15 +802,7 @@ class StereoWorkspace(QWidget):
                     import cv2
 
                     if locate:
-                        height, width = result.left.shape[:2]
-                        objects = ground_objects(
-                            url,
-                            model,
-                            task,
-                            jpeg_bytes(cv2.cvtColor(result.left, cv2.COLOR_RGB2BGR)),
-                            snapshot["scene_id"],
-                            (width, height),
-                        )
+                        objects = ground_rgb(url, model, task, result.left, snapshot["scene_id"])
                         scene = dict(snapshot, objects=objects)
                         if not interpret or not objects:
                             return None, scene

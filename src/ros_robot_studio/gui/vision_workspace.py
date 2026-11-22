@@ -37,6 +37,13 @@ from ros_robot_studio.gui.camera_dialogs import (
     vector_fields,
 )
 from ros_robot_studio.gui.stereo_workspace import StereoWorkspace
+from ros_robot_studio.gui.usb_cameras import (
+    DEPTH_TOPIC,
+    RGB_TOPIC,
+    USB_TOPICS,
+    USBCameraControls,
+    USBCameraDriver,
+)
 from ros_robot_studio.gui.widgets import button, label
 from ros_robot_studio.motion.positions import VisionPoseProvider
 from ros_robot_studio.vision.detection import (
@@ -205,6 +212,11 @@ class VisionWorkspace(QObject):
         self.models = DetectionModelManager(main.settings)
         self.pose_provider = VisionPoseProvider({})
         self.stream = None
+        self.usb_backend_id = None
+        self.usb_bridge = None
+        self.pending_usb = None
+        self.usb_driver = USBCameraDriver(self)
+        self.usb_driver.failed.connect(self.usb_error)
         self.latest = None
         self.displayed = None
         self.paused = False
@@ -225,6 +237,7 @@ class VisionWorkspace(QObject):
         self.refresh_models()
         self.load(main.project)
         main.backend_manager.profiles_changed.connect(self.refresh)
+        main.backend_manager.changed.connect(self.sync_usb_profile)
         main.isaac_processes.changed.connect(self.scene_finished)
         main.isaac_processes.error.connect(self.scene_error)
         self.timer = QTimer(self)
@@ -288,6 +301,10 @@ class VisionWorkspace(QObject):
         self.stereo = StereoWorkspace(self)
         tabs.addTab(self.stereo, "Stereo & Planning")
         layout = QVBoxLayout(mono)
+        self.usb_controls = USBCameraControls(self.main.settings, mono)
+        self.usb_controls.hide()
+        self.usb_controls.changed.connect(self.usb_options_changed)
+        layout.addWidget(self.usb_controls)
         self.camera = QComboBox()
         self.camera.activated.connect(lambda _: self.select(self.camera.currentData()))
         layout.addWidget(self.camera)
@@ -297,7 +314,7 @@ class VisionWorkspace(QObject):
             layout,
             (
                 ("Start Stream", self.start),
-                ("Stop Stream", self.stop),
+                ("Stop Stream", self.stop_owned),
                 ("Pause / resume display", self.pause_display),
                 ("Snapshot…", self.snapshot),
             ),
@@ -363,10 +380,55 @@ class VisionWorkspace(QObject):
         return self.main.backend_manager.profiles.get(camera.backend_id) if camera else None
 
     def load(self, project):
-        self.stop()
+        self.stop_owned()
         self.stereo.stop()
         self.cameras.load(project.cameras)
+        self.usb_backend_id = None
+        self.usb_controls.hide()
+        self.sync_usb_profile()
         self.refresh()
+
+    def sync_usb_profile(self):
+        manager = self.main.backend_manager
+        profile = manager.profiles.get(manager.selected_id)
+        identity = None
+        if (
+            profile
+            and profile.backend_type == "real_robot"
+            and any(
+                camera.backend_id == profile.id
+                and not camera.v4l2_device
+                and camera.rgb_topic == RGB_TOPIC
+                for camera in self.cameras.profiles.values()
+            )
+        ):
+            identity = profile.id
+        if self.usb_backend_id != identity:
+            self.stop_owned()
+            self.usb_backend_id = identity
+            self.usb_controls.setVisible(bool(identity))
+            if identity:
+                self.usb_controls.defaults = tuple(
+                    camera.v4l2_device
+                    for camera in self.cameras.profiles.values()
+                    if camera.backend_id == identity and camera.v4l2_device
+                )
+                self.usb_controls.refresh()
+            self.refresh()
+            if identity and self.camera.currentData():
+                self.cameras.select(self.camera.currentData())
+                self.refresh()
+        if self.usb_bridge and (
+            manager.sessions.get(self.usb_backend_id) is not self.usb_bridge
+            or self.usb_bridge.cancelled
+        ):
+            self.usb_error("ROS camera bridge disconnected.")
+
+    def usb_options_changed(self):
+        self.stop_owned()
+        self.refresh()
+        if self.camera.currentData():
+            self.select(self.camera.currentData())
 
     def refresh(self):
         self.camera.blockSignals(True)
@@ -375,7 +437,11 @@ class VisionWorkspace(QObject):
         for row, camera in enumerate(self.cameras.profiles.values()):
             backend = self.backend(camera)
             local = camera.v4l2_device
-            self.camera.addItem(camera.name, camera.id)
+            managed = self.usb_backend_id and camera.backend_id == self.usb_backend_id
+            if not managed or (
+                not local and camera.rgb_topic in USB_TOPICS[self.usb_controls.mode]
+            ):
+                self.camera.addItem(camera.name, camera.id)
             for column, value in enumerate(
                 (
                     camera.name,
@@ -395,7 +461,7 @@ class VisionWorkspace(QObject):
                 self.camera_table.setItem(row, column, QTableWidgetItem(value))
             if camera.id == self.cameras.selected_id:
                 self.camera_table.selectRow(row)
-        self.camera.setCurrentIndex(self.camera.findData(self.cameras.selected_id))
+        self.camera.setCurrentIndex(max(0, self.camera.findData(self.cameras.selected_id)))
         self.camera.blockSignals(False)
         self.show_status()
 
@@ -412,7 +478,7 @@ class VisionWorkspace(QObject):
         )
         self.status.setText(prefix + ("\n" + message if message else ""))
         if camera:
-            row = self.camera.findData(camera.id)
+            row = tuple(self.cameras.profiles).index(camera.id)
             item = self.camera_table.item(row, 7)
             if item:
                 item.setText(message.split("\n")[0].split(" · ")[0] if message else "Idle")
@@ -596,7 +662,11 @@ class VisionWorkspace(QObject):
     def connect(self):
         camera = self.profile()
         if camera and camera.v4l2_device:
-            self.start()
+            if not self.usb_driver.idle:
+                self.stop_owned()
+                self.show_status("Wait for the previous USB camera driver to stop.")
+            else:
+                self.start_receiver(camera, None)
             return
         backend = self.backend()
         if not backend:
@@ -608,9 +678,19 @@ class VisionWorkspace(QObject):
             self.show_status(str(exc))
 
     def start(self):
+        identity = self.camera.currentData()
+        if identity and identity != self.cameras.selected_id:
+            self.select(identity)
         camera = self.profile()
         if not camera:
             self.show_status("Select a camera first")
+            return
+        if (
+            self.usb_backend_id
+            and camera.backend_id == self.usb_backend_id
+            and not camera.v4l2_device
+        ):
+            self.start_usb(camera)
             return
         session = None
         if not camera.v4l2_device:
@@ -623,6 +703,57 @@ class VisionWorkspace(QObject):
             ):
                 self.show_status("Connect the camera's ROS backend first")
                 return
+        self.start_receiver(camera, session)
+
+    def start_usb(self, camera):
+        if self.stream and self.stream.thread.is_alive():
+            if self.stream.camera is camera and not self.stream.stop_requested.is_set():
+                return
+            if self.stream.camera.v4l2_device:
+                self.show_status("Wait for the direct USB preview to release the device.")
+                return
+        backend = self.backend(camera)
+        manager = self.main.backend_manager
+        try:
+            mode, devices, model = self.usb_controls.configuration()
+            status = self.main.docker_status
+            if not status.available or backend.distribution not in status.installed:
+                raise ValueError("Install the matching Studio ROS runtime and start Docker first.")
+            if camera.backend_id not in manager.sessions:
+                self.main.backend_workspace.connect(camera.backend_id)
+            self.usb_driver.start(mode, devices, model, backend.domain_id)
+            self.usb_bridge = manager.sessions.get(camera.backend_id)
+        except (ValueError, OSError, RuntimeError) as exc:
+            self.show_status(str(exc))
+            return
+        self.pending_usb = camera, time.monotonic() + 45
+        self.timer.start(50)
+        self.show_status("Starting USB camera driver and ROS bridge…")
+
+    def advance_usb_start(self):
+        camera, deadline = self.pending_usb
+        manager = self.main.backend_manager
+        session = manager.sessions.get(camera.backend_id)
+        if session and not session.cancelled and session.transport and session.transport.connected:
+            if (
+                self.stream
+                and self.stream.thread.is_alive()
+                and self.stream.stop_requested.is_set()
+            ):
+                return
+            self.pending_usb = None
+            self.usb_bridge = session
+            self.start_receiver(camera, session)
+        elif time.monotonic() >= deadline or camera.backend_id in manager.last_errors:
+            self.usb_error(
+                manager.last_errors.get(camera.backend_id) or "ROS camera bridge timed out."
+            )
+
+    def usb_error(self, message):
+        self.stop_owned()
+        self.show_status(message)
+
+    def start_receiver(self, camera, session):
         if self.stream and self.stream.thread.is_alive():
             if self.stream.stop_requested.is_set():
                 self.show_status("Wait for the previous receiver to stop")
@@ -653,6 +784,7 @@ class VisionWorkspace(QObject):
         self.render()
 
     def stop(self):
+        self.pending_usb = None
         if self.stream:
             self.stream.stop()
         self.stop_detector()
@@ -660,6 +792,16 @@ class VisionWorkspace(QObject):
         self.show_status("Stream stopped")
         if hasattr(self, "timer"):
             self.timer.stop()
+
+    def stop_owned(self):
+        live = self.stereo.live_stream
+        if self.usb_bridge and (
+            self.stereo.session is self.usb_bridge or (live and live.session is self.usb_bridge)
+        ):
+            self.stereo.stop()
+        self.usb_bridge = None
+        self.usb_driver.stop()
+        self.stop()
 
     def pause_display(self):
         self.paused = not self.paused
@@ -725,6 +867,9 @@ class VisionWorkspace(QObject):
 
     def start_detector(self):
         camera = self.profile()
+        if camera and camera.rgb_topic == DEPTH_TOPIC:
+            self.detector_status.setText("Select a color camera for object detection.")
+            return
         if not camera or not self.stream or self.stream.stop_requested.is_set():
             self.detector_status.setText("Start a camera stream first")
             return
@@ -755,6 +900,9 @@ class VisionWorkspace(QObject):
         self.detector_status.setText("Detection stopped")
 
     def tick(self):
+        if self.pending_usb:
+            self.advance_usb_start()
+            return
         stream = self.stream
         if not stream:
             return
@@ -766,7 +914,7 @@ class VisionWorkspace(QObject):
                 or session.cancelled
                 or not session.transport.connected
             ):
-                self.stop()
+                self.stop_owned()
                 self.show_status("ROS backend disconnected")
                 return
         now = time.monotonic()
@@ -821,8 +969,9 @@ class VisionWorkspace(QObject):
         age = max(0, (time.time_ns() - metadata["received_wall_ns"]) / 1e6)
         rate, display, detection = self.rates
         source, clock = ("USB", "Capture stamp") if local else ("DDS", "ROS stamp")
+        kind = "16-bit depth" if metadata.get("encoding") == "16UC1" else "RGB"
         self.show_status(
-            f"RGB {self.latest.width} × {self.latest.height} · {rate:.1f} FPS received · {display:.1f} FPS display"
+            f"{kind} {self.latest.width} × {self.latest.height} · {rate:.1f} FPS received · {display:.1f} FPS display"
             f"{' · display paused' if self.paused else ''}\n"
             f"{source} receive → UI {age:.0f} ms · drops {metadata['drops'] + replaced} · "
             f"{clock} {metadata['stamp_ns'] / 1e9:.6f} s"
@@ -985,8 +1134,12 @@ class VisionWorkspace(QObject):
             self.main.tabs.setCurrentIndex(0)
 
     def close_ready(self):
-        self.stop()
-        return self.stereo.close_ready() and not any(
-            thread and thread.is_alive()
-            for thread in (self.stream.thread if self.stream else None, self.detector.thread)
+        self.stop_owned()
+        return (
+            self.stereo.close_ready()
+            and self.usb_driver.idle
+            and not any(
+                thread and thread.is_alive()
+                for thread in (self.stream.thread if self.stream else None, self.detector.thread)
+            )
         )

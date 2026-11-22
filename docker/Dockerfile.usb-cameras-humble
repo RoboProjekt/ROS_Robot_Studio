@@ -1,7 +1,7 @@
 FROM ros-robot-studio/humble:0.1.0
 USER root
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3-opencv python3-venv \
+    && apt-get install -y --no-install-recommends python3-opencv python3-venv v4l-utils \
     && python3 -m venv --system-site-packages /opt/stereo-venv \
     && /opt/stereo-venv/bin/pip install --no-cache-dir numpy==1.26.4 onnxruntime==1.22.1 \
     && rm -rf /var/lib/apt/lists/*

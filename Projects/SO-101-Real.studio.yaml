@@ -88,3 +88,12 @@ cameras:
     optical_frame: so101_usb_depth_optical_frame
     fps: 30
     display_fps: 30
+  - id: so101_ros_native_depth
+    name: SO-101 · USB Depth Camera
+    backend_id: so101_real_usb
+    rgb_topic: /so101/usb/depth/image_raw
+    info_topic: /so101/usb/depth/camera_info
+    camera_frame: so101_usb_native_depth_link
+    optical_frame: so101_usb_native_depth_optical_frame
+    fps: 30
+    display_fps: 30

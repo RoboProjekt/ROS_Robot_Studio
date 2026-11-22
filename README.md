@@ -476,15 +476,15 @@ Du kannst beide Werte vor der Motorfreigabe einstellen. Bei aktiver Freigabe üb
 
 ### USB-Kamerabilder am SO-101
 
-Das Profil `Projects/SO-101-Real.studio.yaml` enthält zwei USB-Kameras. Unter **Camera & Vision → RGB** eine Kamera wählen und **Start Stream** klicken. Beim Wechsel der Kamera den Stream erneut starten. Die Vorschau benötigt OpenCV aus dem Studio-Extra `vision`. Falls die Kameras an andere USB-Ports gesteckt werden, lassen sich ihre Gerätepfade unter **Sensor Configuration → Configure… → Local USB device (optional)** aktualisieren.
+Öffne `Projects/SO-101-Real.studio.yaml` und wähle **Real Robot · SO-101**. Unter **Camera & Vision → RGB** hat **Camera mode** drei Optionen.
 
-Für ROS 2 die direkte Vorschau mit **Stop Stream** schließen. Wähle im Projektordner das [Höhenmodell](docs/STEREO_HEIGHT_FISHEYE.md) passend zum senkrechten Abstand zwischen Kamera und Arbeitsfläche.
+- **Single Camera** öffnet eine RGB-USB-Kamera.
+- **Double Camera Stereoscopic** öffnet die linke und die rechte USB-Kamera. Wähle eine Policy passend zur senkrechten Montagehöhe. **High** gilt für 42–60 cm, **Low** für 10–20 cm.
+- **Single Depth Camera** öffnet den nativen Z16-Eingang einer kompatiblen V4L2-Tiefenkamera. ROS erhält einen 16-Bit-Kanal. Studio skaliert die Vorschau als Graustufenbild. Die Einheit der Rohwerte hängt von der Kamera ab.
 
-```bash
-SO101_STEREO_PROFILE=high bash scripts/start_so101_usb_cameras.sh
-```
+Wähle den oder die USB-Eingänge und klicke **Start Stream**. Studio startet die ROS-Kamerabrücke und den Kameratreiber bei Bedarf. Der erste Start kann das Kamera-Image bauen. Der Treiber gibt die Geräte bei **Stop Stream** wieder frei. **Refresh USB Cameras** liest angeschlossene Geräte erneut ein. Studio verwendet den USB-Portpfad, falls Linux einen bereitstellt. Wenn du einen anderen Port nimmst, wähle den neuen Eintrag im Dropdown.
 
-`high` ist für 42–60 cm vorgesehen und `low` für 10–20 cm. Das Skript verwendet das Studio-Humble-Image als Basis und baut beim ersten Start ein separates Kamera-Image. Optional lassen sich die beiden V4L2-Gerätepfade in der Reihenfolge links, rechts als Argumente übergeben. Der Treiber publiziert in ROS-Domain 23 über Loopback. `ROS_DOMAIN_ID` kann beim Start überschrieben werden. **Ctrl+C** beendet den Treiber.
+Für einen manuellen Stereo-Start im Terminal kannst du `SO101_STEREO_PROFILE=high bash scripts/start_so101_usb_cameras.sh` verwenden. Der Treiber publiziert standardmäßig in ROS-Domain 23 über Loopback.
 
 | Ansicht | ROS-Topic | Bildformat |
 |---|---|---|
@@ -492,14 +492,17 @@ SO101_STEREO_PROFILE=high bash scripts/start_so101_usb_cameras.sh
 | Kamera 2 | `/so101/usb/camera_2/image_raw` | `rgb8`, 640 × 480 |
 | Nebeneinander | `/so101/usb/stereo/image_raw` | `rgb8`, 1280 × 480 |
 | Relative Tiefenkarte | `/so101/usb/stereo/depth_relative` | `mono8`, 640 × 480 |
+| Native Tiefenkamera | `/so101/usb/depth/image_raw` | `16UC1`, Auflösung der Kamera |
 
-Alle vier ROS-Ansichten gehören zum Profil **Real Robot · SO-101**. **USB Joint Control…** startet bei verfügbarer Humble-Runtime auch die ROS-Kamerabrücke. **Connect Cameras** verbindet die Brücke bei ausgewähltem USB-Port auch separat. Unter **Camera & Vision → RGB** eine der vier ROS-Ansichten wählen und **Start Stream** klicken. **Disconnect** im Runtime-Banner beendet die Studio-Verbindungen für USB-Gelenke und Kamerabrücke.
+**USB Joint Control…** kann die ROS-Kamerabrücke beim Verbinden der Gelenke ebenfalls starten. Mit **Disconnect** im Runtime-Banner beendest du die Verbindung für USB-Gelenke und Kamerabrücke.
 
 Die Stereoansichten verwenden Aufnahmen mit maximal 25 ms Abstand zwischen den Empfangszeitstempeln am PC. Die trainierte CompactStereo-Policy berechnet direkt aus den USB-Bildern die Disparität. Die Tiefenansicht zeigt deren Kehrwert als Graustufenbild. Schwarz markiert ungültige Pixel. Hellere gültige Pixel stehen für größere relative Tiefe. Die Werte haben keine metrische Einheit. `SO101_STEREO_MODEL` erlaubt es, einen anderen kompatiblen ONNX-Export zu laden.
 
 Mit verbundenem Profil **Real Robot · SO-101** öffnet **Camera & Vision → Stereo & Planning → Start Stereo** das Bildpaar und die zugehörige Policy-Tiefenkarte. Studio ordnet beide anhand des identischen Zeitstempels zu. **Check Ollama** prüft das Modell `qwen3-vl:8b-instruct`.
 
 Gib eine Beschreibung wie „grüner Würfel mit schwarzem Aufkleber“ ein und klicke **Find Objects**. Qwen sucht die Treffer in Kamera 1. Studio vergibt IDs wie `green_cube_1` und markiert die Treffer unter **Detected Objects**. Die IDs gelten für diese Aufnahme. **Interpret Task** führt dieselbe Erkennung automatisch aus und verwendet die gefundenen IDs, das Stereo-Bildpaar und die relative Tiefenkarte für den Auftragsvorschlag. **Plan Only** benötigt metrische Objektpositionen im Roboterkoordinatensystem und bleibt bei relativer USB-Tiefe gesperrt.
+
+Für fortlaufende Erkennung zuerst im Reiter **RGB** die Farbkamera mit **Start Stream** starten. Dann die Beschreibung unter **Stereo & Planning** eingeben und **Live Detection · up to 1 Hz** einschalten. **Live Qwen** zeigt das laufende Bild von Kamera 1 in beiden RGB-Kameramodi. Studio prüft höchstens einmal pro Sekunde das jeweils neueste Bild und wartet bei langsamerer Inferenz auf die laufende Anfrage. Alte Markierungen verschwinden bei deutlichen Änderungen im markierten Bildbereich. Auftragsvorschläge bleiben an die Aufnahme von **Interpret Task** gebunden.
 
 ## Lokale MuJoCo-Runtime
 

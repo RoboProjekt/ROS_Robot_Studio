@@ -5,7 +5,7 @@ import time
 import numpy as np
 import pytest
 
-from ros_robot_studio.gui.stereo_workspace import table_height
+from ros_robot_studio.gui.stereo_workspace import table_height, visible_stationary_objects
 from ros_robot_studio.vision.moveit import ARM, make_request
 from ros_robot_studio.vision.orchestrator import (
     Clarification,
@@ -145,7 +145,7 @@ def test_real_stereo_requires_matching_policy_depth_and_leaves_xyz_unset():
 def test_qwen_request_sends_both_usb_pair_and_policy_depth(monkeypatch):
     captured = {}
 
-    def fake_request(_, path, payload):
+    def fake_request(_, path, payload, *, timeout):
         assert path == "/api/chat"
         captured.update(payload)
         return {"message": {"content": "fixture"}}
@@ -181,7 +181,7 @@ def test_grounding_assigns_distinct_ids_and_scales_boxes(monkeypatch):
     }
     monkeypatch.setattr(
         "ros_robot_studio.vision.orchestrator.request_json",
-        lambda *args: {"message": {"content": json.dumps(detections)}},
+        lambda *args, **kwargs: {"message": {"content": json.dumps(detections)}},
     )
     objects = ground_objects(
         "http://localhost", "qwen", "green cubes", b"image", "usb-scene", (640, 480)
@@ -194,6 +194,17 @@ def test_grounding_assigns_distinct_ids_and_scales_boxes(monkeypatch):
     detections["objects"][0]["bbox_2d"] = [600, 200, 500, 1001]
     with pytest.raises(ValueError, match="bbox_2d"):
         ground_objects("http://localhost", "qwen", "green cube", b"image", "usb-scene", (640, 480))
+
+
+def test_live_overlay_survives_background_change_and_hides_occluded_object():
+    reference = np.zeros((80, 80, 3), dtype=np.uint8)
+    reference[20:60, 20:60] = (0, 180, 0)
+    obj = {"id": "cube_1", "bbox": (20, 20, 40, 40)}
+    current = reference.copy()
+    current[:, :10] = 255
+    assert visible_stationary_objects(reference, current, (obj,)) == (obj,)
+    current[20:60, 20:60] = (240, 240, 240)
+    assert not visible_stationary_objects(reference, current, (obj,))
 
 
 def test_proposal_resolves_scene_bound_geometry_in_the_app():

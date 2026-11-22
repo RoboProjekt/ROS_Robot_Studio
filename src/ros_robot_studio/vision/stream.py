@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import selectors
 import struct
 import subprocess
@@ -63,21 +64,26 @@ def decode_frame(meta, payload):
         )
         rgb = rgb[:, : image.width() * 3].reshape(image.height(), image.width(), 3)
     else:
-        channels = {"rgb8": 3, "bgr8": 3, "mono8": 1}.get(encoding)
-        if channels is None:
+        size = {"rgb8": 3, "bgr8": 3, "mono8": 1, "16UC1": 2}.get(encoding)
+        if size is None:
             raise ValueError(f"Unsupported ROS image encoding {encoding!r}")
         width, height, stride = (meta[key] for key in ("width", "height", "step"))
         if not (
             1 <= width <= 1920
             and 1 <= height <= 1080
-            and width * channels <= stride
+            and width * size <= stride
             and stride * height == len(payload) <= MAX_IMAGE
         ):
             raise ValueError("Invalid image dimensions, row stride or payload length")
-        # Each supported channel is one byte, so either byte order has identical layout.
         rows = np.frombuffer(payload, np.uint8).reshape(height, stride)
-        rgb = rows[:, : width * channels].reshape(height, width, channels)
-        if channels == 1:
+        if encoding == "16UC1":
+            order = ">u2" if meta.get("big_endian") else "<u2"
+            depth = rows[:, : width * size].copy(order="C").view(order)
+            gray = (depth.astype(np.float32) * (255 / max(1, int(depth.max())))).astype(np.uint8)
+            rgb = gray[:, :, None].repeat(3, axis=2)
+        else:
+            rgb = rows[:, : width * size].reshape(height, width, size)
+        if encoding == "mono8":
             rgb = rgb.repeat(3, axis=2)
         elif encoding == "bgr8":
             rgb = rgb[:, :, ::-1]
@@ -107,9 +113,10 @@ class PacketReader:
 
 
 class CameraStream:
-    def __init__(self, camera, session=None):
+    def __init__(self, camera, session=None, *, capture_depth=False):
         self.camera = camera
         self.session = session
+        self.capture_depth = capture_depth
         self.stop_requested = threading.Event()
         self.lock = threading.Lock()
         self.latest = None
@@ -192,13 +199,16 @@ class CameraStream:
                 self.latest = None
 
     def capture_v4l2(self):
+        device = self.camera.v4l2_device
+        if self.capture_depth:
+            self.capture_z16(device)
+            return
         try:
             import cv2
         except ImportError as exc:
             raise OSError("USB camera capture requires the Studio vision extra (OpenCV)") from exc
 
         camera = self.camera
-        device = camera.v4l2_device
         if not Path(device).exists():
             raise OSError(f"USB camera not found at {device}. Check its USB port.")
         capture = cv2.VideoCapture(device, cv2.CAP_V4L2)
@@ -215,28 +225,88 @@ class CameraStream:
                 stamp = time.time_ns()
                 if not ok or bgr is None or not bgr.size:
                     raise OSError(f"No frames from {device}. Check the camera connection.")
-                rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
-                rgb.setflags(write=False)
-                self.publish(
-                    RGBFrame(
-                        rgb,
-                        dict(
-                            frame_id=camera.optical_frame,
-                            epoch=0,
-                            stamp_ns=stamp,
-                            received_wall_ns=stamp,
-                            drops=0,
-                            camera_info=None,
-                            transforms={},
-                        ),
-                    ),
-                    "",
-                    0,
-                )
+                self.publish_local(cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB), stamp)
         except cv2.error as exc:
             raise OSError(f"USB camera capture failed for {device}: {exc}") from exc
         finally:
             capture.release()
+
+    def capture_z16(self, device):
+        base = ["v4l2-ctl", "--device", device]
+        try:
+            probe = subprocess.run(
+                [*base, "--try-fmt-video=pixelformat=Z16 "],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise OSError(f"Timed out checking the depth format of {device}") from exc
+        dimensions = re.search(r"Width/Height\s*:\s*(\d+)/(\d+)", probe.stdout)
+        pixel_format = re.search(r"Pixel Format\s*:\s*'Z16\s*'", probe.stdout)
+        bytes_per_line = re.search(r"Bytes per Line\s*:\s*(\d+)", probe.stdout)
+        if probe.returncode or not (dimensions and pixel_format and bytes_per_line):
+            raise OSError(f"{device} does not expose a V4L2 Z16 depth stream")
+        width, height = map(int, dimensions.groups())
+        stride = int(bytes_per_line[1])
+        size = height * stride
+        if not (2 * width <= stride and 0 < size <= MAX_IMAGE):
+            raise OSError(f"{device} reported invalid Z16 dimensions or stride")
+        arguments = [
+            *base,
+            f"--set-fmt-video=width={width},height={height},pixelformat=Z16 ",
+            "--stream-mmap=3",
+            "--stream-to=-",
+        ]
+        with subprocess.Popen(
+            arguments, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
+        ) as process:
+            try:
+                with selectors.DefaultSelector() as selector:
+                    selector.register(process.stdout, selectors.EVENT_READ)
+                    buffer = bytearray()
+                    deadline = time.monotonic() + 5
+                    while not self.stop_requested.is_set():
+                        if not selector.select(timeout=0.1):
+                            if time.monotonic() > deadline:
+                                raise OSError(f"No Z16 frames from {device}")
+                            continue
+                        chunk = os.read(process.stdout.fileno(), min(READ_SIZE, size - len(buffer)))
+                        if not chunk:
+                            raise OSError(f"Z16 stream disconnected at {device}")
+                        buffer.extend(chunk)
+                        if len(buffer) == size:
+                            rows = np.frombuffer(buffer, np.uint8).reshape(height, stride)
+                            depth = rows[:, : 2 * width].copy(order="C").view("<u2")
+                            self.publish_local(depth, time.time_ns())
+                            buffer = bytearray()
+                            deadline = time.monotonic() + 5
+            finally:
+                if process.poll() is None:
+                    process.terminate()
+                    try:
+                        process.wait(timeout=1)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+
+    def publish_local(self, pixels, stamp):
+        pixels.setflags(write=False)
+        self.publish(
+            RGBFrame(
+                pixels,
+                dict(
+                    frame_id=self.camera.optical_frame,
+                    epoch=0,
+                    stamp_ns=stamp,
+                    received_wall_ns=stamp,
+                    drops=0,
+                    camera_info=None,
+                    transforms={},
+                ),
+            ),
+            "",
+            0,
+        )
 
     def publish(self, frame, error, epoch):
         with self.lock:

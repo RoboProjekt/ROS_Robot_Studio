@@ -123,7 +123,7 @@ def probe(base_url, model):
     return version, model in {tag["name"] for tag in tags}
 
 
-def _vision_chat(base_url, model, prompt, images, instructions, schema, *, max_tokens):
+def _vision_chat(base_url, model, prompt, images, instructions, schema, *, max_tokens, timeout=180):
     if any(not image for image in images) or sum(map(len, images)) > MAX_RESPONSE:
         raise ValueError("Use valid scene images within the size limit.")
     payload = {
@@ -142,7 +142,7 @@ def _vision_chat(base_url, model, prompt, images, instructions, schema, *, max_t
             },
         ],
     }
-    return request_json(base_url, "/api/chat", payload)["message"]["content"]
+    return request_json(base_url, "/api/chat", payload, timeout=timeout)["message"]["content"]
 
 
 def chat(base_url, model, task, image, snapshot, *, relative_depth_image=None):
@@ -169,7 +169,7 @@ def chat(base_url, model, task, image, snapshot, *, relative_depth_image=None):
     )
 
 
-def ground_objects(base_url, model, description, image, scene_id, resolution):
+def ground_objects(base_url, model, description, image, scene_id, resolution, *, timeout=180):
     if not description.strip() or len(description) > 2000:
         raise ValueError("Enter an object description of 1–2000 characters.")
     raw = _vision_chat(
@@ -180,6 +180,7 @@ def ground_objects(base_url, model, description, image, scene_id, resolution):
         GROUNDING_SYSTEM,
         GroundingReply.model_json_schema(),
         max_tokens=640,
+        timeout=timeout,
     )
     reply = GroundingReply.model_validate_json(raw)
     if reply.scene_id != scene_id:

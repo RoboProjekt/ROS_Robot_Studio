@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-image=ros-robot-studio/humble-usb-cameras:0.3.0
+image=ros-robot-studio/humble-usb-cameras:0.4.0
+mode="${SO101_CAMERA_MODE:-stereo}"
 model="${SO101_STEREO_MODEL:-}"
-if [[ -z "$model" ]]; then
+if [[ "$mode" == stereo && -z "$model" ]]; then
     case "${SO101_STEREO_PROFILE:-}" in
         high|low)
             model="$root/checkpoints/so101-${SO101_STEREO_PROFILE}-height-fisheye/compact-stereo.onnx"
@@ -26,27 +27,35 @@ camera_device() {
 }
 
 camera_1="$(camera_device "${1:-/dev/v4l/by-path/pci-0000:01:00.0-usb-0:5:1.0-video-index0}")"
-camera_2="$(camera_device "${2:-/dev/v4l/by-path/pci-0000:01:00.0-usb-0:4:1.0-video-index0}")"
-if [[ "$camera_1" == "$camera_2" ]]; then
-    printf 'Choose a separate video device for each camera.\n' >&2
-    exit 1
-fi
-if [[ ! -f "$model" ]]; then
-    printf 'Stereo policy not found at %s\n' "$model" >&2
-    exit 1
-fi
+args=(--device "$camera_1:$camera_1:rw" --group-add "$(stat -c %g "$camera_1")")
+node_args=("$mode" "$camera_1")
+case "$mode" in
+    stereo)
+        camera_2="$(camera_device "${2:-/dev/v4l/by-path/pci-0000:01:00.0-usb-0:4:1.0-video-index0}")"
+        if [[ "$camera_1" == "$camera_2" ]]; then
+            printf 'Choose a separate video device for each camera.\n' >&2
+            exit 1
+        fi
+        if [[ ! -f "$model" ]]; then
+            printf 'Stereo policy not found at %s\n' "$model" >&2
+            exit 1
+        fi
+        args+=(--device "$camera_2:$camera_2:rw" --group-add "$(stat -c %g "$camera_2")"
+               --mount "type=bind,source=$(realpath -- "$model"),target=/opt/studio/compact-stereo.onnx,readonly")
+        node_args+=("$camera_2" /opt/studio/compact-stereo.onnx)
+        ;;
+    single|depth) ;;
+    *) printf 'Unknown camera mode: %s\n' "$mode" >&2; exit 1 ;;
+esac
 
 if ! docker image inspect "$image" >/dev/null 2>&1; then
     docker build --tag "$image" --file "$root/docker/Dockerfile.usb-cameras-humble" "$root/docker"
 fi
 
-exec docker run --rm --init --sig-proxy=true --name studio-so101-usb-cameras --network host \
-    --device "$camera_1:$camera_1:rw" --device "$camera_2:$camera_2:rw" \
-    --group-add "$(stat -c %g "$camera_1")" --group-add "$(stat -c %g "$camera_2")" \
-    --mount "type=bind,source=$(realpath -- "$model"),target=/opt/studio/compact-stereo.onnx,readonly" \
+exec docker run --rm --init --sig-proxy=true --name "${SO101_CAMERA_CONTAINER:-studio-so101-usb-cameras}" --network host \
+    "${args[@]}" \
     --mount "type=bind,source=$stream,target=/opt/studio/camera_stream.py,readonly" \
     --env "ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-23}" --env ROS_LOCALHOST_ONLY=0 \
     --env RMW_IMPLEMENTATION=rmw_fastrtps_cpp \
     --env FASTRTPS_DEFAULT_PROFILES_FILE=/opt/studio/fastdds_localhost.xml \
-    "$image" /opt/stereo-venv/bin/python /opt/studio/so101_stereo_topics.py \
-    "$camera_1" "$camera_2" /opt/studio/compact-stereo.onnx
+    "$image" /opt/stereo-venv/bin/python /opt/studio/so101_stereo_topics.py "${node_args[@]}"

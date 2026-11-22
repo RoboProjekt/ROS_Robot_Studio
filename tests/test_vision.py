@@ -88,7 +88,27 @@ def test_raw_formats_respect_stride_and_publish_immutable_rgb(encoding, payload)
     with pytest.raises(ValueError, match="stride or payload"):
         decode_frame(meta, payload[:-1])
     with pytest.raises(ValueError, match="Unsupported"):
-        decode_frame(dict(meta, encoding="16UC1"), payload)
+        decode_frame(dict(meta, encoding="32FC1"), payload)
+
+
+@pytest.mark.parametrize("big_endian", [False, True])
+def test_16bit_depth_preview_respects_endianness_and_stride(big_endian):
+    order = ">u2" if big_endian else "<u2"
+    payload = np.array([0, 500, 1000], dtype=order).tobytes() + b"\xff\xff"
+    frame = decode_frame(
+        dict(
+            encoding="16UC1",
+            frame_id="depth",
+            stamp_ns=12,
+            width=3,
+            height=1,
+            step=8,
+            big_endian=big_endian,
+        ),
+        payload,
+    )
+    np.testing.assert_array_equal(frame.rgb, [[[0] * 3, [127] * 3, [255] * 3]])
+    assert not frame.rgb.flags.writeable
 
 
 @pytest.mark.parametrize("image_format", ["PNG", "JPEG"])

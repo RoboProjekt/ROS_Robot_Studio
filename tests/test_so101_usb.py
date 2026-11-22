@@ -164,6 +164,7 @@ def test_real_so101_project_binds_ros_cameras_to_the_usb_joint_backend():
         "/so101/usb/camera_2/image_raw",
         "/so101/usb/stereo/image_raw",
         "/so101/usb/stereo/depth_relative",
+        "/so101/usb/depth/image_raw",
     }
 
 

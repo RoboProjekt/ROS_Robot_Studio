@@ -1,6 +1,7 @@
 import json
 import sys
 import time
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -20,6 +21,7 @@ from ros_robot_studio.runtime.catalog import catalog
 from ros_robot_studio.runtime.manager import RuntimeStatus
 from ros_robot_studio.vision.profiles import CameraProfile
 from ros_robot_studio.vision.stereo import StereoResult
+from ros_robot_studio.vision.stream import RGBFrame
 
 
 @pytest.fixture
@@ -175,6 +177,37 @@ def test_stereo_preview_frames_do_not_grow_the_scroll_page(window, qtbot):
     assert not stereo.image.pixmap().isNull()
     assert page.verticalScrollBar().maximum() == 0
     assert vision.panel.size() == page.viewport().size()
+
+
+def test_live_qwen_uses_fresh_frames_without_queuing_and_invalidates_old_queries(window):
+    stereo = window.vision.stereo
+    real_runner = stereo.requests
+    pending = []
+    stereo.requests = SimpleNamespace(busy=False, run=lambda *job: pending.append(job))
+    stereo.live_stream = SimpleNamespace()
+    first = RGBFrame(np.zeros((4, 4, 3), np.uint8), {"stamp_ns": 1})
+    second = RGBFrame(first.rgb, {"stamp_ns": 2})
+    try:
+        stereo.task.setText("Green cube")
+        stereo.request_live(first, 100)
+        assert len(pending) == 1
+        stereo.requests.busy = True
+        stereo.request_live(second, 102)
+        assert len(pending) == 1
+        stereo.requests.busy = False
+        pending[0][1](({"id": "green_cube_1"},))
+        assert stereo.live_result[1][0]["id"] == "green_cube_1"
+        stereo.request_live(first, 102)
+        stereo.request_live(second, 100.99)
+        assert len(pending) == 1
+        stereo.request_live(second, 101)
+        assert len(pending) == 2
+        stereo.task.setText("Blue bowl")
+        pending[1][1](({"id": "green_cube_1"},))
+        assert stereo.live_result is None
+    finally:
+        stereo.requests = real_runner
+        stereo.live_stream = None
 
 
 def test_monitor_resets_when_switching_backend_identity_of_same_type(window, qtbot):

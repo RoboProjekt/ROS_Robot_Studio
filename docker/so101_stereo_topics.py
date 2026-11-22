@@ -73,6 +73,34 @@ def image_message(pixels, encoding, frame_id, stamp):
     return message
 
 
+class SingleCameraTopics(Node):
+    def __init__(self, device, depth):
+        super().__init__("so101_usb_camera")
+        self.encoding = "16UC1" if depth else "rgb8"
+        topic = f"{PREFIX}/depth/image_raw" if depth else f"{PREFIX}/camera_1/image_raw"
+        frame = "so101_usb_native_depth_optical_frame" if depth else CAMERA_FRAMES[0]
+        self.publisher = self.create_publisher(Image, topic, qos_profile_sensor_data)
+        self.camera = CameraStream(
+            SimpleNamespace(v4l2_device=device, optical_frame=frame, width=640, height=480, fps=30),
+            capture_depth=depth,
+        )
+        self.create_timer(0.005, self.publish_frame)
+        self.camera.start()
+
+    def publish_frame(self):
+        frame, error, *_ = self.camera.poll()
+        if not self.camera.thread.is_alive():
+            raise OSError(error or "USB camera stopped")
+        if frame is not None:
+            self.publisher.publish(
+                image_message(frame.rgb, self.encoding, frame.frame_id, frame.metadata["stamp_ns"])
+            )
+
+    def release(self):
+        self.camera.stop()
+        self.camera.thread.join(timeout=1.0)
+
+
 class StereoTopics(Node):
     def __init__(self, devices, policy):
         super().__init__("so101_usb_stereo")
@@ -153,14 +181,21 @@ class StereoTopics(Node):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("mode", choices=("single", "stereo", "depth"))
     parser.add_argument("camera_1")
-    parser.add_argument("camera_2")
-    parser.add_argument("model")
+    parser.add_argument("camera_2", nargs="?")
+    parser.add_argument("model", nargs="?")
     args = parser.parse_args()
+    if args.mode == "stereo" and (not args.camera_2 or not args.model):
+        parser.error("Stereo requires two camera devices and an ONNX model")
     cv2.setNumThreads(1)
-    policy = StereoPolicy(args.model)
+    policy = StereoPolicy(args.model) if args.mode == "stereo" else None
     rclpy.init(args=[])
-    node = StereoTopics((args.camera_1, args.camera_2), policy)
+    node = (
+        StereoTopics((args.camera_1, args.camera_2), policy)
+        if policy
+        else SingleCameraTopics(args.camera_1, args.mode == "depth")
+    )
     try:
         rclpy.spin(node)
     except (ExternalShutdownException, KeyboardInterrupt):
